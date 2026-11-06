@@ -4,11 +4,18 @@
 // 这样杨镜的 L0/L1/L2 可以立刻落地，不必等 core.lib 抽出来。
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
-const DEFAULT_EXE = 'D:\\MouseRobot\\handeye.exe'
+// 优先用插件自带的 bin\handeye.exe（2026-11-06 起内嵌），
+// 其次环境变量，最后才回退到旧位置。这样插件可以独立存在，不依赖 D:\MouseRobot。
+const LOCAL_EXE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'handeye.exe')
+const LEGACY_EXE = 'D:\\MouseRobot\\handeye.exe'
 
 export function exePath() {
-  return process.env.HANDEYE_EXE || DEFAULT_EXE
+  if (process.env.HANDEYE_EXE) return process.env.HANDEYE_EXE
+  if (existsSync(LOCAL_EXE)) return LOCAL_EXE
+  return LEGACY_EXE
 }
 
 const CODE_MEANING = {

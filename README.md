@@ -73,7 +73,13 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 
 或者在插件市场/插件页里选本地目录安装。
 
-依赖：`D:\MouseRobot\handeye.exe`（可用环境变量 `HANDEYE_EXE` 改路径）。PowerShell 用系统自带的 5.1，不需要装别的东西。
+依赖：**自带一份 `bin\handeye.exe`（736 KB），不需要另装**。查找顺序：
+
+1. 环境变量 `HANDEYE_EXE`
+2. 插件目录下的 `bin\handeye.exe`（默认走这条）
+3. 旧的 `D:\MouseRobot\handeye.exe`（2026-11-06 已随整合删除，仅作回退）
+
+PowerShell 用系统自带的 5.1，也不需要装别的东西。
 
 **改完源码要重新安装一次**：DSH 的 profile 是复制而非软链，改文件不会自动生效。
 
