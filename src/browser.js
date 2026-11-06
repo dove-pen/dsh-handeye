@@ -70,10 +70,13 @@ export async function ensureBrowser({ headless = false } = {}) {
       `--user-data-dir=${PROFILE_DIR}`,
       '--no-first-run',
       '--no-default-browser-check',
-      '--disable-features=Translate,MediaRouter',
+      '--disable-sync',
+      '--disable-features=Translate,MediaRouter,msEdgeIdentity',
       '--window-size=1280,900',
       // 放到屏幕外：看得见、但不会挡住你，也不会抢前台
       '--window-position=-32000,-32000',
+      // 起始页用空白页，省得每次多出一个"新建标签页"
+      'about:blank',
     ]
     if (headless) args.push('--headless=new')
     const child = spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: false })
@@ -83,7 +86,10 @@ export async function ensureBrowser({ headless = false } = {}) {
     for (;;) {
       await new Promise((r) => setTimeout(r, 400))
       const s = await browserStatus()
-      if (s.running) return s
+      if (s.running) {
+        await closeJunkTabs()
+        return s
+      }
       if (Date.now() > deadline) throw new Error(`浏览器在 20 秒内没有打开调试端口 ${PORT}`)
     }
   })()
@@ -93,6 +99,72 @@ export async function ensureBrowser({ headless = false } = {}) {
   } finally {
     launching = null
   }
+}
+
+// 独立配置首次启动时，Edge 可能自作主张开一个同步确认页或欢迎页。
+// 这些不是我们要的标签页，启动后立刻收掉，免得用户以为是我们开的。
+const JUNK_TAB = /^(edge|chrome):\/\/(sync-confirmation|welcome|first-run|newtab)/i
+
+async function closeJunkTabs() {
+  try {
+    const list = await httpJson(`http://127.0.0.1:${PORT}/json/list`)
+    if (!Array.isArray(list)) return
+    for (const t of list) {
+      if (t.type !== 'page') continue
+      const url = String(t.url || '')
+      if (!JUNK_TAB.test(url) && !/ntp\.msn/i.test(url)) continue
+      try {
+        await httpJson(`http://127.0.0.1:${PORT}/json/close/${t.id}`)
+      } catch { }
+      tabs.delete(t.id)
+    }
+  } catch { }
+}
+
+function killByProfile() {
+  return new Promise((resolve) => {
+    const psDir = PROFILE_DIR.replace(/'/g, "''")
+    const script = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${psDir}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+    try {
+      const child = spawn('powershell.exe', ['-NoProfile', '-Command', script], { windowsHide: true, stdio: 'ignore' })
+      child.on('close', resolve)
+      child.on('error', resolve)
+    } catch {
+      resolve()
+    }
+  })
+}
+
+/** 关掉调试浏览器实例。只认我们自己的配置目录，不碰用户正常用的浏览器。 */
+export async function stopBrowser() {
+  const now = await browserStatus()
+  if (!now.running) {
+    tabs.clear()
+    lastTabId = null
+    return { stopped: false }
+  }
+  try {
+    const v = await httpJson(`http://127.0.0.1:${PORT}/json/version`, { timeoutMs: 1500 })
+    if (v && v.webSocketDebuggerUrl) {
+      const cdp = await new Cdp(v.webSocketDebuggerUrl).connect()
+      cdp.send('Browser.close').catch(() => { })
+    }
+  } catch { }
+
+  const deadline = Date.now() + 8000
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 300))
+    const s = await browserStatus()
+    if (!s.running) break
+    if (Date.now() > deadline) {
+      await killByProfile()
+      await new Promise((r) => setTimeout(r, 600))
+      break
+    }
+  }
+  tabs.clear()
+  lastTabId = null
+  return { stopped: true }
 }
 
 // ---------------------------------------------------------------- 极简 CDP 客户端

@@ -6,6 +6,7 @@
 //   3. dsh-computer-use-win 的路数（UIA 后台按控件、批量动作、截图只给路径）
 //
 // 设计原则：能用后台控件就不用鼠标；能按名字就不用坐标；能投影就不喂原文。
+import { readFileSync } from 'node:fs'
 import { runHandeye, runHandeyeJson, exePath, codeMeaning } from './handeye.js'
 import { project, headline, findAlarms } from './project.js'
 import { slimText } from './text.js'
@@ -30,6 +31,7 @@ import {
   pageText,
   listTabs,
   closeTab,
+  stopBrowser,
   ensureBrowser,
   browserPort,
 } from './browser.js'
@@ -37,6 +39,15 @@ import {
 export const name = 'dsh-handeye'
 // cordis 要求显式声明依赖，否则 ctx.tools 取不到（会报 cannot get property "tools" without inject）。
 export const inject = ['tools']
+
+// 自己的版本号，给活动面板显示用。
+const PKG = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  } catch {
+    return { version: '0.0.0' }
+  }
+})()
 
 const ok = (s) => String(s ?? '')
 
@@ -64,7 +75,7 @@ function recordActivity(tool, args, ok, brief, ms) {
   } catch {
     argText = ''
   }
-  ACTIVITY.push({ t: new Date().toISOString(), tool, args: argText, ok, brief: clip(brief), ms })
+  ACTIVITY.push({ t: new Date().toISOString(), tool, args: argText, ok, brief: clip(brief, 240), ms })
   if (ACTIVITY.length > ACTIVITY_MAX) ACTIVITY.splice(0, ACTIVITY.length - ACTIVITY_MAX)
 }
 
@@ -77,7 +88,10 @@ function reg(ctx, def) {
       const started = Date.now()
       try {
         const out = await original(args, exec)
-        recordActivity(def.name, args, true, out, Date.now() - started)
+        // 工具自己把错误 catch 成字符串返回，所以不能只看有没有 throw；
+        // 统一约定：fail() 产出的话里带"失败："，据此标记失败，界面才不会永远显示 0 失败。
+        const failed = typeof out === 'string' && out.includes('失败：')
+        recordActivity(def.name, args, !failed, out, Date.now() - started)
         return out
       } catch (e) {
         recordActivity(def.name, args, false, e instanceof Error ? e.message : e, Date.now() - started)
@@ -783,8 +797,24 @@ export function apply(ctx) {
     },
   })
 
-  // ------------------------------------------------------------ 文字瘦身与账本
+  reg(ctx, {
+    name: 'browser_stop',
+    description:
+      'Stop the dedicated debugging browser instance that browser_open started (the off-screen Edge/Chrome). It only touches that instance by its own profile directory, never your normal browser. Frees port 9333 for the next open.',
+    parameters: { type: 'object', properties: {} },
+    timeoutMs: 30000,
+    isConcurrencySafe: () => false,
+    async execute() {
+      try {
+        const r = await stopBrowser()
+        return r.stopped ? '调试浏览器已关闭，端口已释放。' : '调试浏览器本来就没在跑。'
+      } catch (e) {
+        return fail('browser_stop 失败', e)
+      }
+    },
+  })
 
+  // ------------------------------------------------------------ 文字瘦身与账本
   reg(ctx, {
     name: 'eye_text',
     description:
@@ -855,7 +885,8 @@ export function apply(ctx) {
           const payload = JSON.stringify({
             ok: true,
             now: new Date().toISOString(),
-            items: ACTIVITY.slice(-60),
+            meta: { version: PKG.version, exe: exePath(), port: browserPort() },
+            items: ACTIVITY.slice(-120),
           })
           res.writeHead(200, {
             'content-type': 'application/json; charset=utf-8',
