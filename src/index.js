@@ -47,8 +47,44 @@ const TEXT_OUTPUT = {
   render: (_args, value) => [{ type: 'text', text: String(value ?? '') }],
 }
 
+// 活动记录：给界面用的"刚才做了什么"。只放内存，最多 200 条，进程重启即清空。
+// 这是给人看的，不是为了审计——真要审计去查 handeye 的七段日志（yl_log）。
+const ACTIVITY = []
+const ACTIVITY_MAX = 200
+
+function clip(s, n = 90) {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim()
+  return t.length > n ? t.slice(0, n) + '…' : t
+}
+
+function recordActivity(tool, args, ok, brief, ms) {
+  let argText = ''
+  try {
+    argText = args && Object.keys(args).length ? clip(JSON.stringify(args), 60) : ''
+  } catch {
+    argText = ''
+  }
+  ACTIVITY.push({ t: new Date().toISOString(), tool, args: argText, ok, brief: clip(brief), ms })
+  if (ACTIVITY.length > ACTIVITY_MAX) ACTIVITY.splice(0, ACTIVITY.length - ACTIVITY_MAX)
+}
+
 function reg(ctx, def) {
-  ctx.tools.register({ output: TEXT_OUTPUT, ...def })
+  const original = def.execute
+  ctx.tools.register({
+    output: TEXT_OUTPUT,
+    ...def,
+    async execute(args, exec) {
+      const started = Date.now()
+      try {
+        const out = await original(args, exec)
+        recordActivity(def.name, args, true, out, Date.now() - started)
+        return out
+      } catch (e) {
+        recordActivity(def.name, args, false, e instanceof Error ? e.message : e, Date.now() - started)
+        throw e
+      }
+    },
+  })
 }
 
 
@@ -799,6 +835,31 @@ export function apply(ctx) {
       if (!r.ok) return fail('yl_log 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
       return r.stdout.trim() || '（没有匹配的日志）'
     },
+  })
+
+  // ------------------------------------------------------------ 给界面用的活动路由
+  //
+  // 只读、同源、不带凭证。界面每隔两秒来问一次"刚才做了什么"。
+  ctx.inject(['webServer'], (sub) => {
+    sub.effect(() =>
+      sub.webServer.register({
+        kind: 'exact',
+        path: '/dsh-handeye/activity',
+        handler: (req, res) => {
+          const payload = JSON.stringify({
+            ok: true,
+            now: new Date().toISOString(),
+            items: ACTIVITY.slice(-60),
+          })
+          res.writeHead(200, {
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'no-store',
+            'content-length': Buffer.byteLength(payload),
+          })
+          res.end(payload)
+        },
+      }),
+    )
   })
 
   // 启动时打一行，便于确认插件真的挂上了。
