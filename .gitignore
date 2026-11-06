@@ -1,0 +1,14 @@
+# 依赖与产物（可重新生成）
+node_modules/
+*.log
+
+# 本地临时
+*.tmp
+.tmp/
+
+# 凭据类（万一以后加了什么）
+*.key
+*.p12
+*.pem
+.env
+credentials*

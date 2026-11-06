@@ -1,0 +1,4 @@
+# dsh-handeye bundle patch: inserts the plugin row into the profile roster.
+- insert:
+    - id: dsh-handeye
+      name: 'dsh-handeye'

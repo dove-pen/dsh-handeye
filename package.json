@@ -1,0 +1,33 @@
+{
+  "name": "dsh-handeye",
+  "version": "0.1.0",
+  "description": "手眼合一（DSH 插件）：把 handeye 的手、杨镜的三级投影（L0/L1/L2）、文字瘦身、账本查询和后台控件操作收进一个插件。",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "handeye",
+    "uia",
+    "screen"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
