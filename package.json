@@ -33,6 +33,11 @@
     "screen"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dove-pen/dsh-handeye.git"
+  },
+  "homepage": "https://github.com/dove-pen/dsh-handeye",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
