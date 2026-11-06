@@ -17,10 +17,10 @@ const MAX_ELEMENTS = 120
 
 const CANDIDATES = [
   process.env.DSH_HANDEYE_BROWSER,
-  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ].filter(Boolean)
 
 let launching = null
@@ -124,6 +124,7 @@ async function closeJunkTabs() {
 function killByProfile() {
   return new Promise((resolve) => {
     const psDir = PROFILE_DIR.replace(/'/g, "''")
+    // 不按 exe 名字挑：Chrome 和 Edge 哪个都行，只认我们自己的配置目录。
     const script = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${psDir}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
     try {
       const child = spawn('powershell.exe', ['-NoProfile', '-Command', script], { windowsHide: true, stdio: 'ignore' })

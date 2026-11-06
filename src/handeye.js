@@ -7,15 +7,13 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
-// 优先用插件自带的 bin\handeye.exe（2026-11-06 起内嵌），
-// 其次环境变量，最后才回退到旧位置。这样插件可以独立存在，不依赖 D:\MouseRobot。
+// 用插件自带的 bin\handeye.exe（内嵌，插件可独立存在）；
+// 环境变量 HANDEYE_EXE 可覆盖它。
 const LOCAL_EXE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'handeye.exe')
-const LEGACY_EXE = 'D:\\MouseRobot\\handeye.exe'
 
 export function exePath() {
   if (process.env.HANDEYE_EXE) return process.env.HANDEYE_EXE
-  if (existsSync(LOCAL_EXE)) return LOCAL_EXE
-  return LEGACY_EXE
+  return LOCAL_EXE
 }
 
 const CODE_MEANING = {

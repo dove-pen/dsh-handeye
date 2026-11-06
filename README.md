@@ -1,6 +1,8 @@
 # dsh-handeye
 
-一个 DSH 插件，把四样东西合成一个：**handeye 的手** + **杨镜的看** + **computer-use-win 的后台控件操作** + **浏览器 CDP 通道**。
+DeepSeek Harness（dsh）插件：把 **手（真实鼠标键盘）**、**眼（屏幕投影）**、**后台控件操作（UIA）**、**浏览器 CDP 通道** 合成一个，给 AI 用，不绑定任何模型厂商。
+
+> An agent-facing computer-use toolbox for DeepSeek Harness on Windows: projected screen reading, real mouse/keyboard input, background UI Automation control, and a CDP browser channel.
 
 设计原则一句话：**能用后台控件就不用鼠标，能按名字就不用坐标，能投影就不喂原文。**
 
@@ -46,7 +48,7 @@
 
 | 工具 | 用途 |
 |---|---|
-| `browser_open` | 用一个独立配置目录的 Edge/Chrome 打开网址，窗口放屏幕外，不抢焦点 |
+| `browser_open` | 用独立配置目录的 **Chrome（优先）/ Edge** 打开网址，窗口放屏幕外，不抢焦点 |
 | `browser_snapshot` | 列出页面里所有可交互元素，每个带 `#序号` |
 | `browser_click` | 按序号点，页面内派发指针/鼠标/click 三段事件，React/Vue 也认 |
 | `browser_fill` | 按序号写值，走原生 setter 并触发 input/change，会更新框架状态 |
@@ -55,11 +57,21 @@
 | `browser_tabs` / `browser_close` | 列出 / 关闭标签页 |
 | `browser_stop` | 关掉整个调试浏览器实例（只按自己的配置目录认人，不碰你正常用的浏览器） |
 
+### 记账
+
+| 工具 | 用途 |
+|---|---|
+| `yl_log` | 查 handeye 七段系统日志（谁点了什么、为什么失败） |
+
+共 **29 个工具**。
+
 ---
 
-## 给人看的活动面板（v0.4）
+## 给人看的活动面板
 
 AI 到底干了什么，右侧抽屉里一眼看完：
+
+![活动面板](docs/panel.png)
 
 - **KPI 一行**：操作数 / 成功 / 失败 / 平均耗时
 - **工具分布**：环形图 + 图例（按工具计数），一眼看出这次偏重眼睛还是手
@@ -73,45 +85,34 @@ AI 到底干了什么，右侧抽屉里一眼看完：
 
 ---
 
-独立配置的代价说清楚：**它没有你的登录态**。要登录的站点得在那个窗口里自己登一次。
-
-### 记账
-
-| 工具 | 用途 |
-|---|---|
-| `yl_log` | 查 handeye 七段系统日志（谁点了什么、为什么失败） |
-
----
-
 ## 装
 
 ```powershell
-# 在 DSH 终端里
-dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
+# 在 DSH 终端里，把 <本仓库路径> 换成实际目录
+dsh plugin --profile desktop add file:<本仓库路径>
 ```
 
-或者在插件市场/插件页里选本地目录安装。
+也可以在插件市场/插件页里选本地目录安装。
 
-依赖：**自带一份 `bin\handeye.exe`（736 KB），不需要另装**。查找顺序：
+依赖：**自带一份 `bin/handeye.exe`，不需要另装**。查找顺序：
 
 1. 环境变量 `HANDEYE_EXE`
 2. 插件目录下的 `bin\handeye.exe`（默认走这条）
-3. 旧的 `D:\MouseRobot\handeye.exe`（2026-11-06 已随整合删除，仅作回退）
 
-PowerShell 用系统自带的 5.1，也不需要装别的东西。
+handeye 的源码在 [Alan-dot-C/MouseRobot](https://github.com/Alan-dot-C/MouseRobot)。
+
+PowerShell 用系统自带的 5.1，也不需要装别的东西。平台：**Windows**。
 
 **改完源码要重新安装一次**：DSH 的 profile 是复制而非软链，改文件不会自动生效。
 
 ```powershell
 dsh plugin --profile desktop remove dsh-handeye
-dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
+dsh plugin --profile desktop add file:<本仓库路径>
 ```
 
 ---
 
 ## 三级投影是怎么定的
-
-来自 `docs\杨镜-设计文档.md`：
 
 - **投影，不是摘要**：只删不编，同输入必然同输出，不调用模型。
 - **报警通道永不降采样**：对话框、错误词、数字变化行、新窗口，任何级别都原样给。预算被报警行吃满时，预算让位。
@@ -135,8 +136,9 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 
 ## 已知边界
 
-- **UIA 取决于程序有没有实现**。Win32/XAML/UWP 一般没问题；Chrome 默认只给一层 Pane，读网页要走 CDP（v0.2 起已提供 `browser_*`）。WinForms 的 EDIT 在这台机器上只暴露成 Pane，`desk_set_value` 会失败，得退回 `desk_focus` + `hand_type`。新版记事本（XAML 岛）连 `read-text` 都读不出，改用 `eye_see`。
+- **UIA 取决于程序有没有实现**。Win32/XAML/UWP 一般没问题；Chrome 默认只给一层 Pane，读网页要走 CDP。部分环境（例如某些 WinForms 控件、新版记事本的 XAML 岛）`desk_set_value` / `read-text` 会读不到，得退回 `desk_focus` + `hand_type` 或 `eye_see`。
 - **后台点击不是万能的**。有些控件只有 InvokePattern 能用、有些只认鼠标，`desk_invoke` 会明确告诉你"这个控件没有可用的模式"。
+- **浏览器通道是独立配置**：它不带用户的登录态，需要登录的站点要在那个窗口里自己登一次。Chrome 136+ 起，带默认用户目录的远程调试会被禁用，所以插件只用自己的临时配置目录。
 - **会抢键鼠**。`hand_*` 和 `desk_*` 不要和别的自动化工具同时跑。
 
 ---
@@ -146,8 +148,9 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 - v0.1：手 + 看 + 后台控件操作，20 个工具
 - v0.2：加浏览器 CDP 通道，共 28 个工具
 - v0.3：OCR 默认 2 倍放大；修投影层（L0 不再谎报"可点 0 项"、L1 超预算只砍尾巴）；加投影单测
-- v0.4（当前）：活动面板重做成右侧抽屉（KPI + 工具分布环 + 失败卡 + 可筛选时间线）；浏览器启动不再带 NTP/同步页；新增 `browser_stop`（共 29 个工具）；失败调用现在会被如实标记
-- v0.5：`zoom` 下钻（按 ref 取 L2 而不重新截屏）、词化指令代理
+- v0.4：活动面板重做成右侧抽屉（KPI + 工具分布环 + 失败卡 + 可筛选时间线）；浏览器启动不再带 NTP/同步页；新增 `browser_stop`；失败调用会被如实标记
+- v0.5（当前）：浏览器默认优先 Chrome；`browser_stop` 同时认 Chrome/Edge；文档整理与开源准备
+- v0.6：`zoom` 下钻（按 ref 取 L2 而不重新截屏）、词化指令代理
 
 ---
 
@@ -156,18 +159,20 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 投影层是纯函数，用 `node:test` 回归，不依赖 handeye 和屏幕：
 
 ```powershell
-# 没有占 PATH 的 node 时，用 Electron 自带的 node 跑：
-$env:ELECTRON_RUN_AS_NODE=1; & 'E:\deep sick\DeepSeek Harness.exe' --test test/project.test.mjs
 # 有 node 时：
 npm test
+# 没有 node、但装了 DSH 桌面端时，用 Electron 自带的 node：
+$env:ELECTRON_RUN_AS_NODE=1; & '<DSH 安装目录>\DeepSeek Harness.exe' --test test/project.test.mjs
 ```
 
 覆盖：L0 自绘界面提示、真实按钮不误报、对话框/错误词报警、L1 超预算保头保报警只砍尾巴、正文按面积优先。
 
-`experimental/pixel-diff.py` 是未接线的像素差分原型（连通域标出变化区域，需要 pillow + numpy），留给 v0.4 的 `zoom` / diff 下钻，不是运行时依赖。
+`experimental/pixel-diff.py` 是未接线的像素差分原型（连通域标出变化区域，需要 pillow + numpy），留给 v0.6 的 `zoom` / diff 下钻，不是运行时依赖。
 
 ---
 
-## 署理
+## 许可与致谢
 
-代码 MIT。投影层的设计来自 `docs\杨镜-设计文档.md`，动作层是 `D:\MouseRobot\handeye.exe`，后台控件操作的思路借鉴了 [dsh-computer-use-win](https://github.com/Yu-tao-Li/dsh-computer-use-win)。
+代码 MIT。动作层 `handeye` 来自 [Alan-dot-C/MouseRobot](https://github.com/Alan-dot-C/MouseRobot)；
+后台控件操作的思路借鉴了 [dsh-computer-use-win](https://github.com/Yu-tao-Li/dsh-computer-use-win)；
+活动面板的视觉语言参考了 [dsh-context](https://github.com/bowenliang123/dsh-context)。

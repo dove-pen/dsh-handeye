@@ -1,6 +1,6 @@
 {
   "name": "dsh-handeye",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "手眼合一（DSH 插件）：handeye 的手 + 杨镜的 L0/L1/L2 投影 + UIA 后台控件操作 + 浏览器 CDP 通道，合成一个插件。",
   "type": "module",
   "main": "src/index.js",
