@@ -1,6 +1,6 @@
 # dsh-handeye
 
-一个 DSH 插件，把三样东西合成一个：**handeye 的手** + **杨镜的看** + **computer-use-win 的后台控件操作**。
+一个 DSH 插件，把四样东西合成一个：**handeye 的手** + **杨镜的看** + **computer-use-win 的后台控件操作** + **浏览器 CDP 通道**。
 
 设计原则一句话：**能用后台控件就不用鼠标，能按名字就不用坐标，能投影就不喂原文。**
 
@@ -41,6 +41,20 @@
 | `desk_text` | 直接读控件树里的文字，比 OCR 准 |
 | `desk_launch` | 启动程序 / 打开文件或网址 |
 | `desk_batch` | 一次进程内跑 1–20 个动作，出错即停 |
+
+### 网页（按元素，不猜坐标）
+
+| 工具 | 用途 |
+|---|---|
+| `browser_open` | 用一个独立配置目录的 Edge/Chrome 打开网址，窗口放屏幕外，不抢焦点 |
+| `browser_snapshot` | 列出页面里所有可交互元素，每个带 `#序号` |
+| `browser_click` | 按序号点，页面内派发指针/鼠标/click 三段事件，React/Vue 也认 |
+| `browser_fill` | 按序号写值，走原生 setter 并触发 input/change，会更新框架状态 |
+| `browser_text` | 读页面可见文字（标题 + 网址 + 正文），不用 OCR |
+| `browser_navigate` | 同一个标签页里跳转 |
+| `browser_tabs` / `browser_close` | 列出 / 关闭标签页 |
+
+独立配置的代价说清楚：**它没有你的登录态**。要登录的站点得在那个窗口里自己登一次。
 
 ### 记账
 
@@ -104,8 +118,8 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 
 ## 路线
 
-- v0.1（当前）：上面全部工具，已实测
-- v0.2：浏览器 CDP 通道（`browser_open` / `browser_click` / `browser_fill`），把 Chrome 的网页操作补齐
+- v0.1：手 + 看 + 后台控件操作，20 个工具
+- v0.2（当前）：加浏览器 CDP 通道，共 28 个工具
 - v0.3：`zoom` 下钻（按 ref 取 L2 而不重新截屏）、词化指令代理
 
 ---

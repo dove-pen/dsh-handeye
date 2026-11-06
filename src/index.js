@@ -21,6 +21,18 @@ import {
   formatTree,
   findControls,
 } from './desk.js'
+import {
+  openUrl,
+  navigate,
+  snapshot,
+  clickIndex,
+  fillIndex,
+  pageText,
+  listTabs,
+  closeTab,
+  ensureBrowser,
+  browserPort,
+} from './browser.js'
 
 export const name = 'dsh-handeye'
 // cordis 要求显式声明依赖，否则 ctx.tools 取不到（会报 cannot get property "tools" without inject）。
@@ -528,6 +540,203 @@ export function apply(ctx) {
         return `批量在第 ${r.failed?.step} 步失败：${r.failed?.error}\n已完成：\n${done}`
       } catch (e) {
         return fail('desk_batch 失败', e)
+      }
+    },
+  })
+
+  // ------------------------------------------------------------ 浏览器（网页按元素操作）
+
+  reg(ctx, {
+    name: 'browser_open',
+    description:
+      'Open a URL in a dedicated browser instance (Edge or Chrome) driven by the DevTools protocol, and return a tabId. This instance uses its own profile and sits off-screen, so it never steals focus or your tabs — but it also does not carry your logins. Operate the page with browser_snapshot / browser_click / browser_fill, which work on real DOM elements instead of pixel guessing.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Address to open. Default about:blank.' },
+        headless: { type: 'boolean', description: 'Launch headless if the browser is not running yet.' },
+      },
+    },
+    timeoutMs: 60000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      try {
+        if (args?.headless) await ensureBrowser({ headless: true })
+        const r = await openUrl(typeof args?.url === 'string' ? args.url : '')
+        return `已在调试浏览器打开：${r.url}\ntabId=${r.tabId}（端口 ${browserPort()}）`
+      } catch (e) {
+        return fail('browser_open 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_snapshot',
+    description:
+      'List the interactive elements of a page (links, buttons, inputs, selects, role=button, contenteditable) with a stable index, label and position. Every element gets a data-dsh-eye index that browser_click and browser_fill accept. This is the reliable way to act on a web page — no coordinates, no OCR.',
+    parameters: {
+      type: 'object',
+      properties: {
+        tabId: { type: 'string', description: 'Tab id from browser_open. Default: the most recent tab.' },
+      },
+    },
+    timeoutMs: 45000,
+    isConcurrencySafe: () => true,
+    async execute(args) {
+      try {
+        const s = await snapshot(args?.tabId)
+        if (!s || !Array.isArray(s.items)) return '读不到页面结构'
+        const head = `「${s.title}」 ${s.url}\n可交互元素 ${s.total} 个，列出 ${s.shown} 个：`
+        const lines = s.items.map((it) => {
+          const bits = [`#${it.i}`, it.tag]
+          if (it.type) bits.push(it.type)
+          if (it.label) bits.push(JSON.stringify(it.label))
+          if (it.name) bits.push('name=' + it.name)
+          if (it.href) bits.push('href=' + it.href.slice(0, 60))
+          if (it.disabled) bits.push('disabled')
+          return bits.join(' ')
+        })
+        return head + '\n' + lines.join('\n')
+      } catch (e) {
+        return fail('browser_snapshot 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_click',
+    description:
+      'Click an element by its snapshot index. Dispatches a real pointer/mouse/click sequence inside the page, so it works on React and Vue apps without moving your mouse.',
+    parameters: {
+      type: 'object',
+      properties: {
+        index: { type: 'number', description: 'The #n index from browser_snapshot.' },
+        tabId: { type: 'string', description: 'Tab id. Default: most recent tab.' },
+      },
+      required: ['index'],
+    },
+    timeoutMs: 45000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      try {
+        const r = await clickIndex(args?.index, args?.tabId)
+        if (!r?.ok) return `没点成：${r?.error || '未知原因'}`
+        return `已点击 #${args.index} ${r.tag} ${JSON.stringify(r.label || '')}。页面可能已跳转，重新 browser_snapshot 再继续。`
+      } catch (e) {
+        return fail('browser_click 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_fill',
+    description:
+      'Type into an input/textarea by its snapshot index. Sets the value through the native setter and fires input+change events, so React/Vue state updates correctly. No keystrokes, no clipboard.',
+    parameters: {
+      type: 'object',
+      properties: {
+        index: { type: 'number', description: 'The #n index from browser_snapshot.' },
+        value: { type: 'string', description: 'Text to put in the field.' },
+        tabId: { type: 'string', description: 'Tab id. Default: most recent tab.' },
+      },
+      required: ['index', 'value'],
+    },
+    timeoutMs: 45000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      try {
+        const r = await fillIndex(args?.index, String(args?.value ?? ''), args?.tabId)
+        if (!r?.ok) return `没写成：${r?.error || '未知原因'}`
+        return `已向 #${args.index} 写入 ${[...String(args.value ?? '')].length} 个字符（当前值 ${JSON.stringify(r.value)}）`
+      } catch (e) {
+        return fail('browser_fill 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_text',
+    description:
+      'Read the visible text of the current page (title, url, body innerText), capped. Use it to read an article or the result of a search without OCR.',
+    parameters: {
+      type: 'object',
+      properties: {
+        tabId: { type: 'string', description: 'Tab id. Default: most recent tab.' },
+        maxChars: { type: 'number', description: 'Character cap, default 6000.' },
+      },
+    },
+    timeoutMs: 45000,
+    isConcurrencySafe: () => true,
+    async execute(args) {
+      try {
+        const r = await pageText(args?.tabId, Number.isFinite(args?.maxChars) ? args.maxChars : 6000)
+        return `「${r.title}」 ${r.url}\n${r.text || '（页面没有可见文字）'}`
+      } catch (e) {
+        return fail('browser_text 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_navigate',
+    description: 'Navigate an existing tab to a new URL (keeps the same tab, so history stays navigable inside the page).',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Address to open.' },
+        tabId: { type: 'string', description: 'Tab id. Default: most recent tab.' },
+      },
+      required: ['url'],
+    },
+    timeoutMs: 45000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      const url = String(args?.url ?? '').trim()
+      if (!url) return 'browser_navigate 需要一个非空 url'
+      try {
+        await navigate(url, args?.tabId)
+        return `已跳转到 ${url}`
+      } catch (e) {
+        return fail('browser_navigate 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_tabs',
+    description: 'List the tabs in the dedicated debugging browser.',
+    parameters: { type: 'object', properties: {} },
+    timeoutMs: 20000,
+    isConcurrencySafe: () => true,
+    async execute() {
+      try {
+        const tabs = await listTabs()
+        if (tabs.length === 0) return '调试浏览器里没有标签页（可能还没启动，先 browser_open）。'
+        return tabs.map((t) => `${t.id}  ${JSON.stringify(t.title)}  ${t.url.slice(0, 100)}`).join('\n')
+      } catch (e) {
+        return fail('browser_tabs 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'browser_close',
+    description: 'Close one tab of the dedicated debugging browser.',
+    parameters: {
+      type: 'object',
+      properties: { tabId: { type: 'string', description: 'Tab id to close.' } },
+      required: ['tabId'],
+    },
+    timeoutMs: 20000,
+    isConcurrencySafe: () => true,
+    async execute(args) {
+      const id = String(args?.tabId ?? '').trim()
+      if (!id) return 'browser_close 需要一个非空 tabId'
+      try {
+        await closeTab(id)
+        return `已关闭 ${id}`
+      } catch (e) {
+        return fail('browser_close 失败', e)
       }
     },
   })
