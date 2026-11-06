@@ -98,7 +98,7 @@ export function apply(ctx) {
   reg(ctx, {
     name: 'eye_see',
     description:
-      'See what is on screen, projected for a text model. Returns L0 (one line: what this screen is and how many actionable entries), L1 (blocks + controls with coarse coordinates) or L2 (full raw observation). Alarm lines — dialogs, error words — are never downsampled at any level. Prefer this over screenshotting: it costs a fraction of the tokens. Use hand_click_text or desk_invoke to act on what it reports.',
+      'See what is on screen, projected for a text model. Returns L0 (one line: what this screen is and how many actionable entries), L1 (blocks + controls with coarse coordinates) or L2 (full raw observation). Alarm lines — dialogs, error words — are never downsampled at any level. Prefer this over screenshotting: it costs a fraction of the tokens. Use hand_click_text or desk_invoke to act on what it reports. OCR defaults to 2x upscale (much better on Chinese UI text); pass scale=1 only for speed.',
     parameters: {
       type: 'object',
       properties: {
@@ -112,6 +112,10 @@ export function apply(ctx) {
           description: 'Optional screen region "x,y,w,h" to scan instead of the whole screen.',
         },
         fast: { type: 'boolean', description: 'Use the fast OCR profile (lower quality, quicker).' },
+        scale: {
+          type: 'number',
+          description: 'OCR upscale factor 1-4. Default 2 (2x makes small Chinese text readable); use 1 only when speed matters more than accuracy.',
+        },
       },
     },
     timeoutMs: 60000,
@@ -120,6 +124,8 @@ export function apply(ctx) {
       try {
         const argv = ['see', '--json', args?.fast ? '--fast' : '--best']
         if (typeof args?.region === 'string' && args.region.trim()) argv.push('--region', args.region.trim())
+        const scale = Number.isFinite(args?.scale) ? Math.min(4, Math.max(1, Math.round(args.scale))) : 2
+        argv.push('--scale', String(scale))
         const view = await runHandeyeJson(argv, { timeoutMs: 55000 })
         const lines = project(view, args?.level || 'auto')
         return `${headline(view)}\n${lines.join('\n')}`
@@ -147,7 +153,7 @@ export function apply(ctx) {
       try {
         const q = String(args?.text ?? '').trim()
         if (!q) return 'eye_find 需要一个非空的 text'
-        const view = await runHandeyeJson(['see', '--json', '--best'], { timeoutMs: 55000 })
+        const view = await runHandeyeJson(['see', '--json', '--best', '--scale', '2'], { timeoutMs: 55000 })
         const lower = q.toLowerCase()
         const hits = []
         for (const b of view.blocks || []) {

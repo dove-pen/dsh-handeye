@@ -17,7 +17,7 @@ const ERROR_WORDS = [
 ]
 
 const CLICKABLE_KINDS = new Set(['button', 'toolbar', 'dialog'])
-const MAX_L1_CHARS = 4000
+export const MAX_L1_CHARS = 4000
 
 function hasErrorWord(text) {
   const s = String(text || '').toLowerCase()
@@ -72,8 +72,39 @@ export function projectL0(view, alarms) {
   const n = clickable.reduce((s, b) => s + (b.items || []).length, 0)
   const focus = firstLine(view.focus || '(未知)', 50)
   const kinds = summarizeKinds(blocks)
-  const head = `[L0] 焦点「${focus}」| 界面 ${blocks.length} 块（${kinds || '无'}）| 可点 ${n} 项 | 原始 ${view.rawLines ?? '?'} 行`
+  // 自绘界面（Chrome、Electron、Qt）的按钮不会被判成 button，直接报"可点 0 项"
+  // 会让模型以为没入口。带上解释和替代工具，别让数字说假话。
+  const hint = n === 0 && blocks.length > 0 ? '（界面自绘，控件不可枚举，改用 eye_find / hand_click_text）' : ''
+  const head = `[L0] 焦点「${focus}」| 界面 ${blocks.length} 块（${kinds || '无'}）| 可点 ${n} 项${hint} | 原始 ${view.rawLines ?? '?'} 行`
   return [head, ...alarms]
+}
+
+/**
+ * 按预算截断 L1 输出：保第一行（头）和所有报警行，其余从尾部开始丢。
+ * 旧实现是从头部往下砍，先丢的正好是头行和排在前面的可点控件。
+ */
+export function truncateLines(lines, max = MAX_L1_CHARS) {
+  if (!lines.length) return lines
+  if (lines.join('\n').length <= max) return lines
+  const isAlarm = (l) => l.startsWith('[报警]')
+  const marker = '[已按预算截断，完整内容用 eye_see level=L2]'
+  const keep = new Set([0])
+  let used = lines[0].length + 1
+  for (let i = 1; i < lines.length; i += 1) {
+    if (isAlarm(lines[i])) {
+      keep.add(i)
+      used += lines[i].length + 1
+    }
+  }
+  for (let i = 1; i < lines.length; i += 1) {
+    if (keep.has(i)) continue
+    if (used + lines[i].length + 1 + marker.length + 1 > max) break
+    keep.add(i)
+    used += lines[i].length + 1
+  }
+  const out = lines.filter((_, i) => keep.has(i))
+  out.push(marker)
+  return out
 }
 
 /** L1：区块 + 控件 + 粗略位置。 */
@@ -93,7 +124,12 @@ export function projectL1(view, alarms) {
   }
 
   // 正文合并成段落，只给首行和块数，别逐行喂。
-  const content = blocks.filter((b) => !CLICKABLE_KINDS.has(b.kind))
+  // 按面积从大到小取：主内容区通常最大，侧栏/状态栏只占一小块。
+  const content = blocks
+    .filter((b) => !CLICKABLE_KINDS.has(b.kind))
+    .map((b, i) => ({ b, i, area: (b.box?.w ?? 0) * (b.box?.h ?? 0) }))
+    .sort((x, y) => y.area - x.area || x.i - y.i)
+    .map((x) => x.b)
   let shown = 0
   for (const b of content) {
     const text = (b.items || []).map((i) => i.text).join(' ')
@@ -107,25 +143,8 @@ export function projectL1(view, alarms) {
     lines.push(`[其余 ${content.length - shown} 块正文已省略，需要就看 L2 或用 eye_find 定位]`)
   }
 
-  // 超预算就砍正文，但报警行一条都不动。
-  let out = lines
-  let chars = out.join('\n').length
-  if (chars > MAX_L1_CHARS) {
-    const keep = []
-    for (const line of out) {
-      if (line.startsWith('[报警]')) {
-        keep.push(line)
-        continue
-      }
-      if (chars <= MAX_L1_CHARS) {
-        keep.push(line)
-      }
-      chars -= line.length + 1
-    }
-    keep.push(`[已按预算截断，完整内容用 eye_see level=L2]`)
-    out = keep
-  }
-  return out
+  // 超预算就砍正文，但报警行和头行一条都不动。
+  return truncateLines(lines, MAX_L1_CHARS)
 }
 
 /** 按级别投影；auto 默认 L0，有报警时仍给 L0 但报警行全带。 */

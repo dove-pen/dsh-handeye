@@ -12,7 +12,7 @@
 
 | 工具 | 用途 |
 |---|---|
-| `eye_see` | 看屏并投影。L0 一句话（这是什么界面、几个可点入口），L1 区块+控件+粗坐标，L2 全量 |
+| `eye_see` | 看屏并投影。L0 一句话（这是什么界面、几个可点入口），L1 区块+控件+粗坐标，L2 全量。OCR 默认 **2 倍放大**（小字中文识别率明显不同），要快才传 `scale=1` |
 | `eye_find` | 按文字找位置（OCR） |
 | `eye_changed` | 只问"屏幕变了没有"，走图像指纹，不做 OCR，最便宜 |
 | `eye_shot` | 截图存成 PNG，**只返回路径**，图片不进对话 |
@@ -116,7 +116,7 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 
 ## 已知边界
 
-- **UIA 取决于程序有没有实现**。Win32/XAML/UWP 一般没问题；Chrome 默认只给一层 Pane，要读网页得走 CDP（还没做）；WinForms 的 EDIT 在这台机器上只暴露成 Pane，`desk_set_value` 会失败，得退回 `desk_focus` + `hand_type`。
+- **UIA 取决于程序有没有实现**。Win32/XAML/UWP 一般没问题；Chrome 默认只给一层 Pane，读网页要走 CDP（v0.2 起已提供 `browser_*`）。WinForms 的 EDIT 在这台机器上只暴露成 Pane，`desk_set_value` 会失败，得退回 `desk_focus` + `hand_type`。新版记事本（XAML 岛）连 `read-text` 都读不出，改用 `eye_see`。
 - **后台点击不是万能的**。有些控件只有 InvokePattern 能用、有些只认鼠标，`desk_invoke` 会明确告诉你"这个控件没有可用的模式"。
 - **会抢键鼠**。`hand_*` 和 `desk_*` 不要和别的自动化工具同时跑。
 
@@ -125,8 +125,26 @@ dsh plugin --profile desktop add file:D:\Huawei\projects\dsh-handeye
 ## 路线
 
 - v0.1：手 + 看 + 后台控件操作，20 个工具
-- v0.2（当前）：加浏览器 CDP 通道，共 28 个工具
-- v0.3：`zoom` 下钻（按 ref 取 L2 而不重新截屏）、词化指令代理
+- v0.2：加浏览器 CDP 通道，共 28 个工具
+- v0.3（当前）：OCR 默认 2 倍放大；修投影层（L0 不再谎报"可点 0 项"、L1 超预算只砍尾巴）；加投影单测
+- v0.4：`zoom` 下钻（按 ref 取 L2 而不重新截屏）、词化指令代理
+
+---
+
+## 测试
+
+投影层是纯函数，用 `node:test` 回归，不依赖 handeye 和屏幕：
+
+```powershell
+# 没有占 PATH 的 node 时，用 Electron 自带的 node 跑：
+$env:ELECTRON_RUN_AS_NODE=1; & 'E:\deep sick\DeepSeek Harness.exe' --test test/project.test.mjs
+# 有 node 时：
+npm test
+```
+
+覆盖：L0 自绘界面提示、真实按钮不误报、对话框/错误词报警、L1 超预算保头保报警只砍尾巴、正文按面积优先。
+
+`experimental/pixel-diff.py` 是未接线的像素差分原型（连通域标出变化区域，需要 pillow + numpy），留给 v0.4 的 `zoom` / diff 下钻，不是运行时依赖。
 
 ---
 
