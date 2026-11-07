@@ -279,7 +279,13 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
           stepId,
           promptId: step.promptId ?? null,
           episodeId: state.episodeId || null,
-          verify: verdict?.overridden ? 'override' : verdict ? 'pass' : 'none',
+          // 只有真的跑过判据才算"验收通过"；没判据的步骤记 none，
+          // 否则通过率会被没有验收的步骤稀释成假的 100%。
+          verify: verdict?.overridden
+            ? 'override'
+            : verdict && Array.isArray(verdict.checks) && verdict.checks.length > 0
+              ? 'pass'
+              : 'none',
           summary,
         })
         if (typeof onStepLeave === 'function') await onStepLeave({ goalId, stepId, reason: 'done' })

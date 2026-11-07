@@ -190,3 +190,16 @@ test('goal_set_status pauses the goal and releases the focus', async () => {
     await s.cleanup()
   }
 })
+
+test('a step with no acceptance checks records verify=none, not pass', async () => {
+  const s = await setup({ verifyStep: async () => ({ ok: true, checks: [] }) })
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: ['a'] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    await s.by('goal_step_done').execute({ goalId: id, stepId: 's1', summary: '做完了，但这步本来就没判据' })
+    const doc = (await s.store.get(id)).value
+    assert.equal(doc.runs[0].verify, 'none', '没跑判据就不能算验收通过')
+  } finally {
+    await s.cleanup()
+  }
+})
