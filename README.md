@@ -71,7 +71,35 @@ DeepSeek Harness（dsh）插件：**手（真实鼠标键盘）+ 眼（屏幕投
 | `pause_request` | 模型自己喊停 |
 | `yl_log` | 查 handeye 七段系统日志 |
 
-共 **39 个工具**（33 个手眼 + 4 个 meta + 1 个能力）。
+共 **47 个工具**（32 个手眼 + 4 个 episode + 8 个目标 + 3 个其他）。
+
+---
+
+## 目标层（v0.9）：长期目标 → 分项步骤
+
+一个目标是一份 JSON，跨会话存在：`%LOCALAPPDATA%\dsh-handeye-plus\goals\<id>.json`。
+
+```
+你：帮我做 X，分几步
+AI：goal_create → goal_plan [s1 摸清现状, s2 补点击安全, s3 做提示词库]
+你：从 s1 开始
+AI：goal_step_enter s1 → 干活 → goal_step_done
+```
+
+**一进入步骤，规则就变了**（这是这一层存在的全部意义）：
+
+| 规则 | 表现 |
+|---|---|
+| 没进步骤就动手 | `Refused: GOAL_STEP_REQUIRED`，并告诉你该调 `goal_step_enter` |
+| 一步没做完就跳下一步 | `enterStep` 直接拒：`still running` |
+| 超出这一步的动作预算 | `Refused: STEP_BUDGET_EXCEEDED`，要用 `goal_step_continue` 续（必须写原因） |
+| 验收连挂两次 | 步骤变 `blocked`，动作锁死，必须人决定（跳过 / 换提示词 / 放行） |
+
+工具：`goal_create` / `goal_plan` / `goal_status` / `goal_step_enter` / `goal_step_done` /
+`goal_step_continue` / `goal_skip_step` / `goal_set_status`。
+
+默认每步 **8 个动作**（软上限，不是硬墙）；时间不设墙，只显示。
+`goal_set_status` 把目标暂停/归档，就是"不再按它的步骤走"的出口。
 
 ---
 

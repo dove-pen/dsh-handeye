@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { createState, noteAction, beginEpisode } from './core/state.js'
+import { createState, noteAction, beginEpisode, beginGoalStep, endGoalStep, countStepAction, grantStepBudget } from './core/state.js'
 import { canAct } from './core/gate.js'
 import { isActionTool, isMetaTool } from './core/risk.js'
 import { runChecks, normalizeChecks, COMMAND_ALLOWLIST } from './core/verify.js'
@@ -19,6 +19,8 @@ import { redactDeep, redactText } from './memory/redact.js'
 import { createEpisodeStore, newEpisodeId } from './memory/episodes.js'
 import { createCapabilityStore } from './memory/capabilities.js'
 import { createCardStore } from './memory/cards.js'
+import { createGoalStore } from './memory/goals.js'
+import { createGoalTools } from './tools/goals.js'
 import { createConfirmStore } from './runtime/confirm.js'
 import { createExecutor } from './runtime/executor.js'
 import { createOps } from './runtime/ops.js'
@@ -190,6 +192,8 @@ function reg(ctx, def) {
           }
           if (name !== 'capability' && isActionTool(name, args ?? {}) && RUNTIME.state.state === 'RUNNING') {
             const trip = noteAction(RUNTIME.state, name, args ?? {}, !failed)
+            // 目标步骤的动作预算：每个真动作都算一次
+            if (RUNTIME.state.currentStep) countStepAction(RUNTIME.state)
             if (trip.tripped) return `${out}\n\n[PAUSED] ${trip.reason}`
           }
         }
@@ -217,6 +221,7 @@ export function apply(ctx) {
   const episodes = createEpisodeStore({ dir: dataDir })
   const capabilities = createCapabilityStore({ dir: dataDir })
   const cards = createCardStore({ dir: dataDir })
+  const goals = createGoalStore({ dir: dataDir })
   const confirmStore = createConfirmStore()
   const primitives = createPrimitives()
   const ops = createOps({ primitives })
@@ -226,6 +231,7 @@ export function apply(ctx) {
     episodes,
     capabilities,
     cards,
+    goals,
     confirm: confirmStore,
     executor,
     dataDir,
@@ -356,6 +362,45 @@ export function apply(ctx) {
       return null
     }
   }
+
+  /** 进入目标的某一步：挂上这一步的验收、白名单，并开一个 episode。 */
+  async function handleStepEnter({ goal, step, params }) {
+    let checks = null
+    let allowedTools = null
+    if (step.promptId) {
+      const card = await cards.get(String(step.promptId))
+      if (card.ok) {
+        allowedTools = Array.isArray(card.value.allowedTools) ? [...card.value.allowedTools] : null
+        const norm = normalizeChecks(card.value.verify ?? [])
+        checks = norm.ok && norm.checks.length > 0 ? norm.checks : null
+      }
+    }
+    // 步骤自己写的判据优先于卡片
+    if (Array.isArray(step.verify) && step.verify.length > 0) {
+      const norm = normalizeChecks(step.verify)
+      checks = norm.ok && norm.checks.length > 0 ? norm.checks : null
+    }
+
+    // 先开 episode（它会重置卡片相关字段），再挂目标步骤，顺序不能反
+    const episodeId = await RUNTIME.startEpisode(`${goal.title} / ${step.title}`, {
+      cardId: step.promptId || undefined,
+      path: [step.title],
+    })
+    beginGoalStep(runtimeState, {
+      goalId: goal.id,
+      step: { ...step, allowedTools },
+      verified: checks,
+      params: params && typeof params === 'object' ? params : {},
+    })
+    return { episodeId, checks: checks ? checks.length : 0 }
+  }
+
+  /** 离开目标步骤：清掉步骤绑定，动作不再受这一步的白名单/预算约束。 */
+  async function handleStepLeave() {
+    endGoalStep(runtimeState)
+  }
+
+  runtimeState.grantStepBudget = (extra) => grantStepBudget(runtimeState, extra)
 
   /** Called by episode_checkpoint before it advances the path. */
   async function verifyStep(state) {
@@ -1481,6 +1526,16 @@ export function apply(ctx) {
     verifyStep,
   })
   for (const def of metaTools) reg(ctx, def)
+
+  // ------------------------------------------------------------ 目标（长期目标 / 分项步骤）
+  const goalTools = createGoalTools({
+    state: runtimeState,
+    goals,
+    verifyStep,
+    onStepEnter: handleStepEnter,
+    onStepLeave: handleStepLeave,
+  })
+  for (const def of goalTools) reg(ctx, def)
 
   reg(
     ctx,

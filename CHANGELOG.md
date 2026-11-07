@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.9.0 — 2026-11-07
+
+**P1：目标层。** 长期目标 → 分项步骤 → 步骤门 + 步骤预算 + 失败升级。
+设计见 `docs\手眼插件-目标与提示词系统-设计.md` §4、§6、§10。
+
+### 新增
+- `src/memory/goals.js`：目标存储（一目标一文件），步骤状态机
+  `todo/doing/blocked/done/skipped`，**同时只允许一个 doing**（文件层面就校验）
+- `src/tools/goals.js`：8 个工具
+  - `goal_create` / `goal_plan` / `goal_status`
+  - `goal_step_enter` / `goal_step_done` / `goal_step_continue` / `goal_skip_step` / `goal_set_status`
+- 步骤门（`core/gate.js`）：
+  - 目标在用、却没进步骤时，写操作一律拒（`GOAL_STEP_REQUIRED`）
+  - 进步骤后，工具只能落在这一步的白名单里（`STEP_TOOL_NOT_ALLOWED`）
+  - 每步动作预算（默认 8，软上限）超了拒（`STEP_BUDGET_EXCEEDED`），
+    要用 `goal_step_continue` 续，且必须写原因（会写进记录）
+- 失败升级：验收连挂两次 → 步骤 `blocked` + 动作锁死 + 明确要求人来决定
+
+### 改变
+- `goal_create` / `goal_plan` 会把目标设为"当前目标"，从这一刻起就必须按步骤走
+- `goal_*` 与 meta 工具同等待遇：不会被"路径没打卡"这类规则误伤（它们本来就是管路径的）
+- 首次验收失败**不会**离开步骤（步骤仍是 doing）；只有真 blocked 才解锁
+
+### 测试
+- 176 → **206**：新增 `test/memory/goals.test.mjs`（15）、
+  `test/tools/goals.test.mjs`（9），gate 补 6 条步骤门用例
+
 ## v0.8.0 — 2026-11-07
 
 **P0：验收门。** 把"我觉得做完了"换成"机器验过了"。设计见

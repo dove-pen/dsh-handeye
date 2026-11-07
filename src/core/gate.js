@@ -23,9 +23,45 @@ import {
 export function canAct(state, tool, args = {}, now = Date.now()) {
   const name = String(tool)
 
-  if (isMetaTool(name)) return { ok: true, code: 'META' }
+  // Meta tools and goal tools are how you get back into a legal state, so they
+  // are never blocked by the rules below. (goal_* used to be caught by the
+  // path-deviation rule, which is absurd: they are the tools that manage paths.)
+  if (isMetaTool(name) || name.startsWith('goal_')) return { ok: true, code: 'META' }
 
   const read = isReadTool(name, args)
+
+  // ---------------------------------------------------------------- goal layer
+  //
+  // Two rules, both about the step we are on. They are checked before the
+  // generic rules because "you are in the wrong place entirely" is the more
+  // useful thing to tell a model that is wandering.
+  if (state.goalId && !state.currentStep && !read) {
+    return {
+      ok: false,
+      code: ERR.GOAL_STEP_REQUIRED,
+      message:
+        'A goal is active but no step is entered. Call goal_step_enter first (goal_status lists the steps), so this action belongs to a step.',
+    }
+  }
+
+  if (state.currentStep) {
+    const step = state.currentStep
+    if (!read && Array.isArray(step.allowedTools) && step.allowedTools.length > 0 && !matchAny(step.allowedTools, name)) {
+      return {
+        ok: false,
+        code: ERR.STEP_TOOL_NOT_ALLOWED,
+        message: `Step "${step.stepId}" only allows: ${step.allowedTools.join(', ')}`,
+      }
+    }
+    const limit = Number(step.budgetActions) || 8
+    if (!read && Number(state.stepActions ?? 0) >= limit) {
+      return {
+        ok: false,
+        code: ERR.STEP_BUDGET_EXCEEDED,
+        message: `Step "${step.stepId}" has used ${state.stepActions}/${limit} actions. If this step really needs more, call goal_step_continue with a reason; otherwise finish it.`,
+      }
+    }
+  }
 
   if (state.state === STATES.PAUSED) {
     if (read) return { ok: true, code: 'READ' }

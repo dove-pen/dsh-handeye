@@ -45,6 +45,10 @@ export function createState(opts = {}) {
     verifyVars: {},
     // How many times the acceptance check refused to advance this episode.
     verifyFailures: 0,
+    // Goal layer: when a goal step is entered, actions are bound to it.
+    goalId: '',
+    currentStep: null,
+    stepActions: 0,
   }
 }
 
@@ -213,4 +217,49 @@ export function checkpoint(state, summary = '') {
 
 export function isPaused(state) {
   return state.state === STATES.PAUSED
+}
+
+// ---------------------------------------------------------------- goal steps
+//
+// A goal step is a stricter episode: same state machine, but the gate now knows
+// which step we are on, so it can refuse actions that belong to no step at all.
+
+export function beginGoalStep(state, { goalId, step, verified = null, params = {} } = {}) {
+  state.goalId = String(goalId ?? '')
+  state.currentStep = {
+    goalId: state.goalId,
+    stepId: String(step?.id ?? ''),
+    title: String(step?.title ?? ''),
+    promptId: step?.promptId ?? null,
+    allowedTools: Array.isArray(step?.allowedTools) ? [...step.allowedTools] : null,
+    budgetActions: Number(step?.budget?.actions) > 0 ? Number(step.budget.actions) : 8,
+  }
+  state.stepActions = 0
+  if (Array.isArray(verified) && verified.length > 0) {
+    state.verifyChecks = verified
+    state.verifyVars = params && typeof params === 'object' ? { ...params } : {}
+  }
+  return state
+}
+
+export function endGoalStep(state) {
+  state.currentStep = null
+  state.stepActions = 0
+  return state
+}
+
+/** Called after every action while a goal step is running. */
+export function countStepAction(state) {
+  if (!state.currentStep) return { tracked: false, used: 0, limit: 0, overBudget: false }
+  state.stepActions = Number(state.stepActions ?? 0) + 1
+  const limit = Number(state.currentStep.budgetActions) || 8
+  return { tracked: true, used: state.stepActions, limit, overBudget: state.stepActions >= limit }
+}
+
+/** Soft budget: the user (or an explicit continue) grants more actions. */
+export function grantStepBudget(state, extra = 8) {
+  if (!state.currentStep) return 0
+  const add = Math.max(1, Math.min(40, Math.round(Number(extra) || 8)))
+  state.currentStep.budgetActions = Number(state.currentStep.budgetActions || 0) + add
+  return state.currentStep.budgetActions
 }

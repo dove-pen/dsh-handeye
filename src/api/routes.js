@@ -7,10 +7,27 @@
 import { createLogReader } from '../runtime/logReader.js'
 import { compileEpisode } from '../runtime/compile.js'
 import { newEpisodeId } from '../memory/episodes.js'
+import { summarizeGoal } from '../memory/goals.js'
 import { runHandeye } from '../handeye.js'
 import { pause, resumeByUser, satisfyReplan } from '../core/state.js'
+import { writeFile, mkdir } from 'node:fs/promises'
+import path from 'node:path'
 
 const MAX_BODY = 64 * 1024
+
+/** One-shot human override of the acceptance gate (consumed by the next checkpoint). */
+async function writeOverride({ episodeId, reason, goalId, stepId }) {
+  const dir = runtimeDataDir()
+  await mkdir(dir, { recursive: true })
+  const file = path.join(dir, 'override.json')
+  await writeFile(file, `${JSON.stringify({ episodeId, reason, goalId, stepId, createdAt: new Date().toISOString() }, null, 2)}\n`, 'utf8')
+  return file
+}
+
+function runtimeDataDir() {
+  const base = process.env.LOCALAPPDATA || process.env.TMPDIR || '.'
+  return path.join(base, 'dsh-handeye-plus')
+}
 
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload)
@@ -192,6 +209,62 @@ export function registerRoutes({ ctx, runtime, version }) {
           outcome: result.ok ? 'success' : 'failure',
         })
         return sendJson(res, 200, { ok: true, name, result, ms: Date.now() - started })
+      })
+
+      reg('/dsh-handeye-plus/goals', async (req, res) => {
+        if (req.method === 'GET') {
+          const listed = await runtime.goals.list()
+          if (!listed.ok) return sendJson(res, 500, listed)
+          return sendJson(res, 200, {
+            ok: true,
+            goals: listed.value.map((doc) => ({
+              ...summarizeGoal(doc),
+              longTermGoal: doc.longTermGoal,
+              updatedAt: doc.updatedAt,
+              steps: doc.steps,
+            })),
+          })
+        }
+        if (req.method === 'POST') {
+          const body = await readBody(req)
+          const created = await runtime.goals.create({
+            title: String(body.title || ''),
+            longTermGoal: String(body.longTermGoal || ''),
+            steps: Array.isArray(body.steps) ? body.steps : [],
+          })
+          return sendJson(res, created.ok ? 200 : 400, created)
+        }
+        return sendJson(res, 405, { ok: false, error: 'GET or POST only' })
+      })
+
+      reg('/dsh-handeye-plus/goals/plan', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const saved = await runtime.goals.setPlan(String(body.id || ''), Array.isArray(body.steps) ? body.steps : [])
+        return sendJson(res, saved.ok ? 200 : 400, saved)
+      })
+
+      reg('/dsh-handeye-plus/goals/set', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const saved = await runtime.goals.setStatus(String(body.id || ''), String(body.status || ''))
+        return sendJson(res, saved.ok ? 200 : 400, saved)
+      })
+
+      // 人工放行：只写 override.json，下一次 checkpoint/step_done 消费掉
+      reg('/dsh-handeye-plus/goals/override', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const reason = String(body.reason || '').trim()
+        if (!reason) return sendJson(res, 400, { ok: false, error: 'reason is required' })
+        const episodeId = String(runtime.state?.episodeId || '')
+        if (!episodeId) return sendJson(res, 400, { ok: false, error: 'no episode is running' })
+        try {
+          await writeOverride({ episodeId, reason, goalId: body.goalId, stepId: body.stepId })
+          return sendJson(res, 200, { ok: true, episodeId, reason })
+        } catch (error) {
+          return sendJson(res, 500, { ok: false, error: error.message })
+        }
       })
 
       reg('/dsh-handeye-plus/grant', async (req, res) => {

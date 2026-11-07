@@ -17,6 +17,7 @@ const READ_TOOLS = new Set([
   'browser_snapshot',
   'browser_text',
   'hand_where',
+  'goal_status',
   'yl_log',
 ])
 
@@ -38,6 +39,12 @@ const WRITE_TOOLS = new Set([
   'browser_navigate',
   'browser_close',
   'browser_stop',
+  'goal_create',
+  'goal_plan',
+  'goal_step_enter',
+  'goal_step_done',
+  'goal_step_continue',
+  'goal_skip_step',
 ])
 
 // Conservative patterns: a false positive only costs one confirmation.
