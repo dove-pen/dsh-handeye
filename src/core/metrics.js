@@ -10,6 +10,8 @@
 export const DEVIATION_CODES = ['GOAL_STEP_REQUIRED', 'STEP_TOOL_NOT_ALLOWED']
 /** Refusal codes that count as "the step ran out of its action budget". */
 export const BUDGET_CODES = ['STEP_BUDGET_EXCEEDED']
+/** Refusal codes that count as "an action was blocked because the path was not checkpointed". */
+export const PATH_CODES = ['PATH_DEVIATION']
 
 function bump(map, key, by = 1) {
   if (!key) return
@@ -50,10 +52,12 @@ export function computeMetrics({ goals = [], refusals = {} } = {}) {
 
   let deviationRefused = 0
   let budgetRefused = 0
+  let pathRefused = 0
   for (const [code, count] of Object.entries(refusals || {})) {
     const n = Number(count) || 0
     if (DEVIATION_CODES.includes(code)) deviationRefused += n
     if (BUDGET_CODES.includes(code)) budgetRefused += n
+    if (PATH_CODES.includes(code)) pathRefused += n
   }
 
   return {
@@ -72,6 +76,8 @@ export function computeMetrics({ goals = [], refusals = {} } = {}) {
     blockedSteps,
     deviationRefused,
     budgetRefused,
+    // 路径没打卡被拦下的次数：和"越界"不是一回事，单独一栏才看得懂
+    pathRefused,
     attempts,
     refusals: { ...(refusals || {}) },
   }
@@ -83,6 +89,6 @@ export function formatMetrics(m) {
   return [
     `目标 ${m.goals.total}（进行 ${m.goals.active}）· 步骤 ${m.steps.done}/${m.steps.total}`,
     `验收通过率 ${rate}（过 ${m.verify.pass} / 挂 ${m.verify.fail}）`,
-    `拦下越界 ${m.deviationRefused} · 预算拦截 ${m.budgetRefused} · 人工放行 ${m.overrides} · 卡住 ${m.blockedSteps}`,
+    `拦下越界 ${m.deviationRefused} · 路径拦截 ${m.pathRefused} · 预算拦截 ${m.budgetRefused} · 人工放行 ${m.overrides} · 卡住 ${m.blockedSteps}`,
   ].join('\n')
 }

@@ -107,3 +107,13 @@ test('formatMetrics renders a readable three-line summary', () => {
 test('formatMetrics says so when nothing has been judged yet', () => {
   assert.match(formatMetrics(computeMetrics()), /还没验过/)
 })
+
+test('path checkpoints count separately from step deviations', () => {
+  const m = computeMetrics({
+    goals: [],
+    refusals: { PATH_DEVIATION: 2, GOAL_STEP_REQUIRED: 1 },
+  })
+  assert.equal(m.pathRefused, 2)
+  assert.equal(m.deviationRefused, 1)
+  assert.match(formatMetrics(m), /路径拦截 2/)
+})

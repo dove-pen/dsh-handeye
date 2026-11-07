@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.11.3 — 2026-11-07
+
+度量再加一栏"路径拦截"，把两种拦截分开算。
+
+实测数据暴露的问题：这次跑目标被拦了 2 次，都是 `PATH_DEVIATION`（路径没打卡），
+但面板上"拦下越界"显示 **0** —— 因为该指标只统计 `GOAL_STEP_REQUIRED` /
+`STEP_TOOL_NOT_ALLOWED`。数字不算错，但**看起来像没拦过**。
+
+- `metrics.js` 新增 `pathRefused`（`PATH_DEVIATION`），与 `deviationRefused` 分开
+- `formatMetrics` 多打一栏"路径拦截"
+- 补测试
+
 ## v0.11.2 — 2026-11-07
 
 修"最后一步的 episode 不落盘"。
