@@ -240,6 +240,9 @@ window.__ModuleLoader__.load({
         .dsh-he-gm b { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
         .dsh-he-gm span { font-size: 9.5px; color: var(--he-muted); }
         .dsh-he-gform { display: grid; gap: 6px; margin: 8px 12px; padding: 9px 10px; border: 1px dashed var(--he-border, rgba(255,255,255,.14)); border-radius: 8px; }
+        .dsh-he-entry { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; margin-right: 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: transparent; color: #9a9aa6; cursor: pointer; pointer-events: auto; }
+        .dsh-he-entry:hover { color: #ececf2; border-color: #7aa2ff; background: rgba(122,162,255,.12); }
+        .dsh-he-entry svg { display: block; }
         .dsh-he-gform input, .dsh-he-gform textarea { background: var(--he-hover, rgba(255,255,255,.06)); border: 1px solid var(--he-border, rgba(255,255,255,.1)); color: var(--he-text, #e8e8ea); border-radius: 6px; padding: 5px 7px; font: inherit; font-size: 11.5px; resize: vertical; }
         .dsh-he-gform .hint { font-size: 10.5px; color: var(--he-muted); line-height: 1.5; }
         .dsh-he-gstep { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 11.5px; }
@@ -681,8 +684,54 @@ window.__ModuleLoader__.load({
           }
         }
 
-        // 把入口挂到宿主顶部的「对话 / 轨迹 / 上下文 / 编队」那一排。
-        // 宿主没有公开的插槽 API 时，用 DOM 方式补一个同款的按钮；找不到就退回右下角挂件。
+        // 入口优先挂在**输入框旁边**：宿主顶部那一排离手太远，点到要跑一趟。
+        // 依次尝试：输入区域里发送键左边的 28px 小圆按钮 → 顶部那一排 → 右下角挂件。
+        function findComposerBar(box) {
+          let node = box
+          for (let depth = 0; depth < 10 && node; depth += 1, node = node.parentElement) {
+            const send = [...node.querySelectorAll('button')].find((b) => {
+              const label = `${b.getAttribute('aria-label') || ''} ${b.title || ''}`
+              return /发送|send/i.test(label) && b.offsetParent !== null
+            })
+            if (send && send.parentElement) return { bar: send.parentElement, send }
+          }
+          return null
+        }
+
+        function mountComposerEntry() {
+          if (!document.body) return false
+          const existing = document.querySelector('[data-dsh-he-entry]')
+          if (existing && existing.isConnected) {
+            root.classList.add('has-tab')
+            return true
+          }
+          const box = findComposer()
+          if (!box) return false
+          const found = findComposerBar(box)
+          if (!found) return false
+          const btn = document.createElement('button')
+          btn.type = 'button'
+          btn.dataset.dshHeEntry = '1'
+          btn.className = 'dsh-he-entry'
+          btn.title = '手眼+：今天 / 能力 / 任务卡 / 目标 / 日志'
+          btn.setAttribute('aria-label', '手眼+')
+          btn.innerHTML =
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>'
+          found.bar.insertBefore(btn, found.send)
+          root.classList.add('has-tab')
+          return true
+        }
+
+        function mountEntry() {
+          if (mountComposerEntry()) {
+            // 已经贴在输入框旁边了，顶部那一排的多余入口收掉（老版本可能留过）
+            document.querySelectorAll('[data-dsh-he-tab]').forEach((n) => n.remove())
+            return
+          }
+          mountTopTab()
+        }
+
+        // 兜底：宿主没有可识别的输入区时，退回顶部「对话 / 轨迹 / 上下文 / 编队」那一排。
         function mountTopTab() {
           if (!document.body) return
           if (document.querySelector('[data-dsh-he-tab]')) {
@@ -726,6 +775,16 @@ window.__ModuleLoader__.load({
           toggle(true)
         }
         document.addEventListener('click', onTopTabClick, true)
+
+        function onEntryClick(event) {
+          const target = event.target
+          const hit = target && typeof target.closest === 'function' ? target.closest('[data-dsh-he-entry]') : null
+          if (!hit) return
+          event.preventDefault()
+          event.stopPropagation()
+          toggle(true)
+        }
+        document.addEventListener('click', onEntryClick, true)
 
         const toggle = (next) => {
           open = typeof next === 'boolean' ? next : !open
@@ -1626,12 +1685,12 @@ window.__ModuleLoader__.load({
         renderBar()
         setTab('today')
         document.body.appendChild(root)
-        mountTopTab()
+        mountEntry()
         refresh()
         void loadState()
         void loadEpisodes()
         const timer = setInterval(refresh, POLL_MS)
-        const topTabTimer = setInterval(mountTopTab, 2000)
+        const topTabTimer = setInterval(mountEntry, 2000)
         const stateTimer = setInterval(loadState, 2000)
         const pageTimer = setInterval(() => {
           if (tab === 'today') void loadEpisodes()
