@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "screenshot_report",
+  "title": "截图并汇报",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "both",
+  "autonomy": "readonly",
+  "goal": "截取当前屏幕或指定窗口，保存为 PNG，然后说明图里有什么、是否正常。",
+  "constraints": [
+    "只截图，不操作界面",
+    "返回图片路径，不要把整张图塞进上下文",
+    "如果截图涉及隐私区域，提醒用户并建议裁剪"
+  ],
+  "success": "给出图片路径和一段基于图片内容的说明。",
+  "onFailure": "截图失败时报告错误码和当前前台窗口，不要反复重试。",
+  "capabilities": ["screenshot_window"],
+  "params": {
+    "path": { "type": "string", "required": false, "description": "保存路径。" }
+  },
+  "enabled": true
+}

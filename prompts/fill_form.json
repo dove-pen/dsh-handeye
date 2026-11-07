@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "fill_form",
+  "title": "填写表单",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "supervised",
+  "goal": "把用户给的信息填进指定表单，填完先核对，提交前必须再确认一次。",
+  "constraints": [
+    "只填用户提供的信息，不编造手机号、身份证、地址",
+    "提交、支付、勾选协议这类动作必须单独确认",
+    "遇到验证码或风控提示立即停止，交给用户处理",
+    "填完逐项回显实际值，等待确认"
+  ],
+  "success": "表单字段与用户提供的信息一致，提交前得到明确确认。",
+  "onFailure": "字段找不到或页面结构与预期不符时停下，报告当前页面，不要盲点。",
+  "capabilities": ["open_url_and_read", "click_text_verified"],
+  "params": {
+    "url": { "type": "url", "required": true, "description": "表单页面地址。" },
+    "data": { "type": "string", "required": true, "description": "要填写的信息。" }
+  },
+  "enabled": true
+}

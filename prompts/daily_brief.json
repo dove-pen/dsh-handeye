@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "daily_brief",
+  "title": "每日简报",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "readonly",
+  "goal": "生成一份只读的每日简报：系统磁盘与内存、当前时间、最近日志中的错误、待办文件。",
+  "constraints": [
+    "全部只读",
+    "每条数据标明来源",
+    "没有数据的项写无，不要补零",
+    "不超过 300 字，先结论后细节"
+  ],
+  "success": "四项内容齐全，数据有来源，长度可控。",
+  "onFailure": "某项读取失败时标注失败原因，继续其余项。",
+  "capabilities": [],
+  "params": {},
+  "enabled": true
+}

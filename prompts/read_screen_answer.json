@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "read_screen_answer",
+  "title": "看屏回答问题",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "both",
+  "autonomy": "readonly",
+  "goal": "读取当前屏幕上的内容，回答用户的问题；找不到依据就明说找不到，不要猜。",
+  "constraints": [
+    "只读，不点击、不输入、不切换窗口",
+    "回答必须引用屏幕上的原文片段",
+    "看不清或信息不足时直接说明，不要编造"
+  ],
+  "success": "答案有屏幕原文作依据，或明确说明屏幕上没有相关信息。",
+  "onFailure": "读不到文字时提示用户放大窗口或换一个界面，不要反复截图。",
+  "capabilities": ["read_active_window"],
+  "params": {},
+  "enabled": true
+}

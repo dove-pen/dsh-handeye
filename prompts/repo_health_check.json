@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "repo_health_check",
+  "title": "代码仓库体检",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "readonly",
+  "goal": "检查指定仓库的健康状况：目录结构、依赖、测试、未提交改动，输出一份问题清单。",
+  "constraints": [
+    "只读，不修改任何文件",
+    "可以运行测试和 lint，但不执行安装、不联网拉包",
+    "问题按严重程度排序，每条给出文件路径",
+    "不确定的地方标注需要人工确认"
+  ],
+  "success": "给出一份可执行的问题清单，每条有位置和建议。",
+  "onFailure": "测试跑不起来时记录失败原因，继续检查其他项，不要停在第一步。",
+  "capabilities": [],
+  "params": {
+    "path": { "type": "string", "required": true, "description": "仓库路径。" }
+  },
+  "enabled": true
+}

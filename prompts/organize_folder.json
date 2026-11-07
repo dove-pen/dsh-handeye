@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "organize_folder",
+  "title": "整理文件夹",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "supervised",
+  "goal": "整理用户指定的文件夹：按类型或日期分组，先给出移动方案，确认后再执行。",
+  "constraints": [
+    "先列出完整清单和移动方案，等用户确认后再动文件",
+    "只移动，不删除任何文件",
+    "不碰用户明确排除的文件和文件夹",
+    "遇到同名文件不覆盖，改为加序号",
+    "操作后输出一份前后对照清单"
+  ],
+  "success": "所有文件按方案归位，没有文件丢失或覆盖，并给出对照清单。",
+  "onFailure": "发现权限不足、文件被占用或清单与预期不符时立即停止，报告差异。",
+  "capabilities": [],
+  "params": {
+    "folder": { "type": "string", "required": true, "description": "要整理的文件夹路径。" }
+  },
+  "enabled": true
+}

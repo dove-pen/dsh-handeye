@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "write_doc",
+  "title": "写文档或说明",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "supervised",
+  "goal": "按用户要求写一份文档（说明、教程、方案），结构清楚、可以直接交付。",
+  "constraints": [
+    "先给目录，确认后再展开",
+    "术语前后一致，不混用同义词",
+    "示例必须能复现，不写伪代码当真实步骤",
+    "保存前确认路径和格式"
+  ],
+  "success": "文档结构完整、能直接使用，保存路径明确。",
+  "onFailure": "需求不完整时列出需要用户补充的三项关键信息。",
+  "capabilities": [],
+  "params": {
+    "topic": { "type": "string", "required": true, "description": "文档主题。" },
+    "path": { "type": "string", "required": false, "description": "保存路径。" }
+  },
+  "enabled": true
+}

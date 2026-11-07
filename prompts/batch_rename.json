@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "batch_rename",
+  "title": "批量重命名",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "supervised",
+  "goal": "按用户给定的规则批量重命名文件：先输出旧名到新名的对照表，确认后再执行。",
+  "constraints": [
+    "先输出对照表，确认后才改",
+    "只改名字，不移动、不删除、不改内容",
+    "不覆盖已有文件，冲突时停下来问",
+    "保留扩展名，除非用户明确要求修改"
+  ],
+  "success": "对照表与实际结果一致，文件数量不变，没有覆盖。",
+  "onFailure": "出现重名或非法字符时停止并报告，不要自动跳过或改名。",
+  "capabilities": [],
+  "params": {
+    "folder": { "type": "string", "required": true, "description": "目标文件夹。" },
+    "rule": { "type": "string", "required": true, "description": "重命名规则。" }
+  },
+  "enabled": true
+}

@@ -194,11 +194,62 @@ window.__ModuleLoader__.load({
     }
 
     // ---------------------------------------------------------------- 挂载
+    function ensureExtraStyle() {
+      const ID = 'dsh-he-extra'
+      const css = `
+        .dsh-he-tabs { display: flex; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--he-border, rgba(255,255,255,.08)); }
+        .dsh-he-tabs button { flex: 1; border: 0; background: transparent; color: var(--he-muted); font: inherit; font-size: 12px; padding: 7px 0 8px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .dsh-he-tabs button.on { color: var(--he-text, #e8e8ea); border-bottom-color: #7aa2ff; }
+        .dsh-he-page { display: none; }
+        .dsh-he-page.on { display: block; }
+        .dsh-he-statebar { display: none; margin: 10px 12px 0; padding: 8px 10px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
+        .dsh-he-statebar.on { display: flex; align-items: center; gap: 8px; }
+        .dsh-he-statebar.paused { background: rgba(255,107,107,.14); color: #ff9d9d; }
+        .dsh-he-statebar.replan { background: rgba(255,161,74,.14); color: #ffc184; }
+        .dsh-he-statebar button { margin-left: auto; }
+        .dsh-he-item { border: 1px solid var(--he-border, rgba(255,255,255,.08)); border-radius: 8px; padding: 9px 10px; margin: 8px 12px; }
+        .dsh-he-item .t { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--he-text, #e8e8ea); }
+        .dsh-he-item .t b { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dsh-he-item .g { margin-top: 5px; font-size: 11.5px; color: var(--he-muted); line-height: 1.5; }
+        .dsh-he-item .row { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+        .dsh-he-badge { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--he-hover, rgba(255,255,255,.08)); color: var(--he-muted); }
+        .dsh-he-badge.read { color: #7fd19a; }
+        .dsh-he-badge.write { color: #ffc184; }
+        .dsh-he-badge.destructive { color: #ff8080; }
+        .dsh-he-badge.on { color: #7fd19a; }
+        .dsh-he-btn { border: 1px solid var(--he-border, rgba(255,255,255,.12)); background: var(--he-hover, rgba(255,255,255,.06)); color: var(--he-text, #e8e8ea); font: inherit; font-size: 11.5px; padding: 3px 9px; border-radius: 6px; cursor: pointer; }
+        .dsh-he-btn:hover { border-color: #7aa2ff; }
+        .dsh-he-btn.danger { color: #ff9d9d; }
+        .dsh-he-btn:disabled { opacity: .45; cursor: default; }
+        .dsh-he-logrow { display: grid; grid-template-columns: 62px 34px 1fr; gap: 6px; padding: 5px 12px; font-size: 11.5px; border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer; }
+        .dsh-he-logrow .tm { color: var(--he-muted); font-variant-numeric: tabular-nums; }
+        .dsh-he-logrow .lv { font-size: 10.5px; text-align: center; border-radius: 4px; padding: 0 3px; }
+        .dsh-he-logrow .ds { color: var(--he-text, #e8e8ea); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dsh-he-logrow .dt { display: none; grid-column: 1 / -1; color: var(--he-muted); white-space: pre-wrap; word-break: break-all; padding: 4px 0 2px; }
+        .dsh-he-logrow.open .dt { display: block; }
+        .dsh-he-logkpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 12px; }
+        .dsh-he-logkpis div { background: var(--he-hover, rgba(255,255,255,.05)); border-radius: 8px; padding: 7px 8px; }
+        .dsh-he-logkpis b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+        .dsh-he-logkpis span { font-size: 10.5px; color: var(--he-muted); }
+        .dsh-he-filters { display: flex; gap: 5px; padding: 0 12px 8px; flex-wrap: wrap; align-items: center; }
+        .dsh-he-filters input { flex: 1; min-width: 80px; background: var(--he-hover, rgba(255,255,255,.06)); border: 1px solid var(--he-border, rgba(255,255,255,.1)); color: var(--he-text, #e8e8ea); border-radius: 6px; padding: 4px 7px; font: inherit; font-size: 11.5px; }
+        .dsh-he-msg { padding: 18px 12px; font-size: 12px; color: var(--he-muted); }
+      `
+      let el = document.getElementById(ID)
+      if (!el) {
+        el = document.createElement('style')
+        el.id = ID
+        document.head.appendChild(el)
+      }
+      if (el.textContent !== css) el.textContent = css
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
 
       const install = () => {
         ensureStyle()
+        ensureExtraStyle()
         // 热重载时清掉上一版留下的根节点，避免两个面板叠在一起。
         document.querySelectorAll('.dsh-he').forEach((n) => n.remove())
 
@@ -226,14 +277,22 @@ window.__ModuleLoader__.load({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/>
             </svg>
-            手眼 · 活动
+            手眼+
             <span class="dsh-he-live"></span>
           </div>
           <div class="dsh-he-sub">AI 最近用这套工具干了什么</div>
           <button class="dsh-he-close" aria-label="收起">×</button>
+          <div class="dsh-he-tabs">
+            <button data-tab="today" class="on">今天</button>
+            <button data-tab="caps">能力</button>
+            <button data-tab="cards">任务卡</button>
+            <button data-tab="log">日志</button>
+          </div>
         `
         const closeBtn = head.querySelector('.dsh-he-close')
         const liveDot = head.querySelector('.dsh-he-live')
+        const subEl = head.querySelector('.dsh-he-sub')
+        const tabEls = [...head.querySelectorAll('.dsh-he-tabs button')]
 
         const scroll = document.createElement('div')
         scroll.className = 'dsh-he-scroll'
@@ -254,11 +313,28 @@ window.__ModuleLoader__.load({
         const list = document.createElement('div')
         list.className = 'dsh-he-list'
 
-        scroll.appendChild(kpis)
-        scroll.appendChild(distCard)
-        scroll.appendChild(failsCard)
-        scroll.appendChild(bar)
-        scroll.appendChild(list)
+        const stateBar = document.createElement('div')
+        stateBar.className = 'dsh-he-statebar'
+        stateBar.innerHTML = '<span class="txt"></span><button class="dsh-he-btn" data-act="resume">恢复</button>'
+        const stateText = stateBar.querySelector('.txt')
+        const stateResume = stateBar.querySelector('button')
+
+        const pageToday = document.createElement('div')
+        pageToday.className = 'dsh-he-page on'
+        for (const el of [kpis, distCard, failsCard, bar, list]) pageToday.appendChild(el)
+
+        const pageCaps = document.createElement('div')
+        pageCaps.className = 'dsh-he-page'
+        const pageCards = document.createElement('div')
+        pageCards.className = 'dsh-he-page'
+        const pageLog = document.createElement('div')
+        pageLog.className = 'dsh-he-page'
+
+        scroll.appendChild(stateBar)
+        scroll.appendChild(pageToday)
+        scroll.appendChild(pageCaps)
+        scroll.appendChild(pageCards)
+        scroll.appendChild(pageLog)
 
         const meta = document.createElement('div')
         meta.className = 'dsh-he-meta'
@@ -523,9 +599,20 @@ window.__ModuleLoader__.load({
 
         function renderMeta() {
           const m = data.meta || {}
-          meta.innerHTML = `<span>手眼 <b>v${(m.version || '?')}</b></span><span>·</span>
+          meta.innerHTML = `<span>手眼+ <b>v${(m.version || '?')}</b></span><span>·</span>
             <span>handeye <b>${(m.exe || '').split('\\').pop() || '?'}</b></span><span class="grow"></span>
-            <span>端口 <b>${m.port || '?'}</b></span>`
+            <button class="dsh-he-btn" data-act="pause">暂停</button>`
+          const btn = meta.querySelector('button')
+          if (btn) {
+            btn.onclick = async () => {
+              const paused = runtimeState?.state === 'PAUSED'
+              await postJson('/dsh-handeye-plus/control', {
+                action: paused ? 'resume' : 'pause',
+                reason: paused ? '' : '用户从面板暂停',
+              })
+              void loadState()
+            }
+          }
         }
 
         function renderAll(items, meta) {
@@ -535,6 +622,7 @@ window.__ModuleLoader__.load({
           renderDist(items)
           renderFails(items)
           renderRows()
+          renderMeta()
 
           const last = items[items.length - 1]
           if (!last) {
@@ -588,14 +676,338 @@ window.__ModuleLoader__.load({
           if (e.key === 'Escape' && open) toggle(false)
         }
 
+        // ------------------------------------------------ 页签、能力、任务卡、日志
+        let tab = 'today'
+        let runtimeState = null
+        let logEvents = []
+        let logLevel = 'all'
+        let logQuery = ''
+        let logLoaded = false
+
+        const mk = (tag, cls, text) => {
+          const node = document.createElement(tag)
+          if (cls) node.className = cls
+          if (text !== undefined) node.textContent = text
+          return node
+        }
+
+        async function postJson(url, body) {
+          const res = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body || {}),
+          })
+          try {
+            return await res.json()
+          } catch {
+            return { ok: false }
+          }
+        }
+
+        function setTab(next) {
+          tab = next
+          for (const b of tabEls) b.classList.toggle('on', b.dataset.tab === next)
+          const pages = { today: pageToday, caps: pageCaps, cards: pageCards, log: pageLog }
+          for (const [key, page] of Object.entries(pages)) page.classList.toggle('on', key === next)
+          subEl.textContent =
+            {
+              today: 'AI 最近用这套工具干了什么',
+              caps: '记忆下来的操作，第二次不用再想',
+              cards: '选一张任务卡直接发给 AI',
+              log: 'handeye 七段日志：谁、做了什么、成没成',
+            }[next] || ''
+          if (next === 'caps') void loadCaps()
+          if (next === 'cards') void loadCards()
+          if (next === 'log') void loadLog()
+        }
+
+        for (const b of tabEls) b.addEventListener('click', () => setTab(b.dataset.tab))
+
+        async function loadState() {
+          try {
+            const res = await fetch('/dsh-handeye-plus/state', { credentials: 'same-origin' })
+            if (!res.ok) return
+            runtimeState = await res.json()
+            renderState()
+          } catch { }
+        }
+
+        function renderState() {
+          const s = runtimeState
+          if (!s) return
+          const paused = s.state === 'PAUSED'
+          const replan = s.state === 'REPLAN_REQUIRED' || s.needsReplan
+          stateBar.classList.toggle('on', paused || replan)
+          stateBar.classList.toggle('paused', paused)
+          stateBar.classList.toggle('replan', !paused && replan)
+          if (paused) stateText.textContent = `已暂停：${s.reason || '等待用户恢复'}`
+          if (!paused && replan) stateText.textContent = `等待 AI 复述计划：${s.reason || ''}`
+          stateResume.style.display = paused ? '' : 'none'
+          stateResume.onclick = async () => {
+            await postJson('/dsh-handeye-plus/control', { action: 'resume' })
+            void loadState()
+          }
+          if (paused) pillDot.className = 'dot busy'
+        }
+
+        async function loadCaps() {
+          try {
+            const res = await fetch('/dsh-handeye-plus/capabilities', { credentials: 'same-origin' })
+            if (!res.ok) return
+            const payload = await res.json()
+            if (!payload.ok) return
+            renderCaps(Array.isArray(payload.value) ? payload.value : [])
+          } catch { }
+        }
+
+        function renderCaps(caps) {
+          pageCaps.replaceChildren()
+          pageCaps.appendChild(
+            mk('div', 'dsh-he-msg', `共 ${caps.length} 条 · 只读首次需授权，写操作每次需授权；点「授权」等价于你亲手同意一次`),
+          )
+          if (!caps.length) {
+            pageCaps.appendChild(mk('div', 'dsh-he-msg', '还没有能力。'))
+            return
+          }
+          for (const cap of caps) {
+            const item = mk('div', 'dsh-he-item')
+            const title = mk('div', 't')
+            title.appendChild(mk('b', '', cap.title || cap.name))
+            title.appendChild(mk('span', 'dsh-he-badge' + (cap.status === 'enabled' ? ' on' : ''), cap.status || 'draft'))
+            title.appendChild(mk('span', 'dsh-he-badge ' + (cap.risk || 'read'), cap.risk || 'read'))
+            title.appendChild(mk('span', 'dsh-he-badge', cap.origin || 'user'))
+
+            const goal = mk('div', 'g', cap.description || cap.name)
+            const row = mk('div', 'row')
+            row.appendChild(mk('span', 'dsh-he-badge', `runs ${cap.stats?.runs ?? 0} / ok ${cap.stats?.success ?? 0}`))
+
+            const toggle = mk('button', 'dsh-he-btn', cap.status === 'enabled' ? '禁用' : '启用')
+            toggle.onclick = async () => {
+              await postJson('/dsh-handeye-plus/capabilities/set', { name: cap.name, enabled: cap.status !== 'enabled' })
+              void loadCaps()
+            }
+            row.appendChild(toggle)
+
+            if (cap.status === 'enabled') {
+              const grant = mk('button', 'dsh-he-btn', '授权本次')
+              grant.onclick = async () => {
+                await postJson('/dsh-handeye-plus/grant', { name: cap.name, risk: cap.risk })
+                grant.textContent = '已授权'
+                grant.disabled = true
+              }
+              row.appendChild(grant)
+            }
+
+            item.appendChild(title)
+            item.appendChild(goal)
+            item.appendChild(row)
+            pageCaps.appendChild(item)
+          }
+        }
+
+        async function loadCards() {
+          try {
+            const res = await fetch('/dsh-handeye-plus/cards', { credentials: 'same-origin' })
+            if (!res.ok) return
+            const payload = await res.json()
+            if (!payload.ok) return
+            renderCards(Array.isArray(payload.value) ? payload.value : [])
+          } catch { }
+        }
+
+        function renderCards(cards) {
+          pageCards.replaceChildren()
+          pageCards.appendChild(mk('div', 'dsh-he-msg', `共 ${cards.length} 张 · 「发送」会把任务卡写进对话框并直接发出去`))
+          for (const card of cards) {
+            const item = mk('div', 'dsh-he-item')
+            const title = mk('div', 't')
+            title.appendChild(mk('b', '', card.title))
+            title.appendChild(mk('span', 'dsh-he-badge', card.origin || 'builtin'))
+            title.appendChild(mk('span', 'dsh-he-badge', card.autonomy || 'supervised'))
+            const goal = mk('div', 'g', card.goal)
+            const row = mk('div', 'row')
+
+            const send = mk('button', 'dsh-he-btn', '发送')
+            send.onclick = () => sendCard(card)
+            row.appendChild(send)
+
+            const detail = mk('button', 'dsh-he-btn', '详情')
+            detail.onclick = () => {
+              goal.textContent = [
+                card.goal,
+                ...(card.constraints || []).map((x) => `· ${x}`),
+                `成功：${card.success}`,
+                card.onFailure ? `失败时：${card.onFailure}` : '',
+              ]
+                .filter(Boolean)
+                .join('\n')
+            }
+            row.appendChild(detail)
+
+            item.appendChild(title)
+            item.appendChild(goal)
+            item.appendChild(row)
+            pageCards.appendChild(item)
+          }
+        }
+
+        function formatCard(card) {
+          const lines = [`【任务卡｜${card.title}｜${card.origin}｜${card.autonomy}｜v${card.version}】`, `目标：${card.goal}`]
+          if (card.constraints && card.constraints.length) {
+            lines.push('约束：')
+            for (const rule of card.constraints) lines.push(`- ${rule}`)
+          }
+          lines.push(`成功标准：${card.success}`)
+          if (card.onFailure) lines.push(`失败时：${card.onFailure}`)
+          if (card.capabilities && card.capabilities.length) lines.push(`可用能力：${card.capabilities.join('、')}`)
+          if (card.allowedTools && card.allowedTools.length) lines.push(`允许工具：${card.allowedTools.join(', ')}`)
+          lines.push('开始前先调用 episode_begin 声明任务；中途收到插话要先复述计划再继续。')
+          return lines.join('\n')
+        }
+
+        function findComposer() {
+          const all = [...document.querySelectorAll('textarea, [contenteditable="true"]')]
+          const visible = all.filter((node) => node.offsetParent !== null && !node.closest('.dsh-he'))
+          const byPlaceholder = visible.find((node) => /发消息|创建任务|message|describe/i.test(node.getAttribute('placeholder') || ''))
+          return byPlaceholder || visible[visible.length - 1] || null
+        }
+
+        function fillComposer(box, text) {
+          box.focus()
+          if (box.tagName === 'TEXTAREA') {
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
+            setter.call(box, text)
+            box.dispatchEvent(new Event('input', { bubbles: true }))
+            return
+          }
+          box.textContent = text
+          box.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }))
+        }
+
+        function sendCard(card) {
+          const text = formatCard(card)
+          const box = findComposer()
+          if (!box) {
+            pageCards.prepend(mk('div', 'dsh-he-msg', '没有找到输入框，请先打开一个会话再试。'))
+            return
+          }
+          fillComposer(box, text)
+          window.setTimeout(() => {
+            const sendBtn = [...document.querySelectorAll('button')].find((b) => {
+              const label = `${b.getAttribute('aria-label') || ''} ${b.title || ''}`
+              return /发送消息|send message/i.test(label) && !b.disabled
+            })
+            if (sendBtn) sendBtn.click()
+            else
+              box.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+              )
+          }, 80)
+        }
+
+        async function loadLog() {
+          try {
+            const query = new URLSearchParams({ tail: '200' })
+            if (logLevel !== 'all') query.set('level', logLevel)
+            if (logQuery) query.set('grep', logQuery)
+            const res = await fetch(`/dsh-handeye-plus/log/tail?${query}`, { credentials: 'same-origin' })
+            if (!res.ok) return
+            const payload = await res.json()
+            if (!payload.ok) return
+            logEvents = Array.isArray(payload.events) ? payload.events : []
+            logLoaded = true
+            renderLog()
+          } catch { }
+        }
+
+        function renderLog() {
+          pageLog.replaceChildren()
+          const events = logEvents
+          const errors = events.filter((e) => e.level <= 2).length
+          const warnings = events.filter((e) => e.level === 3).length
+          const sources = new Set(events.map((e) => e.source).filter(Boolean)).size
+
+          const kpisEl = mk('div', 'dsh-he-logkpis')
+          for (const [value, label] of [
+            [events.length, '事件'],
+            [errors, '错误'],
+            [warnings, '警告'],
+            [sources, '来源'],
+          ]) {
+            const cell = mk('div')
+            cell.appendChild(mk('b', '', String(value)))
+            cell.appendChild(mk('span', '', label))
+            kpisEl.appendChild(cell)
+          }
+          pageLog.appendChild(kpisEl)
+
+          const filters = mk('div', 'dsh-he-filters')
+          for (const [id, label] of [
+            ['all', '全部'],
+            ['错误', '错误'],
+            ['警告', '警告'],
+            ['信息', '信息'],
+          ]) {
+            const chip = mk('button', 'dsh-he-chip' + (logLevel === id ? ' on' : ''), label)
+            chip.onclick = () => {
+              logLevel = id
+              void loadLog()
+            }
+            filters.appendChild(chip)
+          }
+          const search = document.createElement('input')
+          search.placeholder = '搜索日志'
+          search.value = logQuery
+          search.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              logQuery = search.value.trim()
+              void loadLog()
+            }
+          })
+          filters.appendChild(search)
+          pageLog.appendChild(filters)
+
+          if (!events.length) {
+            pageLog.appendChild(mk('div', 'dsh-he-msg', logLoaded ? '没有匹配的日志。' : '正在读取日志…'))
+            return
+          }
+
+          const levelColor = { 1: '#ff6b6b', 2: '#ff6b6b', 3: '#ffa14a', 4: '#7aa2ff', 5: '#8a8a92' }
+          for (const e of events.slice().reverse().slice(0, 200)) {
+            const row = mk('div', 'dsh-he-logrow')
+            row.appendChild(mk('span', 'tm', String(e.time || '').slice(11, 19) || String(e.time || '')))
+            const lv = mk('span', 'lv', String(e.levelName || e.level || ''))
+            lv.style.color = levelColor[e.level] || 'inherit'
+            lv.style.background = `${levelColor[e.level] || '#888'}22`
+            row.appendChild(lv)
+            row.appendChild(mk('span', 'ds', `${e.source ? `[${e.source}] ` : ''}${e.desc || ''}`))
+            const detail = mk('span', 'dt', `${e.eventId ? `#${e.eventId} ` : ''}${e.detail || ''}`)
+            row.appendChild(detail)
+            row.addEventListener('click', () => row.classList.toggle('open'))
+            pageLog.appendChild(row)
+          }
+        }
+
+        renderMeta()
         renderBar()
+        setTab('today')
         document.body.appendChild(root)
         refresh()
+        void loadState()
         const timer = setInterval(refresh, POLL_MS)
+        const stateTimer = setInterval(loadState, 2000)
+        const pageTimer = setInterval(() => {
+          if (tab === 'caps') void loadCaps()
+          else if (tab === 'cards') void loadCards()
+          else if (tab === 'log') void loadLog()
+        }, 4000)
 
         const dispose = () => {
           alive = false
           clearInterval(timer)
+          clearInterval(stateTimer)
+          clearInterval(pageTimer)
           document.removeEventListener('keydown', onKey)
           root.remove()
         }

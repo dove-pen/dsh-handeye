@@ -16,12 +16,14 @@ import { isActionTool, isMetaTool } from './core/risk.js'
 import { redactDeep, redactText } from './memory/redact.js'
 import { createEpisodeStore } from './memory/episodes.js'
 import { createCapabilityStore } from './memory/capabilities.js'
+import { createCardStore } from './memory/cards.js'
 import { createConfirmStore } from './runtime/confirm.js'
 import { createExecutor } from './runtime/executor.js'
 import { createOps } from './runtime/ops.js'
 import { createPrimitives } from './runtime/primitives.js'
 import { createMetaTools } from './tools/meta.js'
 import { createCapabilityTool } from './tools/capability.js'
+import { registerRoutes } from './api/routes.js'
 import { runHandeye, runHandeyeJson, exePath, codeMeaning } from './handeye.js'
 import { project, headline, findAlarms } from './project.js'
 import { slimText } from './text.js'
@@ -185,11 +187,12 @@ export function apply(ctx) {
   const runtimeState = createState()
   const episodes = createEpisodeStore({ dir: dataDir })
   const capabilities = createCapabilityStore({ dir: dataDir })
+  const cards = createCardStore({ dir: dataDir })
   const confirmStore = createConfirmStore()
   const primitives = createPrimitives()
   const ops = createOps({ primitives })
   const executor = createExecutor({ state: runtimeState, ops, confirm: confirmStore })
-  RUNTIME = { state: runtimeState, episodes, capabilities, confirm: confirmStore, executor, dataDir, logger: ctx.logger }
+  RUNTIME = { state: runtimeState, episodes, capabilities, cards, confirm: confirmStore, executor, dataDir, logger: ctx.logger }
   try {
     ctx.effect(() => () => {
       void flushActive('unloaded')
@@ -992,6 +995,18 @@ export function apply(ctx) {
     ctx.logger?.warn?.(`preset install skipped: ${e instanceof Error ? e.message : e}`)
   }
 
+  // 内置任务卡：只安装，不覆盖同名卡片。
+  try {
+    const promptDir = fileURLToPath(new URL('../prompts', import.meta.url))
+    for (const file of readdirSync(promptDir)) {
+      if (!file.endsWith('.json')) continue
+      const doc = JSON.parse(readFileSync(path.join(promptDir, file), 'utf8'))
+      void cards.installBuiltin(doc).catch(() => {})
+    }
+  } catch (e) {
+    ctx.logger?.warn?.(`prompt install skipped: ${e instanceof Error ? e.message : e}`)
+  }
+
   // ------------------------------------------------------------ 给界面用的活动路由
   //
   // 只读、同源、不带凭证。界面每隔两秒来问一次"刚才做了什么"。
@@ -1017,6 +1032,9 @@ export function apply(ctx) {
       }),
     )
   })
+
+  // 新面板用的只读/控制路由（日志、episode、能力、任务卡、暂停）。
+  registerRoutes({ ctx, runtime: RUNTIME, version: PKG.version })
 
   // 启动时打一行，便于确认插件真的挂上了。
   try {

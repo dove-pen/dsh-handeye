@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "system_inspect",
+  "title": "系统状态巡检",
+  "origin": "builtin",
+  "version": 1,
+  "delivery": "start",
+  "autonomy": "readonly",
+  "goal": "只读检查系统状态：磁盘占用、内存、CPU、启动项、服务异常，输出一份简报。",
+  "constraints": [
+    "只读，不修改任何系统设置",
+    "不重启、不关机、不卸载",
+    "启动项和服务只列异常，不动手",
+    "发现风险时给出建议，由用户决定是否处理"
+  ],
+  "success": "简报覆盖磁盘、内存、CPU 和异常项，并标明数据来源。",
+  "onFailure": "某项命令不可用时跳过并记录原因，继续其余检查。",
+  "capabilities": [],
+  "params": {},
+  "enabled": true
+}

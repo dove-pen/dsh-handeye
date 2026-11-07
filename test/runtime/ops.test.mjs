@@ -156,3 +156,25 @@ test('checkPrecondition text_present reads the screen', async () => {
   const missing = await ops.checkPrecondition({ check: 'text_present', text: '不存在的文字' })
   assert.equal(missing.ok, false)
 })
+
+test('browser open waits for the page body, and read_text sees it', async () => {
+  let polls = 0
+  const { ops, calls } = setup({
+    browserText: () => (polls++ < 2 ? '' : 'Example Domain'),
+  })
+  const ctx = { vars: {} }
+  const opened = await ops.run({ op: 'open_url', url: 'https://example.com', channel: 'browser' }, ctx)
+  assert.equal(opened.ok, true)
+  assert.ok(calls.some((c) => c[0] === 'btext'), 'open_url polls the page text')
+
+  const read = await ops.run({ op: 'read_text', as: 'body' }, ctx)
+  assert.equal(read.ok, true)
+  assert.equal(ctx.vars.body, 'Example Domain')
+})
+
+test('read_text fails instead of succeeding on an empty source', async () => {
+  const { ops } = setup({ viewText: '   ' })
+  const result = await ops.run({ op: 'read_text', as: 'text' }, { vars: {} })
+  assert.equal(result.ok, false)
+  assert.match(result.message, /no text/i)
+})

@@ -77,6 +77,13 @@ export function createOps({ primitives, sleep = (ms) => new Promise((r) => setTi
         if (step.channel === 'browser') {
           const opened = await primitives.browserOpen(step.url)
           ctx.browserMode = 'browser'
+          // The CDP page needs a moment before its body text exists.
+          const deadline = clock() + 8000
+          while (clock() < deadline) {
+            const page = await primitives.browserText()
+            if (page?.ok && String(page.text ?? '').trim()) break
+            await sleep(250)
+          }
           result = { ok: opened?.ok !== false, message: opened?.message, brief: brief(step.url) }
         } else {
           const launched = await primitives.launch(step.url)
@@ -113,6 +120,10 @@ export function createOps({ primitives, sleep = (ms) => new Promise((r) => setTi
         const read = await sourceText(ctx)
         if (!read.ok) {
           result = { ok: false, message: read.message }
+          break
+        }
+        if (!String(read.text ?? '').trim() && !step.pattern) {
+          result = { ok: false, message: 'no text could be read from the current source' }
           break
         }
         if (step.pattern) {

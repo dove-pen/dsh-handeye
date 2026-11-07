@@ -3,7 +3,13 @@
 
 import { runHandeye, codeMeaning } from '../handeye.js'
 import { openUrl, pageText } from '../browser.js'
-import { launchApp } from '../desk.js'
+import { launchApp, listWindows } from '../desk.js'
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function isWebTarget(target) {
+  return /^https?:\/\//i.test(String(target))
+}
 
 function wrap(result) {
   const ok = result?.ok === true
@@ -27,6 +33,34 @@ export function createPrimitives({
     async launch(target) {
       try {
         await launch(String(target))
+        if (!isWebTarget(target)) return { ok: true }
+
+        // A URL opens in a browser window, but it may stay behind the current
+        // window. Find it and focus it so later read/wait steps see the page.
+        const host = (() => {
+          try {
+            return new URL(String(target)).hostname.replace(/^www\./i, '')
+          } catch {
+            return ''
+          }
+        })()
+        const deadline = Date.now() + 10000
+        while (Date.now() < deadline) {
+          try {
+            const windows = await listWindows()
+            const hit = windows.find((w) => {
+              const title = String(w.title || '')
+              return /chrome|edge|firefox|brave|opera/i.test(title) || (host && title.toLowerCase().includes(host))
+            })
+            if (hit) {
+              const focused = await run(['focus', String(hit.title || 'Chrome')], { timeoutMs: 8000 })
+              if (focused.ok) return { ok: true }
+            }
+          } catch {
+            // window enumeration is best effort
+          }
+          await sleep(400)
+        }
         return { ok: true }
       } catch (error) {
         return { ok: false, message: error instanceof Error ? error.message : String(error) }
