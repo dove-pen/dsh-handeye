@@ -310,6 +310,9 @@ export function validateCard(card) {
       add('capabilities', 'must be an array of capability slugs')
     }
   }
+  if (card.directCapability !== undefined && !isSlug(card.directCapability)) {
+    add('directCapability', 'must be a capability slug')
+  }
 
   const paramsResult = validateParamSchema(card.params ?? {})
   if (!paramsResult.ok) errors.push(...paramsResult.errors)

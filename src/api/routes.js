@@ -45,6 +45,9 @@ function stateSnapshot(runtime, version) {
     episodeId: s.episodeId,
     budget: { steps: s.budget.steps, maxSteps: s.budget.maxSteps, startedAt: s.budget.startedAt },
     allowedTools: s.allowedTools,
+    path: s.path,
+    pathIndex: s.pathIndex,
+    actionsSinceCheckpoint: s.actionsSinceCheckpoint,
     meta: { version, dataDir: runtime.dataDir },
   }
 }
@@ -152,6 +155,35 @@ export function registerRoutes({ ctx, runtime, version }) {
         return sendJson(res, result.ok ? 200 : 400, result)
       })
 
+      reg('/dsh-handeye-plus/cards/run', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const card = await runtime.cards.get(String(body.id || ''))
+        if (!card.ok) return sendJson(res, 404, { ok: false, error: card.message })
+        const name = card.value.directCapability
+        if (!name) return sendJson(res, 400, { ok: false, error: 'this card has no direct capability' })
+
+        const found = await runtime.capabilities.get(name)
+        if (!found.ok) return sendJson(res, 404, { ok: false, error: found.message })
+        const capability = found.value
+        if (capability.status !== 'enabled') {
+          return sendJson(res, 400, { ok: false, error: `capability "${name}" is ${capability.status}` })
+        }
+        if (capability.risk !== 'read') {
+          return sendJson(res, 400, { ok: false, error: 'direct run is limited to read-only capabilities' })
+        }
+        if (capability.firstRunConfirmed !== true) {
+          const granted = runtime.confirm.consumeFor(name, 'read')
+          if (!granted.ok) {
+            return sendJson(res, 409, { ok: false, error: 'CONFIRM_REQUIRED', name })
+          }
+          await runtime.capabilities.markFirstRun(name)
+        }
+        const result = await runtime.executor.run(capability, body.params ?? {}, { confirmed: true })
+        await runtime.capabilities.recordRun(name, { ok: result.ok, error: result.ok ? '' : result.message })
+        return sendJson(res, 200, { ok: true, name, result })
+      })
+
       reg('/dsh-handeye-plus/grant', async (req, res) => {
         if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
         const body = await readBody(req)
@@ -177,6 +209,7 @@ export function registerRoutes({ ctx, runtime, version }) {
           if (!intent) return sendJson(res, 400, { ok: false, error: 'intent is required' })
           const episodeId = runtime.startEpisode(intent, {
             allowedTools: Array.isArray(body.allowedTools) ? body.allowedTools : undefined,
+            path: Array.isArray(body.path) ? body.path : undefined,
           })
           return sendJson(res, 200, { ...stateSnapshot(runtime, version), episodeId })
         } else {

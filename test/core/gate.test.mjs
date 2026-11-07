@@ -62,6 +62,17 @@ test('risk classification reaches the gate', () => {
   assert.equal(destructive.risk, 'destructive')
 })
 
+test('path deviation refuses actions until a checkpoint', () => {
+  const state = stateIn(STATES.RUNNING)
+  state.path = ['find the page', 'read the value']
+  state.pathIndex = 0
+  state.actionsSinceCheckpoint = 3
+  const refused = canAct(state, 'hand_click', { x: 1, y: 2 })
+  assert.equal(refused.ok, false)
+  assert.equal(refused.code, ERR.PATH_DEVIATION)
+  assert.equal(canAct(state, 'eye_see', {}).ok, true, 'reads are still allowed')
+})
+
 test('budget exhaustion refuses actions', () => {
   const state = stateIn(STATES.RUNNING)
   state.budget.maxSteps = 1

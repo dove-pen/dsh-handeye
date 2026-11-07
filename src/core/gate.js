@@ -6,7 +6,7 @@
 //   3. What risk class does the action carry (does it need confirmation)?
 
 import { ERR } from './errors.js'
-import { STATES, checkBudget } from './state.js'
+import { STATES, checkBudget, PATH_ACTION_LIMIT } from './state.js'
 import {
   classifyRisk,
   isActionTool,
@@ -50,10 +50,20 @@ export function canAct(state, tool, args = {}, now = Date.now()) {
     }
   }
 
-  if (action && state.state === STATES.RUNNING) {
-    const budget = checkBudget(state, now)
-    if (!budget.ok) {
-      return { ok: false, code: budget.code, message: budget.reason }
+  if (action) {
+    const path = Array.isArray(state.path) ? state.path : []
+    if (path.length && state.pathIndex < path.length && state.actionsSinceCheckpoint >= PATH_ACTION_LIMIT) {
+      return {
+        ok: false,
+        code: ERR.PATH_DEVIATION,
+        message: `Path step ${state.pathIndex + 1} (${path[state.pathIndex]}) needs an episode_checkpoint before more actions`,
+      }
+    }
+    if (state.state === STATES.RUNNING) {
+      const budget = checkBudget(state, now)
+      if (!budget.ok) {
+        return { ok: false, code: budget.code, message: budget.reason }
+      }
     }
   }
 

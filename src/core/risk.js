@@ -4,6 +4,7 @@ export const META_TOOLS = new Set([
   'episode_begin',
   'episode_query',
   'episode_replan',
+  'episode_checkpoint',
   'pause_request',
 ])
 

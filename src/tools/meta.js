@@ -3,7 +3,7 @@
 // These are the only tools allowed to run while PAUSED or REPLAN_REQUIRED,
 // because they are how the model gets back into a legal state.
 
-import { beginEpisode, pause, satisfyReplan } from '../core/state.js'
+import { beginEpisode, pause, satisfyReplan, checkpoint } from '../core/state.js'
 import { newEpisodeId } from '../memory/episodes.js'
 
 const TEXT_OUTPUT = 'text'
@@ -99,6 +99,29 @@ export function createMetaTools({ state, episodes, onBegin }) {
           return `Re-plan accepted, but the runtime is ${state.state}; resume it first.`
         }
         return 'Plan accepted. Actions are allowed again; you must follow this plan.'
+      },
+    },
+    {
+      name: 'episode_checkpoint',
+      description:
+        'Record that the current step of the declared task path is done, and unlock the next step. Task cards define a path; after a few actions in one step the gate refuses further actions until this is called.',
+      parameters: {
+        type: 'object',
+        properties: {
+          summary: { type: 'string', description: 'What was actually done in this step.' },
+        },
+        required: ['summary'],
+      },
+      timeoutMs: 10000,
+      isConcurrencySafe: () => true,
+      async execute(args) {
+        const summary = text(args?.summary).trim()
+        if (!summary) return 'episode_checkpoint needs a short summary of what was done'
+        const result = checkpoint(state, summary)
+        if (!result.ok) return `episode_checkpoint: ${result.message}`
+        return result.done
+          ? `Path complete (${result.index} steps).`
+          : `Step ${result.index} done. Next: ${result.next}`
       },
     },
     {

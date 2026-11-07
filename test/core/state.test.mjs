@@ -5,6 +5,7 @@ import {
   STATES,
   beginEpisode,
   checkBudget,
+  checkpoint,
   createState,
   endEpisode,
   interjectConstraint,
@@ -97,6 +98,30 @@ test('the step budget pauses the runtime', () => {
   const budget = checkBudget(state)
   assert.equal(budget.ok, false)
   assert.equal(state.state, STATES.PAUSED)
+})
+
+test('path checkpoints advance and reset the action counter', () => {
+  const state = createState()
+  beginEpisode(state, 'x', { path: ['first', 'second'] })
+  noteAction(state, 'eye_see', {})
+  noteAction(state, 'eye_see', {})
+  assert.equal(state.actionsSinceCheckpoint, 2)
+
+  const first = checkpoint(state, 'did first')
+  assert.equal(first.ok, true)
+  assert.equal(first.done, false)
+  assert.equal(first.next, 'second')
+  assert.equal(state.actionsSinceCheckpoint, 0)
+
+  const second = checkpoint(state, 'did second')
+  assert.equal(second.done, true)
+  assert.equal(checkpoint(state, 'again').ok, false)
+})
+
+test('checkpoint fails when no path is active', () => {
+  const state = createState()
+  beginEpisode(state, 'x')
+  assert.equal(checkpoint(state, 'nothing').ok, false)
 })
 
 test('the time budget pauses the runtime', () => {

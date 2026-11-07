@@ -204,7 +204,11 @@ export function apply(ctx) {
     /** Called by the UI when a task card is sent: no extra model round-trip. */
     startEpisode(intent, opts = {}) {
       const id = newEpisodeId(new Date())
-      beginEpisode(runtimeState, intent, { episodeId: id, allowedTools: opts.allowedTools })
+      beginEpisode(runtimeState, intent, {
+        episodeId: id,
+        allowedTools: opts.allowedTools,
+        path: opts.path,
+      })
       startActiveEpisode({ id, intent })
       return id
     },

@@ -900,11 +900,14 @@ window.__ModuleLoader__.load({
           if (!s) return
           const paused = s.state === 'PAUSED'
           const replan = s.state === 'REPLAN_REQUIRED' || s.needsReplan
-          stateBar.classList.toggle('on', paused || replan)
+          const pathActive =
+            !paused && !replan && Array.isArray(s.path) && s.path.length > 0 && s.pathIndex < s.path.length
+          stateBar.classList.toggle('on', paused || replan || pathActive)
           stateBar.classList.toggle('paused', paused)
-          stateBar.classList.toggle('replan', !paused && replan)
+          stateBar.classList.toggle('replan', (!paused && replan) || pathActive)
           if (paused) stateText.textContent = `已暂停：${s.reason || '等待用户恢复'}`
           if (!paused && replan) stateText.textContent = `等待 AI 复述计划：${s.reason || ''}`
+          if (pathActive) stateText.textContent = `路径 ${s.pathIndex + 1}/${s.path.length}：${s.path[s.pathIndex]}`
           stateResume.style.display = paused ? '' : 'none'
           stateResume.onclick = async () => {
             await postJson('/dsh-handeye-plus/control', { action: 'resume' })
@@ -994,6 +997,32 @@ window.__ModuleLoader__.load({
             send.onclick = () => sendCard(card)
             row.appendChild(send)
 
+            const status = mk('div')
+            status.style.cssText = 'font-size:10.5px;margin-top:5px;color:var(--he-muted);white-space:pre-wrap'
+
+            if (card.directCapability) {
+              const run = mk('button', 'dsh-he-btn', '直接运行')
+              run.onclick = async () => {
+                run.disabled = true
+                status.style.color = 'var(--he-muted)'
+                status.textContent = '运行中…'
+                const res = await postJson('/dsh-handeye-plus/cards/run', { id: card.id })
+                run.disabled = false
+                if (res.ok && res.result?.ok) {
+                  status.style.color = '#7fd19a'
+                  status.textContent = `直接运行完成：${JSON.stringify(res.result.value || {}).slice(0, 300)}`
+                } else if (res.error === 'CONFIRM_REQUIRED') {
+                  status.style.color = '#ffc184'
+                  status.textContent = '需要授权：去「能力」页点「授权本次」，再试'
+                } else {
+                  status.style.color = '#ff8080'
+                  status.textContent = `直接运行失败：${res.error || res.result?.message || 'unknown error'}`
+                }
+                void loadCaps()
+              }
+              row.appendChild(run)
+            }
+
             const detail = mk('button', 'dsh-he-btn', '详情')
             detail.onclick = () => {
               goal.textContent = [
@@ -1011,6 +1040,7 @@ window.__ModuleLoader__.load({
             item.appendChild(title)
             item.appendChild(goal)
             item.appendChild(row)
+            item.appendChild(status)
             pageCards.appendChild(item)
           }
         }
@@ -1099,6 +1129,7 @@ window.__ModuleLoader__.load({
             action: 'begin',
             intent: card.title,
             allowedTools: card.allowedTools && card.allowedTools.length ? card.allowedTools : toolsForCard(card),
+            path: card.path,
           }).catch(() => {})
           fillComposer(box, text)
           window.setTimeout(() => {

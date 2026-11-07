@@ -3,7 +3,7 @@
   "id": "screenshot_report",
   "title": "截图并汇报",
   "origin": "builtin",
-  "version": 2,
+  "version": 3,
   "delivery": "both",
   "autonomy": "readonly",
   "goal": "截取当前屏幕或指定窗口，保存为 PNG，然后说明图里有什么、是否正常。",
@@ -29,5 +29,6 @@
     "确认要截的窗口",
     "截图并保存",
     "说明图中内容与是否正常"
-  ]
+  ],
+  "directCapability": "screenshot_window"
 }

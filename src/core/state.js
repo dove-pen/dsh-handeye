@@ -15,6 +15,7 @@ export const STATES = Object.freeze({
 const MIN_REPLAN_CHARS = 12
 const REPEAT_LIMIT = 3
 const FAILURE_LIMIT = 3
+export const PATH_ACTION_LIMIT = 3
 
 export function createState(opts = {}) {
   return {
@@ -33,6 +34,9 @@ export function createState(opts = {}) {
     },
     recent: [],
     failures: 0,
+    path: [],
+    pathIndex: 0,
+    actionsSinceCheckpoint: 0,
   }
 }
 
@@ -51,6 +55,9 @@ export function beginEpisode(state, intent, opts = {}) {
   state.intent = String(intent ?? '')
   state.episodeId = String(opts.episodeId ?? '')
   state.allowedTools = Array.isArray(opts.allowedTools) ? [...opts.allowedTools] : null
+  state.path = Array.isArray(opts.path) ? opts.path.map((step) => String(step)).filter(Boolean).slice(0, 12) : []
+  state.pathIndex = 0
+  state.actionsSinceCheckpoint = 0
   resetBudget(state)
   return state
 }
@@ -61,6 +68,9 @@ export function endEpisode(state, reason = '') {
   state.needsReplan = false
   state.replanPlan = ''
   state.allowedTools = null
+  state.path = []
+  state.pathIndex = 0
+  state.actionsSinceCheckpoint = 0
   return state
 }
 
@@ -120,6 +130,9 @@ export function fingerprint(tool, args) {
  */
 export function noteAction(state, tool, args, ok = true) {
   state.budget.steps += 1
+  if (Array.isArray(state.path) && state.path.length && state.pathIndex < state.path.length) {
+    state.actionsSinceCheckpoint += 1
+  }
   state.recent.push(fingerprint(tool, args))
   if (state.recent.length > REPEAT_LIMIT + 3) state.recent.shift()
   state.failures = ok ? 0 : state.failures + 1
@@ -160,6 +173,26 @@ export function checkBudget(state, now = Date.now()) {
 
 export function isRunning(state) {
   return state.state === STATES.RUNNING
+}
+
+/** Advance one declared path step. Called by the episode_checkpoint tool. */
+export function checkpoint(state, summary = '') {
+  if (!Array.isArray(state.path) || state.path.length === 0) {
+    return { ok: false, message: 'No path is active for this episode' }
+  }
+  if (state.pathIndex >= state.path.length) {
+    return { ok: false, message: 'Path is already complete' }
+  }
+  state.pathIndex += 1
+  state.actionsSinceCheckpoint = 0
+  const done = state.pathIndex >= state.path.length
+  return {
+    ok: true,
+    done,
+    index: state.pathIndex,
+    next: done ? null : state.path[state.pathIndex],
+    summary: String(summary ?? ''),
+  }
 }
 
 export function isPaused(state) {

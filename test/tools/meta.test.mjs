@@ -64,6 +64,23 @@ test('episode_query lists formatted rows', async () => {
   assert.match(out, /check balance/)
 })
 
+test('episode_checkpoint advances the path', async () => {
+  const { state, byName } = setup()
+  state.state = STATES.RUNNING
+  state.path = ['first step', 'second step']
+  state.pathIndex = 0
+  state.actionsSinceCheckpoint = 2
+
+  const out = await byName('episode_checkpoint').execute({ summary: 'did the first step' })
+  assert.match(out, /Step 1 done/)
+  assert.match(out, /second step/)
+  assert.equal(state.pathIndex, 1)
+  assert.equal(state.actionsSinceCheckpoint, 0)
+
+  const done = await byName('episode_checkpoint').execute({ summary: 'did the second step' })
+  assert.match(done, /Path complete/)
+})
+
 test('episode_query shows one episode as JSON', async () => {
   const ep = { id: 'ep_1', steps: [] }
   const { byName } = setup({ read: async () => ({ ok: true, value: ep }) })

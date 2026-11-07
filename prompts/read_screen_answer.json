@@ -3,7 +3,7 @@
   "id": "read_screen_answer",
   "title": "看屏回答问题",
   "origin": "builtin",
-  "version": 2,
+  "version": 3,
   "delivery": "both",
   "autonomy": "readonly",
   "goal": "读取当前屏幕上的内容，回答用户的问题；找不到依据就明说找不到，不要猜。",
@@ -23,5 +23,6 @@
     "读取当前窗口文字",
     "定位与问题相关的原文",
     "用原文回答；找不到就明说"
-  ]
+  ],
+  "directCapability": "read_active_window"
 }
