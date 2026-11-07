@@ -10,11 +10,11 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { createState, noteAction } from './core/state.js'
+import { createState, noteAction, beginEpisode } from './core/state.js'
 import { canAct } from './core/gate.js'
 import { isActionTool, isMetaTool } from './core/risk.js'
 import { redactDeep, redactText } from './memory/redact.js'
-import { createEpisodeStore } from './memory/episodes.js'
+import { createEpisodeStore, newEpisodeId } from './memory/episodes.js'
 import { createCapabilityStore } from './memory/capabilities.js'
 import { createCardStore } from './memory/cards.js'
 import { createConfirmStore } from './runtime/confirm.js'
@@ -192,7 +192,23 @@ export function apply(ctx) {
   const primitives = createPrimitives()
   const ops = createOps({ primitives })
   const executor = createExecutor({ state: runtimeState, ops, confirm: confirmStore })
-  RUNTIME = { state: runtimeState, episodes, capabilities, cards, confirm: confirmStore, executor, dataDir, logger: ctx.logger }
+  RUNTIME = {
+    state: runtimeState,
+    episodes,
+    capabilities,
+    cards,
+    confirm: confirmStore,
+    executor,
+    dataDir,
+    logger: ctx.logger,
+    /** Called by the UI when a task card is sent: no extra model round-trip. */
+    startEpisode(intent, opts = {}) {
+      const id = newEpisodeId(new Date())
+      beginEpisode(runtimeState, intent, { episodeId: id, allowedTools: opts.allowedTools })
+      startActiveEpisode({ id, intent })
+      return id
+    },
+  }
   try {
     ctx.effect(() => () => {
       void flushActive('unloaded')

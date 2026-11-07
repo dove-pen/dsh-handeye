@@ -172,6 +172,13 @@ export function registerRoutes({ ctx, runtime, version }) {
           resumeByUser(runtime.state)
         } else if (action === 'replan') {
           satisfyReplan(runtime.state, String(body.plan || ''))
+        } else if (action === 'begin') {
+          const intent = String(body.intent || '').trim()
+          if (!intent) return sendJson(res, 400, { ok: false, error: 'intent is required' })
+          const episodeId = runtime.startEpisode(intent, {
+            allowedTools: Array.isArray(body.allowedTools) ? body.allowedTools : undefined,
+          })
+          return sendJson(res, 200, { ...stateSnapshot(runtime, version), episodeId })
         } else {
           return sendJson(res, 400, { ok: false, error: `unknown action: ${action}` })
         }

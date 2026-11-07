@@ -795,6 +795,16 @@ window.__ModuleLoader__.load({
           } catch { }
         }
 
+        function episodeTiming(ep) {
+          const start = new Date(ep.startedAt).getTime()
+          const end = ep.endedAt ? new Date(ep.endedAt).getTime() : null
+          const tool = (ep.steps || []).reduce((sum, step) => sum + (Number(step.ms) || 0), 0)
+          if (!end || Number.isNaN(start) || Number.isNaN(end)) return '进行中'
+          const wall = Math.max(0, end - start)
+          const decision = Math.max(0, wall - tool)
+          return `总 ${(wall / 1000).toFixed(1)}s · 执行 ${(tool / 1000).toFixed(1)}s · 决策 ${(decision / 1000).toFixed(1)}s`
+        }
+
         function renderEpisodes(episodes) {
           // Do not wipe an inline "save as capability" form that the user is editing.
           if (episodeCard.querySelector('input')) return
@@ -812,15 +822,21 @@ window.__ModuleLoader__.load({
             const row = mk('div')
             row.style.cssText =
               'display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid rgba(255,255,255,.05);font-size:11.5px'
+            const info = mk('div')
+            info.style.cssText = 'flex:1;min-width:0'
             const label = mk(
-              'span',
+              'div',
               '',
               `${String(ep.startedAt || '').slice(11, 16)}  ${ep.intent?.text || ep.intent || '（无意图）'}  ${ep.outcome || ''}`,
             )
-            label.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--he-text,#e8e8ea)'
+            label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--he-text,#e8e8ea)'
+            const metrics = mk('div', '', episodeTiming(ep))
+            metrics.style.cssText = 'font-size:10.5px;color:var(--he-muted);margin-top:2px'
+            info.appendChild(label)
+            info.appendChild(metrics)
             const saveBtn = mk('button', 'dsh-he-btn', '存成能力')
             saveBtn.onclick = () => beginSaveEpisode(ep, row)
-            row.appendChild(label)
+            row.appendChild(info)
             row.appendChild(saveBtn)
             episodeCard.appendChild(row)
           }
@@ -1008,7 +1024,7 @@ window.__ModuleLoader__.load({
           if (card.onFailure) lines.push(`失败时：${card.onFailure}`)
           if (card.capabilities && card.capabilities.length) lines.push(`可用能力：${card.capabilities.join('、')}`)
           if (card.allowedTools && card.allowedTools.length) lines.push(`允许工具：${card.allowedTools.join(', ')}`)
-          lines.push('开始前先调用 episode_begin 声明任务；中途收到插话要先复述计划再继续。')
+          lines.push('任务已开始（episode 已记录），直接执行；需要重新规划时调用 episode_replan。')
           return lines.join('\n')
         }
 
@@ -1031,13 +1047,20 @@ window.__ModuleLoader__.load({
           box.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }))
         }
 
-        function sendCard(card) {
+        async function sendCard(card) {
           const text = formatCard(card)
           const box = findComposer()
           if (!box) {
             pageCards.prepend(mk('div', 'dsh-he-msg', '没有找到输入框，请先打开一个会话再试。'))
             return
           }
+          // Start the episode server-side so the model does not spend a round-trip
+          // on episode_begin.
+          await postJson('/dsh-handeye-plus/control', {
+            action: 'begin',
+            intent: card.title,
+            allowedTools: card.allowedTools,
+          }).catch(() => {})
           fillComposer(box, text)
           window.setTimeout(() => {
             const sendBtn = [...document.querySelectorAll('button')].find((b) => {
