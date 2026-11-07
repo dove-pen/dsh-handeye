@@ -162,6 +162,42 @@ function elapsed(started) {
   return Math.max(0, Date.now() - started)
 }
 
+
+/**
+ * 判据路径的敏感目录黑名单。
+ *
+ * 为什么是黑名单而不是白名单：这是给普通人用的开源插件，开箱就得能用 ——
+ * 白名单要求先配置一个根目录，配不明白就用不了，用户会直接把检查关掉。
+ * 黑名单默认挡住"看一眼就知道会出事"的地方（系统目录、凭证目录、浏览器配置），
+ * 让 `text` 判据没法当成"读你私钥"的 1 比特探针。
+ *
+ * 它只是减速带，不是沙箱：判据以用户权限运行，真要读什么还是读得到。
+ */
+const SENSITIVE = [
+  /\\windows\\/i,
+  /\\program files/i,
+  /\\programdata\\/i,
+  /\\\.ssh\\/i,
+  /\\\.aws\\/i,
+  /\\\.azure\\/i,
+  /\\\.gnupg\\/i,
+  /\\appdata\\local\\microsoft\\credentials/i,
+  /\\appdata\\roaming\\microsoft\\crypto/i,
+  /\\appdata\\local\\google\\chrome\\user data/i,
+  /\\appdata\\local\\microsoft\\edge\\user data/i,
+  /\\appdata\\roaming\\mozilla\\firefox/i,
+]
+const SENSITIVE_EXT = /\.(pem|key|pfx|p12|kdbx|ovpn|ppk|kwallet)$/i
+
+/** 这个路径是否落在不该被验收判据碰的地方。 */
+export function isSensitivePath(target) {
+  const path = String(target ?? '')
+  if (!path) return false
+  const normalized = path.replace(/\//g, '\\')
+  if (SENSITIVE_EXT.test(normalized)) return true
+  return SENSITIVE.some((re) => re.test(normalized))
+}
+
 async function runOne(check, vars, deps) {
   const started = Date.now()
   const base = { type: check.type, target: '', ok: false, expected: '', actual: '', ms: 0 }
@@ -186,6 +222,13 @@ async function runOne(check, vars, deps) {
 
   // 2) Ask the dependency layer.
   try {
+    if ((resolved.type === 'file' || resolved.type === 'text') && isSensitivePath(resolved.path || resolved.file)) {
+      base.ok = false
+      base.expected = '不是一个敏感的目录/文件'
+      base.actual = '路径落在敏感目录（系统目录、凭证目录或密钥文件），拒绝用作验收判据'
+      base.ms = elapsed(started)
+      return base
+    }
     if (resolved.type === 'file') {
       const exists = await deps.exists(resolved.path)
       const size = exists ? await deps.size(resolved.path) : 0

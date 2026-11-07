@@ -191,3 +191,28 @@ test('countFailures counts the failed checks', () => {
   assert.equal(countFailures(null), 0)
   assert.equal(countFailures({ checks: [] }), 0)
 })
+
+test('acceptance checks refuse to read credential and system paths', async () => {
+  const base = {
+    exists: async () => true,
+    size: async () => 999,
+    readText: async () => 'PRIVATE KEY',
+    screenText: async () => '',
+    findOnScreen: async () => true,
+    runCommand: async () => ({ code: 0, stdout: '', stderr: '' }),
+    screenChanged: async () => true,
+  }
+  const cases = [
+    { type: 'text', file: 'C:\\Users\\x\\.ssh\\id_rsa', appear: 'PRIVATE KEY' },
+    { type: 'text', file: 'C:\\Windows\\System32\\drivers\\etc\\hosts', appear: 'localhost' },
+    { type: 'file', path: 'D:\\proj\\secret.pem', minBytes: 1 },
+  ]
+  for (const check of cases) {
+    const out = await runChecks([check], {}, base)
+    assert.equal(out.ok, false, '敏感路径必须判失败：' + JSON.stringify(check))
+    assert.match(out.checks[0].actual, /敏感/)
+  }
+  // 正常路径不受影响
+  const fine = await runChecks([{ type: 'file', path: 'D:\\proj\\out.md', minBytes: 1 }], {}, base)
+  assert.equal(fine.ok, true)
+})

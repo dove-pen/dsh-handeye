@@ -289,6 +289,23 @@ export function registerRoutes({ ctx, runtime, version }) {
       })
 
       // 人工放行：只写 override.json，下一次 checkpoint/step_done 消费掉
+      reg('/dsh-handeye-plus/confirm/pending', async (req, res) => {
+        if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
+        const pending = typeof runtime.pendingConfirm === 'function' ? runtime.pendingConfirm() : null
+        return sendJson(res, 200, { ok: true, pending })
+      })
+
+      // 用户点"允许一次"：只放行这一个工具的下一次调用，两分钟内有效。
+      reg('/dsh-handeye-plus/confirm', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const tool = String(body.tool || '').trim()
+        if (!tool) return sendJson(res, 400, { ok: false, error: 'tool is required' })
+        if (typeof runtime.grantConfirm !== 'function') return sendJson(res, 500, { ok: false, error: 'confirm channel unavailable' })
+        const granted = runtime.grantConfirm(tool)
+        return sendJson(res, 200, { ok: true, ...granted })
+      })
+
       reg('/dsh-handeye-plus/goals/override', async (req, res) => {
         if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
         const body = await readBody(req)

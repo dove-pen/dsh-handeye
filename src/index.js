@@ -136,6 +136,32 @@ function recordActivity(tool, args, ok, brief, ms) {
 
 // 运行时会话（状态机、存储、执行器）。apply 时创建，工具层通过它过闸。
 let RUNTIME = null
+
+// 破坏性动作的人工确认：面板上点"允许一次"写这里，下一次同工具调用消费掉。
+// 刻意只放在内存里 —— 重启即失效，不留下可被复用的长期授权。
+const GRANT_MS = 120000
+let PENDING_CONFIRM = null
+let GRANTED = null
+
+function notePendingConfirm(tool, args) {
+  PENDING_CONFIRM = { tool: String(tool), args: redactDeep(args && typeof args === 'object' ? args : {}), at: new Date().toISOString() }
+}
+
+function grantConfirm(tool) {
+  GRANTED = { tool: String(tool), expiresAt: Date.now() + GRANT_MS }
+  return { tool: GRANTED.tool, expiresAt: new Date(GRANTED.expiresAt).toISOString() }
+}
+
+function takeGrant(tool) {
+  if (!GRANTED || GRANTED.tool !== String(tool)) return false
+  if (Date.now() > GRANTED.expiresAt) {
+    GRANTED = null
+    return false
+  }
+  GRANTED = null
+  PENDING_CONFIRM = null
+  return true
+}
 // 当前正在记录的 episode（内存里攒，结束后写盘）。
 let ACTIVE = null
 
@@ -171,7 +197,12 @@ function reg(ctx, def) {
 
       // 动作前的唯一闸门：暂停 / 重规划 / 工具白名单 / 预算。
       if (RUNTIME && !isMetaTool(name)) {
-        const verdict = canAct(RUNTIME.state, name, args ?? {})
+        let verdict = canAct(RUNTIME.state, name, args ?? {})
+        if (!verdict.ok && verdict.code === 'CONFIRM_REQUIRED') {
+          // 用户刚在面板上点了"允许一次" -> 放行这一次
+          if (takeGrant(name)) verdict = { ok: true, code: 'CONFIRMED', risk: verdict.risk }
+          else notePendingConfirm(name, args ?? {})
+        }
         if (!verdict.ok) {
           noteRefusal(verdict.code)
           const message = `Refused: ${verdict.code}${verdict.message ? ` — ${verdict.message}` : ''}`
@@ -247,6 +278,9 @@ export function apply(ctx) {
     executor,
     dataDir,
     logger: ctx.logger,
+    /** 破坏性动作的待确认请求（给面板显示"允许一次"）。 */
+    pendingConfirm: () => PENDING_CONFIRM,
+    grantConfirm,
     /** Gate refusal counters, read by /metrics. */
     refusals: () => ({ ...REFUSALS }),
     /** Called by the UI when a task card is sent: no extra model round-trip. */

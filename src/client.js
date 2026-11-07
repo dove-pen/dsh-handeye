@@ -77,6 +77,7 @@ window.__ModuleLoader__.load({
           --he-dim: var(--dsw-alias-label-tertiary, #74747f);
           --he-line: var(--dsw-alias-border-l2, #2e2e38);
           --he-hover: var(--dsw-alias-interactive-bg-hover, #26262f);
+          --he-border: var(--dsw-alias-border-l2, #2e2e38);
           position: fixed; inset: 0 0 0 auto; z-index: 2147483000;
           width: 430px; max-width: 94vw; pointer-events: none;
           font: 12px/1.5 system-ui, "Noto Sans SC", "Microsoft YaHei", sans-serif;
@@ -344,8 +345,16 @@ window.__ModuleLoader__.load({
         const stateText = stateBar.querySelector('.txt')
         const stateResume = stateBar.querySelector('button')
 
+        // 破坏性动作的确认条：AI 想执行一个看起来危险的动作时，只有用户能放行
+        const confirmBar = document.createElement('div')
+        confirmBar.className = 'dsh-he-statebar'
+        confirmBar.style.cssText =
+          'background:rgba(255,107,107,.14);color:#ff9d9d;flex-wrap:wrap;gap:6px'
+        confirmBar.style.display = 'none'
+
         const pageToday = document.createElement('div')
         pageToday.className = 'dsh-he-page on'
+        pageToday.appendChild(confirmBar)
         for (const el of [kpis, distCard, failsCard, episodeCard, bar, list]) pageToday.appendChild(el)
 
         const pageCaps = document.createElement('div')
@@ -866,6 +875,34 @@ window.__ModuleLoader__.load({
           } catch { }
         }
 
+        async function loadConfirm() {
+          try {
+            const res = await fetch('/dsh-handeye-plus/confirm/pending', { credentials: 'same-origin' })
+            if (!res.ok) return
+            const payload = await res.json()
+            const pending = payload && payload.ok ? payload.pending : null
+            if (!pending) {
+              confirmBar.style.display = 'none'
+              return
+            }
+            confirmBar.replaceChildren()
+            confirmBar.appendChild(mk('span', '', `AI 想执行 ${pending.tool}（看起来是破坏性动作），要允许一次吗？`))
+            const yes = mk('button', 'dsh-he-btn', '允许一次')
+            yes.onclick = async () => {
+              yes.disabled = true
+              await postJson('/dsh-handeye-plus/confirm', { tool: pending.tool }).catch(() => null)
+              await loadConfirm()
+            }
+            confirmBar.appendChild(yes)
+            const no = mk('button', 'dsh-he-btn danger', '拒绝')
+            no.onclick = () => {
+              confirmBar.style.display = 'none'
+            }
+            confirmBar.appendChild(no)
+            confirmBar.style.display = 'flex'
+          } catch { }
+        }
+
         async function loadEpisodes() {
           try {
             const res = await fetch('/dsh-handeye-plus/episodes?limit=20', { credentials: 'same-origin' })
@@ -1212,6 +1249,9 @@ window.__ModuleLoader__.load({
           await postJson('/dsh-handeye-plus/control', {
             action: 'begin',
             intent: card.title,
+            // 必须带 cardId：不带的话客户端拿到的是"没有验收判据"的 episode，
+            // 卡片上写的验收规则（含 verify）等于白写。
+            cardId: card.id,
             allowedTools: card.allowedTools && card.allowedTools.length ? card.allowedTools : toolsForCard(card),
             path: card.path,
           }).catch(() => {})
@@ -1691,7 +1731,10 @@ window.__ModuleLoader__.load({
         void loadEpisodes()
         const timer = setInterval(refresh, POLL_MS)
         const topTabTimer = setInterval(mountEntry, 2000)
-        const stateTimer = setInterval(loadState, 2000)
+        const stateTimer = setInterval(() => {
+          void loadState()
+          void loadConfirm()
+        }, 2000)
         const pageTimer = setInterval(() => {
           if (tab === 'today') void loadEpisodes()
           else if (tab === 'caps') void loadCaps()
@@ -1711,6 +1754,7 @@ window.__ModuleLoader__.load({
           document.querySelectorAll('[data-dsh-he-tab]').forEach((node) => node.remove())
           document.removeEventListener('click', onTopTabClick, true)
           document.removeEventListener('keydown', onKey)
+        document.removeEventListener('click', onEntryClick, true)
           root.remove()
         }
         ctx.effect(() => dispose)

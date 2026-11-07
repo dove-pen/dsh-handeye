@@ -105,5 +105,16 @@ export function canAct(state, tool, args = {}, now = Date.now()) {
 
   const risk = classifyRisk(name, args)
   if (risk === 'read') return { ok: true, code: 'READ', risk }
-  return { ok: true, code: 'CONFIRM_REQUIRED', risk }
+  // 破坏性动作必须先拿到"允许一次"的令牌：以前这里返回 ok:true + CONFIRM_REQUIRED，
+  // 而调用方只看 ok —— 于是二次确认从来没发生过，全部直接放行。
+  if (risk === 'destructive') {
+    return {
+      ok: false,
+      code: ERR.CONFIRM_REQUIRED,
+      risk,
+      message:
+        'This looks destructive. Ask the user to approve it once in the panel ("允许一次"), then call it again.',
+    }
+  }
+  return { ok: true, code: 'WRITE', risk }
 }

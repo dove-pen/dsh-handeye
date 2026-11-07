@@ -55,11 +55,15 @@ test('risk classification reaches the gate', () => {
   assert.equal(read.risk, 'read')
 
   const write = canAct(state, 'hand_click', { x: 1, y: 2 })
-  assert.equal(write.code, 'CONFIRM_REQUIRED')
+  assert.equal(write.code, 'WRITE')
   assert.equal(write.risk, 'write')
+  assert.equal(write.ok, true)
 
+  // 破坏性动作必须真的被拦下，等用户点"允许一次"（以前这里返回 ok:true，等于没拦）
   const destructive = canAct(state, 'hand_type', { text: '删除整个文件夹' })
   assert.equal(destructive.risk, 'destructive')
+  assert.equal(destructive.ok, false)
+  assert.equal(destructive.code, ERR.CONFIRM_REQUIRED)
 })
 
 test('path deviation refuses actions until a checkpoint', () => {
