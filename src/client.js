@@ -1729,13 +1729,19 @@ window.__ModuleLoader__.load({
         refresh()
         void loadState()
         void loadEpisodes()
-        const timer = setInterval(refresh, POLL_MS)
+        const timer = setInterval(() => {
+          // 切到后台标签页就别轮询了：面板收起后继续打路由既费电也没人看
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+          void refresh()
+        }, POLL_MS)
         const topTabTimer = setInterval(mountEntry, 2000)
         const stateTimer = setInterval(() => {
+          if (!open) return
           void loadState()
           void loadConfirm()
         }, 2000)
         const pageTimer = setInterval(() => {
+          if (!open) return
           if (tab === 'today') void loadEpisodes()
           else if (tab === 'caps') void loadCaps()
           else if (tab === 'cards') void loadCards()
