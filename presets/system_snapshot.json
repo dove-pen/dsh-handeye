@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "system_snapshot",
+  "title": "系统状态快照",
+  "description": "Read a brief, read-only snapshot of the machine: time, OS, uptime, memory, CPU count and disk free space. No settings are changed.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {},
+  "preconditions": [],
+  "steps": [
+    { "op": "system_info", "scope": "brief", "as": "text" }
+  ],
+  "postconditions": [{ "assert": "isset", "var": "text" }],
+  "outputs": ["text"]
+}

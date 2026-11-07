@@ -3,7 +3,7 @@
   "id": "daily_brief",
   "title": "每日简报",
   "origin": "builtin",
-  "version": 2,
+  "version": 4,
   "delivery": "start",
   "autonomy": "readonly",
   "goal": "生成一份只读的每日简报：系统磁盘与内存、当前时间、最近日志中的错误、待办文件。",
@@ -23,5 +23,6 @@
     "读取最近日志中的错误",
     "列出待办文件",
     "按四项输出简报"
-  ]
+  ],
+  "directCapability": "system_snapshot"
 }

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "system_deep",
+  "title": "系统深度巡检",
+  "description": "Read a read-only system report: time, OS, uptime, memory, disks, top processes by memory and application error count in the last 24 hours.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {},
+  "preconditions": [],
+  "steps": [
+    { "op": "system_info", "scope": "full", "as": "text" }
+  ],
+  "postconditions": [{ "assert": "isset", "var": "text" }],
+  "outputs": ["text"]
+}

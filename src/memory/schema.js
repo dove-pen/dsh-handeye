@@ -17,6 +17,7 @@ export const CAPABILITY_OPS = new Set([
   'assert_text',
   'screenshot',
   'scroll_to_text',
+  'system_info',
 ])
 
 export const CAPABILITY_RISKS = ['read', 'write', 'destructive']
@@ -211,6 +212,12 @@ function validateSteps(steps, add) {
         break
       case 'scroll_to_text':
         if (!isString(step.text, 1, 500)) add(`${at}.text`, 'must be a non-empty string')
+        break
+      case 'system_info':
+        if (step.scope !== undefined && step.scope !== 'brief' && step.scope !== 'full') {
+          add(`${at}.scope`, 'must be brief or full')
+        }
+        if (step.as !== undefined && !isSlug(step.as)) add(`${at}.as`, 'must be a slug')
         break
       case 'screenshot':
         if (step.path !== undefined && !isString(step.path, 1, 500)) add(`${at}.path`, 'must be a string')

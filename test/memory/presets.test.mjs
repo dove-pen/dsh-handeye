@@ -10,7 +10,7 @@ const presetsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 
 test('every preset is a valid capability', async () => {
   const files = (await readdir(presetsDir)).filter((n) => n.endsWith('.json'))
-  assert.equal(files.length, 6, 'expected exactly six presets')
+  assert.equal(files.length, 8, 'expected exactly eight presets')
 
   const names = new Set()
   for (const file of files) {

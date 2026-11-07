@@ -164,6 +164,17 @@ export function createOps({ primitives, sleep = (ms) => new Promise((r) => setTi
         result = { ok: shot?.ok !== false, message: shot?.message, brief: target }
         break
       }
+      case 'system_info': {
+        const info = await primitives.systemInfo(step.scope === 'full' ? 'full' : 'brief')
+        if (!info?.ok) {
+          result = { ok: false, message: info?.message || 'system info failed' }
+          break
+        }
+        const key = step.as || 'text'
+        vars[key] = info.text
+        result = { ok: true, brief: brief(info.text, 200) }
+        break
+      }
       case 'scroll_to_text': {
         result = { ok: false, message: 'scroll_to_text is not supported yet' }
         break

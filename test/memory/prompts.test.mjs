@@ -36,6 +36,9 @@ test('every task card is valid, unique and references an existing capability', a
     for (const name of card.capabilities ?? []) {
       assert.ok(known.has(name), `${file} references unknown capability ${name}`)
     }
+    if (card.directCapability) {
+      assert.ok(known.has(card.directCapability), `${file} direct capability ${card.directCapability} is missing`)
+    }
   }
 })
 

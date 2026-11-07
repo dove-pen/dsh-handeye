@@ -50,6 +50,10 @@ function fakePrimitives(options = {}) {
         calls.push(['btext'])
         return { ok: true, text: typeof browserText === 'function' ? browserText(polls++) : browserText }
       },
+      async systemInfo(scope) {
+        calls.push(['sysinfo', scope])
+        return { ok: true, text: 'time=2026-11-07T12:00:00 mem_free_gb=4.2' }
+      },
     },
   }
 }
@@ -146,6 +150,15 @@ test('unknown ops fail with a clear message', async () => {
   const result = await ops.run({ op: 'teleport' }, { vars: {} })
   assert.equal(result.ok, false)
   assert.match(result.message, /unsupported op/)
+})
+
+test('system_info stores the report in the requested variable', async () => {
+  const { ops, calls } = setup()
+  const ctx = { vars: {} }
+  const result = await ops.run({ op: 'system_info', scope: 'full', as: 'report' }, ctx)
+  assert.equal(result.ok, true)
+  assert.match(ctx.vars.report, /mem_free_gb/)
+  assert.ok(calls.some((c) => c[0] === 'sysinfo' && c[1] === 'full'))
 })
 
 test('checkPrecondition text_present reads the screen', async () => {

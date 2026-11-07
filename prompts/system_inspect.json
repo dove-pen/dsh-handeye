@@ -3,7 +3,7 @@
   "id": "system_inspect",
   "title": "系统状态巡检",
   "origin": "builtin",
-  "version": 2,
+  "version": 4,
   "delivery": "start",
   "autonomy": "readonly",
   "goal": "只读检查系统状态：磁盘占用、内存、CPU、启动项、服务异常，输出一份简报。",
@@ -23,5 +23,6 @@
     "读取内存与 CPU",
     "列出异常启动项与服务",
     "输出简报，不自动处理"
-  ]
+  ],
+  "directCapability": "system_deep"
 }

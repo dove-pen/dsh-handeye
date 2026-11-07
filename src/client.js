@@ -787,7 +787,7 @@ window.__ModuleLoader__.load({
 
         async function loadEpisodes() {
           try {
-            const res = await fetch('/dsh-handeye-plus/episodes?limit=5', { credentials: 'same-origin' })
+            const res = await fetch('/dsh-handeye-plus/episodes?limit=20', { credentials: 'same-origin' })
             if (!res.ok) return
             const payload = await res.json()
             if (!payload.ok) return
@@ -814,11 +814,14 @@ window.__ModuleLoader__.load({
             return
           }
           episodeCard.style.display = ''
-          const heading = mk('div', '', '最近任务')
-          heading.style.cssText = 'font-size:11.5px;color:var(--he-muted);margin-bottom:6px'
+          const success = episodes.filter((ep) => ep.outcome === 'success').length
+          const direct = episodes.filter((ep) => ep.intent?.source === 'card-direct').length
+          const rate = episodes.length ? Math.round((success / episodes.length) * 100) : 0
+          const heading = mk('div', '', `最近 ${episodes.length} 个任务 · 成功 ${success} · 成功率 ${rate}% · 直通 ${direct}`)
+          heading.style.cssText = 'font-size:11px;color:var(--he-muted);margin-bottom:6px'
           episodeCard.appendChild(heading)
 
-          for (const ep of episodes) {
+          for (const ep of episodes.slice(0, 5)) {
             const row = mk('div')
             row.style.cssText =
               'display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid rgba(255,255,255,.05);font-size:11.5px'

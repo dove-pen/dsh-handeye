@@ -1,6 +1,7 @@
 // Real primitives behind the capability ops: handeye for input/observation,
 // the CDP browser for page text, UIA launch for opening URLs.
 
+import { execFile } from 'node:child_process'
 import { runHandeye, codeMeaning } from '../handeye.js'
 import { openUrl, pageText } from '../browser.js'
 import { launchApp, listWindows } from '../desk.js'
@@ -117,6 +118,39 @@ export function createPrimitives({
       } catch (error) {
         return { ok: false, message: error instanceof Error ? error.message : String(error) }
       }
+    },
+
+    systemInfo(scope = 'brief') {
+      const full = scope === 'full'
+      const script = [
+        '$os = Get-CimInstance Win32_OperatingSystem',
+        '$cs = Get-CimInstance Win32_ComputerSystem',
+        '"time=" + (Get-Date -Format s)',
+        '"os=" + $os.Caption',
+        '"uptime_hours=" + [math]::Round(((Get-Date) - $os.LastBootUpTime).TotalHours, 1)',
+        '"mem_total_gb=" + [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)',
+        '"mem_free_gb=" + [math]::Round($os.FreePhysicalMemory / 1MB, 1)',
+        '"cpu_logical=" + $cs.NumberOfLogicalProcessors',
+        'Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -ne $null } | ForEach-Object { "disk_" + $_.Name + "_free_gb=" + [math]::Round($_.Free / 1GB, 1) + " used_gb=" + [math]::Round($_.Used / 1GB, 1) }',
+        ...(full
+          ? [
+              '"top_processes="',
+              'Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 3 | ForEach-Object { "proc " + $_.ProcessName + " mem_mb=" + [math]::Round($_.WorkingSet64 / 1MB) }',
+              '"recent_errors_24h=" + (Get-WinEvent -FilterHashtable @{LogName="Application"; Level=1,2; StartTime=(Get-Date).AddHours(-24)} -ErrorAction SilentlyContinue | Measure-Object).Count',
+            ]
+          : []),
+      ].join('; ')
+      return new Promise((resolve) => {
+        execFile(
+          'powershell.exe',
+          ['-NoProfile', '-NonInteractive', '-Command', script],
+          { timeout: 20000, windowsHide: true, maxBuffer: 1024 * 1024, encoding: 'utf8' },
+          (error, stdout, stderr) => {
+            if (error) resolve({ ok: false, message: String(stderr || error.message).trim() })
+            else resolve({ ok: true, text: String(stdout || '').trim() })
+          },
+        )
+      })
     },
   }
 }

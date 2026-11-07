@@ -6,6 +6,7 @@
 
 import { createLogReader } from '../runtime/logReader.js'
 import { compileEpisode } from '../runtime/compile.js'
+import { newEpisodeId } from '../memory/episodes.js'
 import { runHandeye } from '../handeye.js'
 import { pause, resumeByUser, satisfyReplan } from '../core/state.js'
 
@@ -179,9 +180,18 @@ export function registerRoutes({ ctx, runtime, version }) {
           }
           await runtime.capabilities.markFirstRun(name)
         }
+        const started = Date.now()
         const result = await runtime.executor.run(capability, body.params ?? {}, { confirmed: true })
         await runtime.capabilities.recordRun(name, { ok: result.ok, error: result.ok ? '' : result.message })
-        return sendJson(res, 200, { ok: true, name, result })
+        await runtime.episodes.append({
+          id: newEpisodeId(new Date()),
+          startedAt: new Date(started).toISOString(),
+          endedAt: new Date().toISOString(),
+          intent: { text: card.value.title, source: 'card-direct' },
+          steps: [{ seq: 1, tool: 'capability', args: { name }, ok: result.ok, ms: Date.now() - started }],
+          outcome: result.ok ? 'success' : 'failure',
+        })
+        return sendJson(res, 200, { ok: true, name, result, ms: Date.now() - started })
       })
 
       reg('/dsh-handeye-plus/grant', async (req, res) => {
