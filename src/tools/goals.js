@@ -245,6 +245,15 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
         }
         if (verdict && verdict.ok === false) {
           const recorded = await goals.recordVerifyFailure(goalId, stepId, firstFailure(verdict))
+          // 失败也要留记录，否则 passRate 只有分子没有分母
+          await goals.appendRun(goalId, {
+            stepId,
+            promptId: step.promptId ?? null,
+            episodeId: state.episodeId || null,
+            verify: 'fail',
+            summary: String(summary).slice(0, 200),
+            detail: firstFailure(verdict),
+          })
           const blocked = Boolean(recorded.ok && recorded.value?.blocked)
           // 只有真被 blocked 才离开这一步；只挂一次的话步骤还是 doing，
           // 否则模型会丢掉步骤绑定，接着动手就会被步骤门拒得莫名其妙。

@@ -108,6 +108,13 @@ const TEXT_OUTPUT = {
 
 // 活动记录：给界面用的"刚才做了什么"。只放内存，最多 200 条，进程重启即清空。
 // 这是给人看的，不是为了审计——真要审计去查 handeye 的七段日志（yl_log）。
+// 门卫拒绝计数（按错误码）。/metrics 用它算"拦下越界"这类数字。
+const REFUSALS = Object.create(null)
+function noteRefusal(code) {
+  if (!code) return
+  REFUSALS[code] = (REFUSALS[code] || 0) + 1
+}
+
 const ACTIVITY = []
 const ACTIVITY_MAX = 200
 
@@ -166,6 +173,7 @@ function reg(ctx, def) {
       if (RUNTIME && !isMetaTool(name)) {
         const verdict = canAct(RUNTIME.state, name, args ?? {})
         if (!verdict.ok) {
+          noteRefusal(verdict.code)
           const message = `Refused: ${verdict.code}${verdict.message ? ` — ${verdict.message}` : ''}`
           recordActivity(name, args, false, message, 0)
           return message
@@ -236,6 +244,8 @@ export function apply(ctx) {
     executor,
     dataDir,
     logger: ctx.logger,
+    /** Gate refusal counters, read by /metrics. */
+    refusals: () => ({ ...REFUSALS }),
     /** Called by the UI when a task card is sent: no extra model round-trip. */
     async startEpisode(intent, opts = {}) {
       const id = newEpisodeId(new Date())

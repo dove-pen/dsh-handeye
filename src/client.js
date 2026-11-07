@@ -235,6 +235,22 @@ window.__ModuleLoader__.load({
         .dsh-he-filters { display: flex; gap: 5px; padding: 0 12px 8px; flex-wrap: wrap; align-items: center; }
         .dsh-he-filters input { flex: 1; min-width: 80px; background: var(--he-hover, rgba(255,255,255,.06)); border: 1px solid var(--he-border, rgba(255,255,255,.1)); color: var(--he-text, #e8e8ea); border-radius: 6px; padding: 4px 7px; font: inherit; font-size: 11.5px; }
         .dsh-he-msg { padding: 18px 12px; font-size: 12px; color: var(--he-muted); }
+        .dsh-he-gm { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin: 10px 12px 4px; }
+        .dsh-he-gm div { background: var(--he-hover, rgba(255,255,255,.05)); border-radius: 7px; padding: 6px 4px; text-align: center; }
+        .dsh-he-gm b { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+        .dsh-he-gm span { font-size: 9.5px; color: var(--he-muted); }
+        .dsh-he-gform { display: grid; gap: 6px; margin: 8px 12px; padding: 9px 10px; border: 1px dashed var(--he-border, rgba(255,255,255,.14)); border-radius: 8px; }
+        .dsh-he-gform input, .dsh-he-gform textarea { background: var(--he-hover, rgba(255,255,255,.06)); border: 1px solid var(--he-border, rgba(255,255,255,.1)); color: var(--he-text, #e8e8ea); border-radius: 6px; padding: 5px 7px; font: inherit; font-size: 11.5px; resize: vertical; }
+        .dsh-he-gform .hint { font-size: 10.5px; color: var(--he-muted); line-height: 1.5; }
+        .dsh-he-gstep { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 11.5px; }
+        .dsh-he-gstep .mk { width: 12px; text-align: center; flex: none; }
+        .dsh-he-gstep .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--he-text, #e8e8ea); }
+        .dsh-he-gstep.doing .nm { color: #ffc184; }
+        .dsh-he-gstep.blocked .nm { color: #ff9d9d; }
+        .dsh-he-gstep.done .nm { color: var(--he-muted); text-decoration: line-through; }
+        .dsh-he-gstep .act { display: flex; gap: 4px; flex: none; }
+        .dsh-he-gpick { margin: 6px 0 2px; padding: 6px 8px; border-radius: 7px; background: var(--he-hover, rgba(255,255,255,.05)); }
+        .dsh-he-gpick button { display: block; width: 100%; text-align: left; margin-top: 4px; }
       `
       let el = document.getElementById(ID)
       if (!el) {
@@ -287,6 +303,7 @@ window.__ModuleLoader__.load({
             <button data-tab="today" class="on">今天</button>
             <button data-tab="caps">能力</button>
             <button data-tab="cards">任务卡</button>
+            <button data-tab="goals">目标</button>
             <button data-tab="log">日志</button>
           </div>
         `
@@ -332,6 +349,8 @@ window.__ModuleLoader__.load({
         pageCaps.className = 'dsh-he-page'
         const pageCards = document.createElement('div')
         pageCards.className = 'dsh-he-page'
+        const pageGoals = document.createElement('div')
+        pageGoals.className = 'dsh-he-page'
         const pageLog = document.createElement('div')
         pageLog.className = 'dsh-he-page'
 
@@ -339,6 +358,7 @@ window.__ModuleLoader__.load({
         scroll.appendChild(pageToday)
         scroll.appendChild(pageCaps)
         scroll.appendChild(pageCards)
+        scroll.appendChild(pageGoals)
         scroll.appendChild(pageLog)
 
         const meta = document.createElement('div')
@@ -759,18 +779,20 @@ window.__ModuleLoader__.load({
         function setTab(next) {
           tab = next
           for (const b of tabEls) b.classList.toggle('on', b.dataset.tab === next)
-          const pages = { today: pageToday, caps: pageCaps, cards: pageCards, log: pageLog }
+          const pages = { today: pageToday, caps: pageCaps, cards: pageCards, goals: pageGoals, log: pageLog }
           for (const [key, page] of Object.entries(pages)) page.classList.toggle('on', key === next)
           subEl.textContent =
             {
               today: 'AI 最近用这套工具干了什么',
               caps: '记忆下来的操作，第二次不用再想',
               cards: '选一张任务卡直接发给 AI',
+              goals: '长期目标 / 分项步骤：一跳步就被拒',
               log: 'handeye 七段日志：谁、做了什么、成没成',
             }[next] || ''
           if (next === 'today') void loadEpisodes()
           if (next === 'caps') void loadCaps()
           if (next === 'cards') void loadCards()
+          if (next === 'goals') void loadGoals()
           if (next === 'log') void loadLog()
         }
 
@@ -1148,6 +1170,337 @@ window.__ModuleLoader__.load({
           }, 80)
         }
 
+        // ---------------------------------------------------------------- 目标页
+        //
+        // 这一页只做三件事：看进度、建目标/写步骤、以及在需要人拍板的时候把人叫来。
+        // 真正的执行一律通过"往对话框里发一句话"交给模型，界面不偷偷改运行状态。
+        let goalsCache = []
+        let goalMetrics = null
+        let openGoalId = ''
+        let goalFormOpen = false
+        let planDraftFor = ''
+        let pickerFor = ''
+        let editFor = null // { kind: 'override' | 'skip', stepId }
+        let cardListCache = null
+        let planDraft = ''
+        let goalFormName = ''
+        let goalFormLong = ''
+        let editReason = ''
+
+        async function loadGoals() {
+          try {
+            const [g, m] = await Promise.all([
+              fetch('/dsh-handeye-plus/goals', { credentials: 'same-origin' })
+                .then((r) => (r.ok ? r.json() : null))
+                .catch(() => null),
+              fetch('/dsh-handeye-plus/metrics', { credentials: 'same-origin' })
+                .then((r) => (r.ok ? r.json() : null))
+                .catch(() => null),
+            ])
+            if (g && g.ok) goalsCache = Array.isArray(g.goals) ? g.goals : []
+            if (m && m.ok) goalMetrics = m
+          } catch { }
+          renderGoals()
+        }
+
+        async function loadCardList() {
+          if (cardListCache) return cardListCache
+          try {
+            const res = await fetch('/dsh-handeye-plus/cards', { credentials: 'same-origin' })
+            const payload = await res.json()
+            cardListCache = payload && payload.ok && Array.isArray(payload.value) ? payload.value : []
+          } catch {
+            cardListCache = []
+          }
+          return cardListCache
+        }
+
+        /** 把一句话放进输入框并发出去：界面的所有"继续/选提示词"都走这条路。 */
+        async function sendToChat(text) {
+          const box = findComposer()
+          if (!box) {
+            pageGoals.prepend(mk('div', 'dsh-he-msg', '没有找到输入框，请先打开一个会话。'))
+            return false
+          }
+          fillComposer(box, text)
+          await new Promise((r) => window.setTimeout(r, 80))
+          const sendBtn = [...document.querySelectorAll('button')].find((b) => {
+            const label = `${b.getAttribute('aria-label') || ''} ${b.title || ''}`
+            return /发送消息|send message/i.test(label) && !b.disabled
+          })
+          if (sendBtn) sendBtn.click()
+          else
+            box.dispatchEvent(
+              new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+            )
+          return true
+        }
+
+        function goalStepMark(status) {
+          return { todo: '○', doing: '▸', done: '✓', blocked: '×', skipped: '-' }[status] || '?'
+        }
+
+        function renderGoals() {
+          pageGoals.replaceChildren()
+
+          // 指标条
+          const m = goalMetrics
+          const strip = mk('div', 'dsh-he-gm')
+          const cells = m
+            ? [
+                ['目标', `${m.goals.active}/${m.goals.total}`],
+                ['步骤', `${m.steps.done}/${m.steps.total}`],
+                ['验收通过', m.passRate === null ? '—' : `${Math.round(m.passRate * 100)}%`],
+                ['拦下越界', String(m.deviationRefused)],
+                ['人工放行', String(m.overrides)],
+                ['卡住', String(m.blockedSteps)],
+              ]
+            : [['目标', '—'], ['步骤', '—'], ['验收通过', '—'], ['拦下越界', '—'], ['人工放行', '—'], ['卡住', '—']]
+          for (const [label, value] of cells) {
+            const cell = mk('div')
+            cell.appendChild(mk('b', '', value))
+            cell.appendChild(mk('span', '', label))
+            strip.appendChild(cell)
+          }
+          pageGoals.appendChild(strip)
+
+          // 新建按钮 / 表单
+          const headRow = mk('div', 'dsh-he-filters')
+          const newBtn = mk('button', 'dsh-he-btn', goalFormOpen ? '取消' : '+ 新建目标')
+          newBtn.onclick = () => {
+            goalFormOpen = !goalFormOpen
+            renderGoals()
+          }
+          headRow.appendChild(newBtn)
+          const refreshBtn = mk('button', 'dsh-he-btn', '刷新')
+          refreshBtn.onclick = () => void loadGoals()
+          headRow.appendChild(refreshBtn)
+          pageGoals.appendChild(headRow)
+
+          if (goalFormOpen) pageGoals.appendChild(buildGoalForm())
+
+          if (!goalsCache.length) {
+            pageGoals.appendChild(mk('div', 'dsh-he-msg', '还没有目标。新建一个，写上你真正想达成的事，再拆成几步。'))
+            return
+          }
+
+          for (const goal of goalsCache) {
+            const item = mk('div', 'dsh-he-item')
+            const title = mk('div', 't')
+            const dot = mk('span', '', goal.status === 'active' ? '●' : '○')
+            dot.style.color = goal.status === 'active' ? '#7fd19a' : 'var(--he-muted)'
+            title.appendChild(dot)
+            title.appendChild(mk('b', '', goal.title))
+            title.appendChild(mk('span', 'dsh-he-badge', `${goal.done}/${goal.total} 步`))
+            item.appendChild(title)
+
+            const open = openGoalId === goal.id
+            const line = mk('div', 'g', open ? goal.longTermGoal || '' : summarizeLine(goal))
+            item.appendChild(line)
+
+            const row = mk('div', 'row')
+            const toggle = mk('button', 'dsh-he-btn', open ? '收起' : '打开')
+            toggle.onclick = () => {
+              openGoalId = open ? '' : goal.id
+              planDraftFor = ''
+              pickerFor = ''
+              editFor = null
+              renderGoals()
+            }
+            row.appendChild(toggle)
+            item.appendChild(row)
+
+            if (open) item.appendChild(buildGoalDetail(goal))
+            pageGoals.appendChild(item)
+          }
+        }
+
+        function summarizeLine(goal) {
+          const doing = (goal.steps || []).find((s) => s.status === 'doing')
+          const blocked = (goal.steps || []).find((s) => s.status === 'blocked')
+          const next = (goal.steps || []).find((s) => s.status === 'todo')
+          if (blocked) return `卡在 ${blocked.id}：${blocked.title}`
+          if (doing) return `进行中 ${doing.id}：${doing.title}`
+          if (next) return `下一步 ${next.id}：${next.title}`
+          return '所有步骤都做完了'
+        }
+
+        function buildGoalForm() {
+          const form = mk('div', 'dsh-he-gform')
+          form.appendChild(mk('div', 'hint', '长期目标写你真正想达成的事；步骤可以留空，之后让 AI 拆。'))
+          const name = mk('input')
+          name.placeholder = '目标名字（短一点）'
+          name.value = goalFormName
+          name.oninput = () => { goalFormName = name.value }
+          const long = mk('textarea')
+          long.rows = 3
+          long.placeholder = '长期目标：用自己的话写，AI 会照这个走'
+          long.value = goalFormLong
+          long.oninput = () => { goalFormLong = long.value }
+          const create = mk('button', 'dsh-he-btn', '创建')
+          create.onclick = async () => {
+            const title = name.value.trim()
+            const longTermGoal = long.value.trim()
+            if (!title || !longTermGoal) {
+              form.appendChild(mk('div', 'hint', '名字和长期目标都要填。'))
+              return
+            }
+            create.disabled = true
+            await postJson('/dsh-handeye-plus/goals', { title, longTermGoal }).catch(() => null)
+            goalFormName = ''
+            goalFormLong = ''
+            goalFormOpen = false
+            await loadGoals()
+          }
+          form.appendChild(name)
+          form.appendChild(long)
+          const row = mk('div', 'row')
+          row.appendChild(create)
+          form.appendChild(row)
+          return form
+        }
+
+        function buildGoalDetail(goal) {
+          const wrap = mk('div')
+          wrap.style.cssText = 'margin-top:8px'
+
+          // 步骤：先给个可编辑清单
+          if (planDraftFor === goal.id) {
+            const form = mk('div', 'dsh-he-gform')
+            form.appendChild(mk('div', 'hint', '一行一步，保存后编号是 s1、s2……'))
+            const area = mk('textarea')
+            area.rows = 5
+            area.value = planDraft
+            area.oninput = () => { planDraft = area.value }
+            const save = mk('button', 'dsh-he-btn', '保存步骤')
+            save.onclick = async () => {
+              const steps = area.value.split('\n').map((s) => s.trim()).filter(Boolean).map((title) => ({ title }))
+              if (!steps.length) return
+              save.disabled = true
+              await postJson('/dsh-handeye-plus/goals/plan', { id: goal.id, steps }).catch(() => null)
+              planDraftFor = ''
+              await loadGoals()
+            }
+            form.appendChild(area)
+            form.appendChild(save)
+            wrap.appendChild(form)
+          }
+
+          for (const step of goal.steps || []) {
+            const row = mk('div', `dsh-he-gstep ${step.status}`)
+            row.appendChild(mk('span', 'mk', goalStepMark(step.status)))
+            row.appendChild(mk('span', 'nm', `${step.id} ${step.title}${step.promptId ? ` · ${step.promptId}` : ''}`))
+            const act = mk('span', 'act')
+            if (step.status === 'todo' || step.status === 'doing' || step.status === 'blocked') {
+              const go = mk('button', 'dsh-he-btn', step.status === 'doing' ? '继续' : '开始')
+              go.onclick = () =>
+                void sendToChat(
+                  `继续目标「${goal.title}」：先 goal_step_enter ${goal.id} ${step.id}，然后按这一步的要求做；做完调 goal_step_done。`,
+                )
+              act.appendChild(go)
+
+              const pick = mk('button', 'dsh-he-btn', '选提示词')
+              pick.onclick = () => {
+                pickerFor = pickerFor === step.id ? '' : step.id
+                void loadCardList().then(() => renderGoals())
+                renderGoals()
+              }
+              act.appendChild(pick)
+
+              if (step.status === 'blocked' || step.status === 'doing') {
+                const allow = mk('button', 'dsh-he-btn', '放行')
+                allow.onclick = () => {
+                  editFor = { kind: 'override', stepId: step.id }
+                  renderGoals()
+                }
+                act.appendChild(allow)
+              }
+              const skip = mk('button', 'dsh-he-btn danger', '跳过')
+              skip.onclick = () => {
+                editFor = { kind: 'skip', stepId: step.id }
+                renderGoals()
+              }
+              act.appendChild(skip)
+            }
+            row.appendChild(act)
+            wrap.appendChild(row)
+
+            if (pickerFor === step.id) wrap.appendChild(buildPicker(goal, step))
+            if (editFor && editFor.stepId === step.id) wrap.appendChild(buildEditBox(goal, step))
+          }
+
+          // 底部操作
+          const foot = mk('div', 'row')
+          const editing = planDraftFor === goal.id
+          const editPlan = mk('button', 'dsh-he-btn', editing ? '取消编辑' : '编辑步骤')
+          editPlan.onclick = () => {
+            planDraftFor = editing ? '' : goal.id
+            planDraft = (goal.steps || []).map((s) => s.title).join('\n')
+            renderGoals()
+          }
+          foot.appendChild(editPlan)
+
+          const statusBtn = mk('button', 'dsh-he-btn', goal.status === 'active' ? '暂停目标' : '恢复目标')
+          statusBtn.onclick = async () => {
+            statusBtn.disabled = true
+            await postJson('/dsh-handeye-plus/goals/set', {
+              id: goal.id,
+              status: goal.status === 'active' ? 'paused' : 'active',
+            }).catch(() => null)
+            await loadGoals()
+          }
+          foot.appendChild(statusBtn)
+          wrap.appendChild(foot)
+          return wrap
+        }
+
+        function buildPicker(goal, step) {
+          const box = mk('div', 'dsh-he-gpick')
+          box.appendChild(mk('div', 'hint', '选一张任务卡，界面上会把它连到这一步发出去'))
+          const list = cardListCache || []
+          if (!list.length) {
+            box.appendChild(mk('div', 'hint', '没有可用的任务卡。'))
+            return box
+          }
+          for (const card of list.slice(0, 12)) {
+            const btn = mk('button', 'dsh-he-btn', `${card.title}（${(card.verify || []).length ? '带验收' : '无验收'}）`)
+            btn.onclick = () => {
+              pickerFor = ''
+              void sendToChat(
+                `用任务卡「${card.title}」来做目标「${goal.title}」的 ${step.id}：` +
+                  `先 goal_step_enter ${goal.id} ${step.id} promptId=${card.id}，缺什么参数就问我。`,
+              )
+            }
+            box.appendChild(btn)
+          }
+          return box
+        }
+
+        function buildEditBox(goal, step) {
+          const box = mk('div', 'dsh-he-gpick')
+          const input = mk('input')
+          input.placeholder = editFor.kind === 'override' ? '放行原因（会写进记录）' : '跳过原因（会写进记录）'
+          input.value = editReason
+          input.oninput = () => { editReason = input.value }
+          const ok = mk('button', 'dsh-he-btn', editFor.kind === 'override' ? '确认放行' : '确认跳过')
+          ok.onclick = async () => {
+            const reason = input.value.trim()
+            if (!reason) return
+            ok.disabled = true
+            if (editFor.kind === 'override') {
+              await postJson('/dsh-handeye-plus/goals/override', { goalId: goal.id, stepId: step.id, reason }).catch(() => null)
+            } else {
+              await sendToChat(`跳过目标「${goal.title}」的 ${step.id}（${step.title}），原因：${reason}。请调 goal_skip_step。`)
+            }
+            editFor = null
+            editReason = ''
+            await loadGoals()
+          }
+          box.appendChild(input)
+          box.appendChild(ok)
+          return box
+        }
+
         async function loadLog() {
           try {
             const query = new URLSearchParams({ tail: '200' })
@@ -1246,6 +1599,7 @@ window.__ModuleLoader__.load({
           if (tab === 'today') void loadEpisodes()
           else if (tab === 'caps') void loadCaps()
           else if (tab === 'cards') void loadCards()
+          else if (tab === 'goals') void loadGoals()
           else if (tab === 'log') void loadLog()
         }, 4000)
 

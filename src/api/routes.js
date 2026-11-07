@@ -8,6 +8,7 @@ import { createLogReader } from '../runtime/logReader.js'
 import { compileEpisode } from '../runtime/compile.js'
 import { newEpisodeId } from '../memory/episodes.js'
 import { summarizeGoal } from '../memory/goals.js'
+import { computeMetrics } from '../core/metrics.js'
 import { runHandeye } from '../handeye.js'
 import { pause, resumeByUser, satisfyReplan } from '../core/state.js'
 import { writeFile, mkdir } from 'node:fs/promises'
@@ -209,6 +210,14 @@ export function registerRoutes({ ctx, runtime, version }) {
           outcome: result.ok ? 'success' : 'failure',
         })
         return sendJson(res, 200, { ok: true, name, result, ms: Date.now() - started })
+      })
+
+      reg('/dsh-handeye-plus/metrics', async (req, res) => {
+        if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
+        const listed = await runtime.goals.list()
+        if (!listed.ok) return sendJson(res, 500, listed)
+        const refusals = typeof runtime.refusals === 'function' ? runtime.refusals() : {}
+        return sendJson(res, 200, { ok: true, ...computeMetrics({ goals: listed.value, refusals }) })
       })
 
       reg('/dsh-handeye-plus/goals', async (req, res) => {
