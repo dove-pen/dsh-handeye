@@ -50,7 +50,7 @@ export function canAct(state, tool, args = {}, now = Date.now()) {
     }
   }
 
-  if (action) {
+  if (action && state.state === STATES.RUNNING) {
     const budget = checkBudget(state, now)
     if (!budget.ok) {
       return { ok: false, code: budget.code, message: budget.reason }

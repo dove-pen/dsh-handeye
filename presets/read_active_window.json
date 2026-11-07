@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "read_active_window",
+  "title": "读取当前窗口",
+  "description": "Read the text of the foreground window (UI Automation first, OCR fallback) and return it as structured text.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {},
+  "preconditions": [],
+  "steps": [
+    { "op": "read_text", "as": "text" }
+  ],
+  "postconditions": [{ "assert": "isset", "var": "text" }],
+  "outputs": ["text"]
+}

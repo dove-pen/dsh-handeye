@@ -12,7 +12,7 @@ function text(value) {
   return String(value ?? '')
 }
 
-export function createMetaTools({ state, episodes }) {
+export function createMetaTools({ state, episodes, onBegin }) {
   return [
     {
       name: 'episode_begin',
@@ -37,6 +37,7 @@ export function createMetaTools({ state, episodes }) {
         if (!intent) return 'episode_begin requires a non-empty intent'
         const id = newEpisodeId(new Date())
         beginEpisode(state, intent, { episodeId: id, allowedTools: args?.allowedTools })
+        if (typeof onBegin === 'function') onBegin({ id, intent })
         return `Episode ${id} started: ${intent}`
       },
     },

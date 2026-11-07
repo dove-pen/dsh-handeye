@@ -30,3 +30,21 @@ test('refuses to mint for read actions', () => {
   const store = createConfirmStore()
   assert.throws(() => store.mint('read'))
 })
+
+test('a scoped grant is consumed once', () => {
+  const store = createConfirmStore()
+  store.grant('check_balance', 'read')
+  assert.equal(store.consumeFor('check_balance', 'read').ok, true)
+  assert.equal(store.consumeFor('check_balance', 'read').ok, false)
+})
+
+test('a scoped grant expires and checks its risk', () => {
+  let clock = 1000
+  const store = createConfirmStore({ ttlMs: 50, now: () => clock })
+  store.grant('cap', 'write')
+  clock += 500
+  assert.equal(store.consumeFor('cap', 'write').ok, false)
+
+  store.grant('cap', 'write')
+  assert.equal(store.consumeFor('cap', 'destructive').ok, false)
+})

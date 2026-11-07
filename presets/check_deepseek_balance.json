@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "check_deepseek_balance",
+  "title": "查 DeepSeek 余额",
+  "description": "Open the DeepSeek platform usage page and read the top-up balance. Requires an existing login in the debug browser; fails clearly when the page is not the logged-in usage page.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {},
+  "preconditions": [
+    { "check": "text_present", "text": "充值余额" }
+  ],
+  "steps": [
+    { "op": "open_url", "url": "https://platform.deepseek.com/usage" },
+    { "op": "wait_text", "text": "充值余额", "timeoutMs": 20000 },
+    { "op": "read_text", "pattern": "¥([0-9.]+)", "as": "balance" }
+  ],
+  "postconditions": [{ "assert": "isset", "var": "balance" }],
+  "outputs": ["balance"]
+}

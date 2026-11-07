@@ -9,6 +9,27 @@ const DEFAULT_TTL_MS = 2 * 60 * 1000
 
 export function createConfirmStore({ ttlMs = DEFAULT_TTL_MS, now = () => Date.now() } = {}) {
   const tokens = new Map()
+  const grants = new Map() // scope -> { risk, expiresAt }, minted by an explicit user action
+
+  function grant(scope, risk = 'write', reason = '') {
+    grants.set(String(scope), { risk, reason: String(reason), expiresAt: now() + ttlMs })
+  }
+
+  function consumeFor(scope, risk) {
+    const key = String(scope)
+    const entry = grants.get(key)
+    if (!entry) return { ok: false, message: 'No pending user confirmation for this action' }
+    if (entry.expiresAt < now()) {
+      grants.delete(key)
+      return { ok: false, message: 'User confirmation expired' }
+    }
+    if (entry.risk !== risk) {
+      return { ok: false, message: `Confirmation is for ${entry.risk}, not ${risk}` }
+    }
+    grants.delete(key)
+    return { ok: true, reason: entry.reason }
+  }
+
 
   function mint(risk, reason = '') {
     if (risk !== 'write' && risk !== 'destructive') {
@@ -48,5 +69,5 @@ export function createConfirmStore({ ttlMs = DEFAULT_TTL_MS, now = () => Date.no
     return tokens.size
   }
 
-  return { mint, consume, peek, size }
+  return { mint, consume, peek, size, grant, consumeFor }
 }

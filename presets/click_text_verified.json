@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "click_text_verified",
+  "title": "按文字点击并验证",
+  "description": "Click an element by its visible text, then wait for an expected change. Fails with the last screen when the change does not appear. This is a write action and needs confirmation.",
+  "risk": "write",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {
+    "text": { "type": "string", "required": true, "description": "Visible text to click." },
+    "expect": { "type": "string", "required": false, "default": "", "description": "Text that must appear after the click (optional)." }
+  },
+  "preconditions": [],
+  "steps": [
+    { "op": "click_text", "text": "${text}", "expect": "${expect}" }
+  ],
+  "postconditions": [],
+  "outputs": []
+}

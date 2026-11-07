@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "screenshot_window",
+  "title": "截图当前屏幕",
+  "description": "Save a screenshot of the current screen to a PNG file and return only its path.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {},
+  "preconditions": [],
+  "steps": [
+    { "op": "screenshot" }
+  ],
+  "postconditions": [],
+  "outputs": []
+}

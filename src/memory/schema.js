@@ -187,7 +187,9 @@ function validateSteps(steps, add) {
     }
     switch (step.op) {
       case 'open_url':
-        if (typeof step.url !== 'string' || !URL_RE.test(step.url)) add(`${at}.url`, 'must be an http(s) URL')
+        if (typeof step.url !== 'string' || !(URL_RE.test(step.url) || /^\$\{[a-zA-Z0-9_]+\}$/.test(step.url))) {
+          add(`${at}.url`, 'must be an http(s) URL or a ${param} placeholder')
+        }
         break
       case 'focus_window':
         if (!isString(step.title, 1, 200)) add(`${at}.title`, 'must be a non-empty string')
@@ -204,7 +206,8 @@ function validateSteps(steps, add) {
         if (!isString(step.key, 1, 80)) add(`${at}.key`, 'must be a non-empty string')
         break
       case 'read_text':
-        if (!isString(step.pattern ?? step.text ?? '', 1, 500)) add(`${at}.pattern`, 'must provide a pattern or text')
+        if (step.pattern !== undefined && !isString(step.pattern, 1, 500)) add(`${at}.pattern`, 'must be a non-empty string')
+        if (step.text !== undefined && !isString(step.text, 1, 500)) add(`${at}.text`, 'must be a non-empty string')
         break
       case 'scroll_to_text':
         if (!isString(step.text, 1, 500)) add(`${at}.text`, 'must be a non-empty string')

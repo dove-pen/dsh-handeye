@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "open_url_and_read",
+  "title": "打开网址并读取正文",
+  "description": "Open a URL in the dedicated debugging browser and return the visible page text. The debug browser uses its own profile and has no login state.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {
+    "url": { "type": "url", "required": true, "description": "Page URL." }
+  },
+  "preconditions": [],
+  "steps": [
+    { "op": "open_url", "url": "${url}" },
+    { "op": "read_text", "as": "text" }
+  ],
+  "postconditions": [{ "assert": "isset", "var": "text" }],
+  "outputs": ["text"]
+}

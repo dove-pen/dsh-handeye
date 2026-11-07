@@ -53,7 +53,7 @@ export function createExecutor({ state, ops, confirm, clock = () => Date.now() }
   if (!state) throw new TypeError('createExecutor requires state')
   if (!ops || typeof ops.run !== 'function') throw new TypeError('createExecutor requires ops.run')
 
-  async function run(cap, params = {}, { token } = {}) {
+  async function run(cap, params = {}, { token, confirmed = false } = {}) {
     if (!cap || typeof cap !== 'object' || !Array.isArray(cap.steps) || cap.steps.length === 0) {
       return failure(ERR.CAPABILITY_INVALID, 'Capability has no steps')
     }
@@ -65,7 +65,7 @@ export function createExecutor({ state, ops, confirm, clock = () => Date.now() }
     const gate = canAct(state, 'capability', { action: 'run', risk }, clock())
     if (!gate.ok) return failure(gate.code, gate.message)
 
-    if (risk !== 'read') {
+    if (risk !== 'read' && !confirmed) {
       const grant = confirm?.consume?.(token, risk)
       if (!grant || grant.ok !== true) {
         return {
@@ -89,6 +89,7 @@ export function createExecutor({ state, ops, confirm, clock = () => Date.now() }
     }
 
     const trace = []
+    const runCtx = { vars }
     for (let i = 0; i < cap.steps.length; i += 1) {
       const stepGate = canAct(state, 'capability', { action: 'run', risk }, clock())
       if (!stepGate.ok) {
@@ -99,7 +100,7 @@ export function createExecutor({ state, ops, confirm, clock = () => Date.now() }
       let result
       const started = clock()
       try {
-        result = await ops.run(step, { vars, timeoutMs: step.timeoutMs })
+        result = await ops.run(step, runCtx)
       } catch (error) {
         result = { ok: false, message: error instanceof Error ? error.message : String(error) }
       }

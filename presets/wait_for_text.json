@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "wait_for_text",
+  "title": "等待文字出现",
+  "description": "Wait until the given text appears on screen, or fail with the elapsed time when it does not. Use it to synchronize before the next action.",
+  "risk": "read",
+  "status": "draft",
+  "origin": "builtin",
+  "version": 1,
+  "params": {
+    "text": { "type": "string", "required": true, "description": "Text to wait for." },
+    "timeout_ms": { "type": "number", "required": false, "default": 15000, "description": "Timeout in milliseconds." }
+  },
+  "preconditions": [],
+  "steps": [
+    { "op": "wait_text", "text": "${text}" }
+  ],
+  "postconditions": [],
+  "outputs": []
+}

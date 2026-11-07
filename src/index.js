@@ -6,7 +6,22 @@
 //   3. dsh-computer-use-win 的路数（UIA 后台按控件、批量动作、截图只给路径）
 //
 // 设计原则：能用后台控件就不用鼠标；能按名字就不用坐标；能投影就不喂原文。
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { createState, noteAction } from './core/state.js'
+import { canAct } from './core/gate.js'
+import { isActionTool, isMetaTool } from './core/risk.js'
+import { redactDeep, redactText } from './memory/redact.js'
+import { createEpisodeStore } from './memory/episodes.js'
+import { createCapabilityStore } from './memory/capabilities.js'
+import { createConfirmStore } from './runtime/confirm.js'
+import { createExecutor } from './runtime/executor.js'
+import { createOps } from './runtime/ops.js'
+import { createPrimitives } from './runtime/primitives.js'
+import { createMetaTools } from './tools/meta.js'
+import { createCapabilityTool } from './tools/capability.js'
 import { runHandeye, runHandeyeJson, exePath, codeMeaning } from './handeye.js'
 import { project, headline, findAlarms } from './project.js'
 import { slimText } from './text.js'
@@ -79,6 +94,32 @@ function recordActivity(tool, args, ok, brief, ms) {
   if (ACTIVITY.length > ACTIVITY_MAX) ACTIVITY.splice(0, ACTIVITY.length - ACTIVITY_MAX)
 }
 
+// 运行时会话（状态机、存储、执行器）。apply 时创建，工具层通过它过闸。
+let RUNTIME = null
+// 当前正在记录的 episode（内存里攒，结束后写盘）。
+let ACTIVE = null
+
+async function flushActive(outcome = 'success') {
+  if (!ACTIVE || !RUNTIME) return
+  const episode = ACTIVE
+  ACTIVE = null
+  episode.endedAt = new Date().toISOString()
+  episode.outcome = outcome
+  const saved = await RUNTIME.episodes.append(episode)
+  if (!saved.ok) RUNTIME.logger?.warn?.(`episode flush failed: ${saved.message}`)
+}
+
+function startActiveEpisode({ id, intent }) {
+  void flushActive('superseded')
+  ACTIVE = {
+    id,
+    startedAt: new Date().toISOString(),
+    intent: { text: String(intent ?? ''), source: 'model' },
+    steps: [],
+    outcome: 'running',
+  }
+}
+
 function reg(ctx, def) {
   const original = def.execute
   ctx.tools.register({
@@ -86,15 +127,44 @@ function reg(ctx, def) {
     ...def,
     async execute(args, exec) {
       const started = Date.now()
+      const name = def.name
+
+      // 动作前的唯一闸门：暂停 / 重规划 / 工具白名单 / 预算。
+      if (RUNTIME && !isMetaTool(name)) {
+        const verdict = canAct(RUNTIME.state, name, args ?? {})
+        if (!verdict.ok) {
+          const message = `Refused: ${verdict.code}${verdict.message ? ` — ${verdict.message}` : ''}`
+          recordActivity(name, args, false, message, 0)
+          return message
+        }
+      }
+
       try {
         const out = await original(args, exec)
         // 工具自己把错误 catch 成字符串返回，所以不能只看有没有 throw；
         // 统一约定：fail() 产出的话里带"失败："，据此标记失败，界面才不会永远显示 0 失败。
         const failed = typeof out === 'string' && out.includes('失败：')
-        recordActivity(def.name, args, !failed, out, Date.now() - started)
+        recordActivity(name, args, !failed, out, Date.now() - started)
+
+        if (RUNTIME && !isMetaTool(name)) {
+          if (ACTIVE) {
+            ACTIVE.steps.push({
+              seq: ACTIVE.steps.length + 1,
+              tool: name,
+              args: redactDeep(args ?? {}),
+              ok: !failed,
+              ms: Date.now() - started,
+              brief: redactText(clip(out, 300)),
+            })
+          }
+          if (name !== 'capability' && isActionTool(name, args ?? {}) && RUNTIME.state.state === 'RUNNING') {
+            const trip = noteAction(RUNTIME.state, name, args ?? {}, !failed)
+            if (trip.tripped) return `${out}\n\n[PAUSED] ${trip.reason}`
+          }
+        }
         return out
       } catch (e) {
-        recordActivity(def.name, args, false, e instanceof Error ? e.message : e, Date.now() - started)
+        recordActivity(name, args, false, e instanceof Error ? e.message : e, Date.now() - started)
         throw e
       }
     },
@@ -107,6 +177,25 @@ function fail(prefix, err) {
 }
 
 export function apply(ctx) {
+  // ------------------------------------------------------------ 运行时会话
+  //
+  // 状态机、episode 存储、能力仓库、确认令牌、执行器。数据放在本地应用目录，
+  // 不进 profile：卸载插件不该顺手删掉用户的操作记忆。
+  const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  const runtimeState = createState()
+  const episodes = createEpisodeStore({ dir: dataDir })
+  const capabilities = createCapabilityStore({ dir: dataDir })
+  const confirmStore = createConfirmStore()
+  const primitives = createPrimitives()
+  const ops = createOps({ primitives })
+  const executor = createExecutor({ state: runtimeState, ops, confirm: confirmStore })
+  RUNTIME = { state: runtimeState, episodes, capabilities, confirm: confirmStore, executor, dataDir, logger: ctx.logger }
+  try {
+    ctx.effect(() => () => {
+      void flushActive('unloaded')
+    })
+  } catch { }
+
   // ------------------------------------------------------------ 感知（看）
 
   reg(ctx, {
@@ -872,6 +961,36 @@ export function apply(ctx) {
       return r.stdout.trim() || '（没有匹配的日志）'
     },
   })
+
+  // ------------------------------------------------------------ 记忆与能力
+  const metaTools = createMetaTools({
+    state: runtimeState,
+    episodes,
+    onBegin: (info) => startActiveEpisode(info),
+  })
+  for (const def of metaTools) reg(ctx, def)
+
+  reg(
+    ctx,
+    createCapabilityTool({
+      state: runtimeState,
+      store: capabilities,
+      executor,
+      confirm: confirmStore,
+    }),
+  )
+
+  // 预置能力：只读默认启用，写操作默认禁用；同名能力不会被覆盖。
+  try {
+    const presetDir = fileURLToPath(new URL('../presets', import.meta.url))
+    for (const file of readdirSync(presetDir)) {
+      if (!file.endsWith('.json')) continue
+      const doc = JSON.parse(readFileSync(path.join(presetDir, file), 'utf8'))
+      void capabilities.installPreset(doc, { enabled: doc.risk === 'read' }).catch(() => {})
+    }
+  } catch (e) {
+    ctx.logger?.warn?.(`preset install skipped: ${e instanceof Error ? e.message : e}`)
+  }
 
   // ------------------------------------------------------------ 给界面用的活动路由
   //
