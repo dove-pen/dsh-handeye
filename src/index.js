@@ -406,8 +406,11 @@ export function apply(ctx) {
   }
 
   /** 离开目标步骤：清掉步骤绑定，动作不再受这一步的白名单/预算约束。 */
-  async function handleStepLeave() {
+  async function handleStepLeave({ reason } = {}) {
     endGoalStep(runtimeState)
+    // 步骤结束就把这一步的 episode 收尾：之前只有“下一步开始时把上一步 superseded 掉”，
+    // 于是最后一步的记录永远不会落盘（实测跑完三步，s3 那个 episode 在列表里找不到）。
+    await flushActive(reason === 'verify-failed' ? 'failure' : 'success')
   }
 
   runtimeState.grantStepBudget = (extra) => grantStepBudget(runtimeState, extra)

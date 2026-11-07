@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.11.2 — 2026-11-07
+
+修"最后一步的 episode 不落盘"。
+
+实测跑完三步目标后查 `/episodes`：s1、s2 的 episode 都在（状态 superseded），
+**s3 的找不到** —— 因为它只会在"下一步开始"时被 superseded 掉，而 s3 后面没有下一步了。
+
+- `handleStepLeave` 结束步骤时显式 `flushActive()`：正常完成记 success，
+  验收失败记 failure
+- 之前 `handleStepLeave` 只做了 `endGoalStep()`，episode 就悬在那儿
+
 ## v0.11.1 — 2026-11-07
 
 修"验收通过率虚高"：没有判据的步骤也被记成 `verify: pass`。
