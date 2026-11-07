@@ -3,7 +3,7 @@
   "id": "research_topic",
   "title": "资料调研并写摘要",
   "origin": "builtin",
-  "version": 2,
+  "version": 3,
   "delivery": "start",
   "autonomy": "supervised",
   "goal": "围绕用户给出的主题，用浏览器查 3 到 5 个可靠来源，交叉核对后写一份带出处的摘要，保存到用户指定的路径。",
@@ -27,8 +27,8 @@
     },
     "path": {
       "type": "string",
-      "required": false,
-      "description": "摘要保存路径。"
+      "required": true,
+      "description": "摘要保存路径（必须给，验收要检查文件与出处）。"
     }
   },
   "enabled": true,
@@ -38,5 +38,23 @@
     "交叉核对关键事实",
     "写摘要并标注来源",
     "保存到指定路径并回报"
+  ],
+  "category": "调研",
+  "estimatedSteps": 10,
+  "inputs": [
+    "topic",
+    "path"
+  ],
+  "verify": [
+    {
+      "type": "file",
+      "path": "{{path}}",
+      "minBytes": 200
+    },
+    {
+      "type": "text",
+      "file": "{{path}}",
+      "appear": "http"
+    }
   ]
 }

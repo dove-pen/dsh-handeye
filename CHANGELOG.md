@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.8.0 — 2026-11-07
+
+**P0：验收门。** 把"我觉得做完了"换成"机器验过了"。设计见
+`docs\手眼插件-目标与提示词系统-设计.md`（工作区仓库）。
+
+### 新增
+- 卡片可选字段：`category` / `inputs` / `estimatedSteps` / `verify`（全部可选，老卡片行为不变）
+- `src/core/verify.js`：五种判据（`file` / `text` / `screen` / `exit` / `changed`）、
+  `{{变量}}` 替换、逐条 expected-vs-actual 报告、命令白名单
+- `episode_begin` 新增 `cardId` 与 `params`：挂上卡片验收、给判据里的变量赋值
+- 人工放行：`%LOCALAPPDATA%\dsh-handeye-plus\override.json` 写 `{episodeId, reason}`，
+  一次性消费；**故意不暴露成工具**，否则模型能自己绕过这道门
+
+### 改变
+- `episode_checkpoint` 改成**先验后推**：判据不过就不推进路径，回传每条的期望与实际；
+  连续两次不过时额外提醒"别再自己换办法硬刚"
+- `episode_begin` 会等卡片的验收/步骤挂完才返回（修掉一个异步竞态：
+  原来紧接着的 checkpoint 可能看到空判据而静默跳过验收）
+- 内置卡片 `write_doc` / `research_topic` 升到 v3：`path` 改为必填，
+  带真实验收（文件存在 ≥200 字节；调研摘要还要含 `http` 出处）
+
+### 测试
+- 151 → **176**：新增 `test/core/verify.test.mjs`，schema 与 meta 各补 4~5 条
+
 ## v0.7.0 — 2026-11-07
 
 一次真实任务（用浏览器订阅邮件通讯、点确认链接）暴露的三个硬伤，逐条修：

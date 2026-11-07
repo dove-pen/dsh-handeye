@@ -75,6 +75,59 @@ DeepSeek Harness（dsh）插件：**手（真实鼠标键盘）+ 眼（屏幕投
 
 ---
 
+## 验收门（v0.8）：把"我觉得做完了"换成"机器验过了"
+
+以前 `episode_checkpoint` 是模型自己喊一声就推进，路径清单形同虚设。
+现在只要这一轮任务挂了验收判据，**判据不过路径就不动**，并把每条的期望值和实际值一起吐回来：
+
+```
+失败：这一步的验收没过，路径没有推进。
+验收没过（0/1 通过）
+  [失败] 文件 D:\out\摘要.md：期望 存在且 ≥ 200 字节；实际 文件不存在
+```
+
+### 给卡片写判据
+
+任意卡片加一个 `verify` 数组（可选，不写就是老行为）：
+
+```json
+{
+  "id": "research_topic",
+  "params": { "topic": {"type":"string","required":true}, "path": {"type":"string","required":true} },
+  "inputs": ["topic", "path"],
+  "verify": [
+    { "type": "file", "path": "{{path}}", "minBytes": 200 },
+    { "type": "text", "file": "{{path}}", "appear": "http" }
+  ]
+}
+```
+
+五种判据，只做机器能查的，不做"写得好不好"：
+
+| type | 通过条件 |
+|---|---|
+| `file` | 文件存在且字节数 ≥ `minBytes` |
+| `text` | 文件或屏幕上**包含** `appear` / **不包含** `absent` |
+| `screen` | 屏幕上出现某段文字 |
+| `exit` | 命令退出码为 0（命令有白名单：node/npm/npx/git/dir/type/echo/findstr） |
+| `changed` | 画面与上一次观察相比有变化 |
+
+`{{path}}` 这类变量来自 `episode_begin` 的 `params`；变量没值直接判失败，不会拿空字符串蒙混过关。
+
+### 人工放行
+
+判据太严时，**用户**可以放行一次：
+
+```json
+// %LOCALAPPDATA%\dsh-handeye-plus\override.json
+{ "episodeId": "ep_20261107_213144_7bca22", "reason": "我看过了，可以" }
+```
+
+下一次 `episode_checkpoint` 消费掉这个文件就失效，下一轮任务不会白过。
+**故意不提供工具入口**：模型能自己放行的话，这道门就等于没有。
+
+---
+
 ## 面板
 
 入口在会话顶部那一排：**对话 / 轨迹 / 手眼+ / 上下文 / 编队**。点「手眼+」打开右侧抽屉；宿主没有可注入的位置时，退回右上角的小挂件。

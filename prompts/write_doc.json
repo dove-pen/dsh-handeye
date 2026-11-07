@@ -3,7 +3,7 @@
   "id": "write_doc",
   "title": "写文档或说明",
   "origin": "builtin",
-  "version": 2,
+  "version": 3,
   "delivery": "start",
   "autonomy": "supervised",
   "goal": "按用户要求写一份文档（说明、教程、方案），结构清楚、可以直接交付。",
@@ -24,8 +24,8 @@
     },
     "path": {
       "type": "string",
-      "required": false,
-      "description": "保存路径。"
+      "required": true,
+      "description": "保存路径（必须给，验收要检查文件真的写出来了）。"
     }
   },
   "enabled": true,
@@ -34,5 +34,18 @@
     "给出目录",
     "逐节展开",
     "保存并复核路径"
+  ],
+  "category": "写作",
+  "estimatedSteps": 6,
+  "inputs": [
+    "topic",
+    "path"
+  ],
+  "verify": [
+    {
+      "type": "file",
+      "path": "{{path}}",
+      "minBytes": 200
+    }
   ]
 }

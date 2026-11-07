@@ -4,6 +4,8 @@
 // Every validator returns { ok, errors } where errors is [{ path, message }].
 // Unknown fields are rejected: silently accepted config is a source of drift.
 
+import { normalizeChecks } from '../core/verify.js'
+
 export const SCHEMA_VERSION = 1
 
 export const CAPABILITY_OPS = new Set([
@@ -319,6 +321,32 @@ export function validateCard(card) {
   }
   if (card.directCapability !== undefined && !isSlug(card.directCapability)) {
     add('directCapability', 'must be a capability slug')
+  }
+
+  // --- 提示词元信息（v1.1 新增，全部可选，老卡片不受影响） -------------
+  if (card.category !== undefined && !isString(card.category, 1, 20)) {
+    add('category', 'must be 1-20 chars')
+  }
+  if (card.estimatedSteps !== undefined) {
+    if (!Number.isInteger(card.estimatedSteps) || card.estimatedSteps < 1 || card.estimatedSteps > 50) {
+      add('estimatedSteps', 'must be an integer between 1 and 50')
+    }
+  }
+  if (card.inputs !== undefined) {
+    if (!isStringArray(card.inputs, 12, 40)) {
+      add('inputs', 'must be an array of at most 12 parameter names')
+    } else if (card.params && typeof card.params === 'object') {
+      // 声明了必填输入，就得真的在 params 里存在，否则界面上会显示一个填不了的坑
+      card.inputs.forEach((key, i) => {
+        if (!Object.prototype.hasOwnProperty.call(card.params, key)) {
+          add(`inputs[${i}]`, `"${key}" is not declared in params`)
+        }
+      })
+    }
+  }
+  if (card.verify !== undefined) {
+    const checks = normalizeChecks(card.verify)
+    if (!checks.ok) errors.push(...checks.errors)
   }
 
   const paramsResult = validateParamSchema(card.params ?? {})

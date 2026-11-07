@@ -37,6 +37,14 @@ export function createState(opts = {}) {
     path: [],
     pathIndex: 0,
     actionsSinceCheckpoint: 0,
+    // Which card this episode came from, and the acceptance rules it carries.
+    // verifyStep() reads these; null means "this episode has no acceptance
+    // rules", which is the old behaviour (checkpoint just advances).
+    cardId: '',
+    verifyChecks: null,
+    verifyVars: {},
+    // How many times the acceptance check refused to advance this episode.
+    verifyFailures: 0,
   }
 }
 
@@ -58,6 +66,10 @@ export function beginEpisode(state, intent, opts = {}) {
   state.path = Array.isArray(opts.path) ? opts.path.map((step) => String(step)).filter(Boolean).slice(0, 12) : []
   state.pathIndex = 0
   state.actionsSinceCheckpoint = 0
+  state.cardId = String(opts.cardId ?? '')
+  state.verifyChecks = Array.isArray(opts.verify) && opts.verify.length > 0 ? opts.verify : null
+  state.verifyVars = opts.params && typeof opts.params === 'object' ? { ...opts.params } : {}
+  state.verifyFailures = 0
   resetBudget(state)
   return state
 }
@@ -71,6 +83,10 @@ export function endEpisode(state, reason = '') {
   state.path = []
   state.pathIndex = 0
   state.actionsSinceCheckpoint = 0
+  state.cardId = ''
+  state.verifyChecks = null
+  state.verifyVars = {}
+  state.verifyFailures = 0
   return state
 }
 

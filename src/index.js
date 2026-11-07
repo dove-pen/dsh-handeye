@@ -6,13 +6,15 @@
 //   3. dsh-computer-use-win 的路数（UIA 后台按控件、批量动作、截图只给路径）
 //
 // 设计原则：能用后台控件就不用鼠标；能按名字就不用坐标；能投影就不喂原文。
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, statSync, unlinkSync } from 'node:fs'
+import { spawn } from 'node:child_process'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { createState, noteAction, beginEpisode } from './core/state.js'
 import { canAct } from './core/gate.js'
 import { isActionTool, isMetaTool } from './core/risk.js'
+import { runChecks, normalizeChecks, COMMAND_ALLOWLIST } from './core/verify.js'
 import { redactDeep, redactText } from './memory/redact.js'
 import { createEpisodeStore, newEpisodeId } from './memory/episodes.js'
 import { createCapabilityStore } from './memory/capabilities.js'
@@ -229,14 +231,21 @@ export function apply(ctx) {
     dataDir,
     logger: ctx.logger,
     /** Called by the UI when a task card is sent: no extra model round-trip. */
-    startEpisode(intent, opts = {}) {
+    async startEpisode(intent, opts = {}) {
       const id = newEpisodeId(new Date())
       beginEpisode(runtimeState, intent, {
         episodeId: id,
         allowedTools: opts.allowedTools,
         path: opts.path,
+        cardId: opts.cardId,
+        verify: opts.verify,
+        params: opts.params,
       })
       startActiveEpisode({ id, intent })
+      // 卡片带 verify 但调用方没展开时，自己补上；等挂完再返回，避免竞态
+      if (opts.cardId && !(Array.isArray(opts.verify) && opts.verify.length > 0)) {
+        await applyCardToState(opts.cardId)
+      }
       return id
     },
   }
@@ -245,6 +254,158 @@ export function apply(ctx) {
       void flushActive('unloaded')
     })
   } catch { }
+
+  // ------------------------------------------------------------ 验收引擎接线
+  //
+  // P0：把"我觉得做完了"换成"机器验过了"。
+  // 判据来自任务卡片的 verify 字段；没写 verify 的卡片，episode 行为和以前一模一样。
+  //
+  // 人工放行的口子**故意不暴露成工具**：如果模型能自己放行，这道门就白做了。
+  // 用户往 override.json 里写一条 {episodeId, reason}，下一次 checkpoint 消费掉就失效。
+  const OVERRIDE_FILE = path.join(dataDir, 'override.json')
+
+  function parseJsonLoose(textValue) {
+    const first = String(textValue ?? '').trim().split(/\r?\n/, 1)[0]
+    if (!first) return null
+    try {
+      return JSON.parse(first)
+    } catch {
+      return null
+    }
+  }
+
+  function runCommand(command, timeoutMs = 60000) {
+    return new Promise((resolve) => {
+      const head = String(command).trim().split(/\s+/, 1)[0].toLowerCase().replace(/\.(exe|cmd|bat)$/, '')
+      // 第二道锁：normalizeChecks 已经拦过一次，这里再拦一次，防止别处直接调用
+      if (!COMMAND_ALLOWLIST.includes(head)) {
+        resolve({ code: -1, stdout: '', stderr: `命令「${head}」不在白名单里` })
+        return
+      }
+      let out = ''
+      let errOut = ''
+      let child
+      try {
+        child = spawn('cmd.exe', ['/c', command], { windowsHide: true })
+      } catch (e) {
+        resolve({ code: -1, stdout: '', stderr: e instanceof Error ? e.message : String(e) })
+        return
+      }
+      const timer = setTimeout(() => {
+        try { child.kill() } catch { }
+      }, Math.max(1000, Math.min(120000, timeoutMs)))
+      child.stdout.on('data', (d) => { out += String(d) })
+      child.stderr.on('data', (d) => { errOut += String(d) })
+      child.on('error', (e) => {
+        clearTimeout(timer)
+        resolve({ code: -1, stdout: out, stderr: e instanceof Error ? e.message : String(e) })
+      })
+      child.on('close', (code) => {
+        clearTimeout(timer)
+        resolve({ code: code === null ? -1 : code, stdout: out, stderr: errOut })
+      })
+    })
+  }
+
+  const verifyDeps = {
+    exists: async (p) => existsSync(p),
+    size: async (p) => {
+      try { return statSync(p).size } catch { return 0 }
+    },
+    readText: async (p) => {
+      try { return readFileSync(p, 'utf8') } catch { return '' }
+    },
+    // 屏幕类判据复用眼层：能看见的文字才算数，不另起一套 OCR
+    screenText: async (region) => {
+      const argv = ['see', '--json', '--best', '--max-lines', '60']
+      if (region) argv.push('--region', region)
+      const r = await runHandeye(argv, { timeoutMs: 45000 })
+      const j = parseJsonLoose(r.stdout)
+      if (!j) return ''
+      const parts = []
+      for (const block of j.blocks || []) {
+        for (const item of block.items || []) {
+          if (item.text) parts.push(String(item.text))
+        }
+      }
+      return parts.join('\n')
+    },
+    findOnScreen: async (needle, region) => {
+      const argv = ['see', '--json', '--find', String(needle), '--scale', '2']
+      if (region) argv.push('--region', region)
+      const r = await runHandeye(argv, { timeoutMs: 30000 })
+      const j = parseJsonLoose(r.stdout)
+      return Boolean(j && Array.isArray(j.hits) && j.hits.length > 0)
+    },
+    runCommand,
+    screenChanged: async () => {
+      const r = await runHandeye(['see', '--json', '--changed'], { timeoutMs: 25000 })
+      const j = parseJsonLoose(r.stdout)
+      return Boolean(j && j.delta && j.delta.changed === true)
+    },
+  }
+
+  function takeOverride(episodeId) {
+    try {
+      if (!existsSync(OVERRIDE_FILE)) return null
+      const doc = JSON.parse(readFileSync(OVERRIDE_FILE, 'utf8'))
+      if (!doc || String(doc.episodeId ?? '') !== String(episodeId ?? '')) return null
+      unlinkSync(OVERRIDE_FILE) // 一次性：消费掉就没了
+      return doc
+    } catch {
+      return null
+    }
+  }
+
+  /** Called by episode_checkpoint before it advances the path. */
+  async function verifyStep(state) {
+    const checks = Array.isArray(state.verifyChecks) ? state.verifyChecks : null
+    if (!checks || checks.length === 0) return { ok: true, checks: [], skipped: 'no-verify' }
+
+    const override = takeOverride(state.episodeId)
+    if (override) {
+      return {
+        ok: true,
+        overridden: true,
+        checks: [
+          { type: 'override', target: '人工放行', ok: true, expected: '用户确认', actual: `用户放行：${override.reason || '未写原因'}`, ms: 0 },
+        ],
+      }
+    }
+
+    const vars = {
+      ...(state.verifyVars || {}),
+      intent: state.intent,
+      episodeId: state.episodeId,
+      cardId: state.cardId,
+    }
+    return runChecks(checks, vars, verifyDeps)
+  }
+
+  /** 卡片 → 运行时：挂上验收判据、步骤清单。 */
+  async function applyCardToState(cardId) {
+    if (!cardId) return
+    try {
+      const got = await cards.get(String(cardId))
+      if (!got.ok) {
+        RUNTIME?.logger?.warn?.(`applyCard: card "${cardId}" unavailable: ${got.message}`)
+        return
+      }
+      const card = got.value
+      const norm = normalizeChecks(card.verify ?? [])
+      runtimeState.verifyChecks = norm.ok && norm.checks.length > 0 ? norm.checks : null
+      runtimeState.cardId = card.id
+      if (Array.isArray(card.path) && card.path.length > 0 && (runtimeState.path || []).length === 0) {
+        runtimeState.path = card.path.map((s) => String(s)).slice(0, 12)
+        runtimeState.pathIndex = 0
+      }
+      RUNTIME?.logger?.info?.(
+        `applyCard: ${card.id} path=${(runtimeState.path || []).length} checks=${runtimeState.verifyChecks?.length ?? 0}`,
+      )
+    } catch (error) {
+      RUNTIME?.logger?.warn?.(`applyCard failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
 
   // ------------------------------------------------------------ 感知（看）
 
@@ -1312,7 +1473,12 @@ export function apply(ctx) {
   const metaTools = createMetaTools({
     state: runtimeState,
     episodes,
-    onBegin: (info) => startActiveEpisode(info),
+    onBegin: async (info) => {
+      startActiveEpisode(info)
+      if (info?.cardId) await applyCardToState(info.cardId)
+    },
+    // 验收门：episode_checkpoint 推进前先调它
+    verifyStep,
   })
   for (const def of metaTools) reg(ctx, def)
 

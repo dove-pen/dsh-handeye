@@ -87,3 +87,67 @@ test('episode_query shows one episode as JSON', async () => {
   const out = await byName('episode_query').execute({ action: 'show', id: 'ep_1' })
   assert.equal(JSON.parse(out).id, 'ep_1')
 })
+
+// --- 验收门：checkpoint 先验后推（v0.8） ---------------------------------
+
+function setupWithVerify(verifyStep) {
+  const state = createState()
+  const tools = createMetaTools({ state, episodes: { list: async () => ({ ok: true, value: [] }) }, verifyStep })
+  return { state, tool: tools.find((t) => t.name === 'episode_checkpoint') }
+}
+
+test('episode_checkpoint advances when the acceptance check passes', async () => {
+  const { state, tool } = setupWithVerify(async () => ({ ok: true, checks: [] }))
+  state.path = ['第一步', '第二步']
+  state.pathIndex = 0
+  const out = await tool.execute({ summary: '做完了' })
+  assert.match(out, /Step 1 done/)
+  assert.equal(state.pathIndex, 1)
+})
+
+test('episode_checkpoint refuses to advance when the check fails', async () => {
+  const { state, tool } = setupWithVerify(async () => ({
+    ok: false,
+    checks: [{ type: 'file', target: '文件 D:\\a.md', ok: false, expected: '存在', actual: '文件不存在' }],
+  }))
+  state.path = ['第一步', '第二步']
+  state.pathIndex = 0
+  const out = await tool.execute({ summary: '做完了' })
+  assert.match(out, /失败：这一步的验收没过/)
+  assert.match(out, /文件不存在/)
+  assert.equal(state.pathIndex, 0, 'path must not move')
+  assert.equal(state.verifyFailures, 1)
+})
+
+test('episode_checkpoint escalates the hint after the second failure', async () => {
+  const { state, tool } = setupWithVerify(async () => ({
+    ok: false,
+    checks: [{ type: 'exit', target: '命令 node --test', ok: false, expected: '退出码 0', actual: '退出码 1' }],
+  }))
+  state.path = ['一步']
+  await tool.execute({ summary: 'x' })
+  const out = await tool.execute({ summary: 'x' })
+  assert.match(out, /第 2 次没过/)
+  assert.equal(state.verifyFailures, 2)
+})
+
+test('episode_checkpoint stays on the old behaviour when there is no verifier', async () => {
+  const state = createState()
+  const tools = createMetaTools({ state, episodes: { list: async () => ({ ok: true, value: [] }) } })
+  const tool = tools.find((t) => t.name === 'episode_checkpoint')
+  state.path = ['一步']
+  const out = await tool.execute({ summary: '做完了' })
+  assert.match(out, /Path complete/)
+  assert.equal(state.pathIndex, 1)
+})
+
+test('episode_begin accepts cardId and hands it to onBegin', async () => {
+  const state = createState()
+  const seen = []
+  const tools = createMetaTools({ state, episodes: { list: async () => ({ ok: true, value: [] }) }, onBegin: (i) => seen.push(i) })
+  const begin = tools.find((t) => t.name === 'episode_begin')
+  const out = await begin.execute({ intent: '写个文档', cardId: 'write_doc' })
+  assert.match(out, /write_doc/)
+  assert.equal(state.cardId, 'write_doc')
+  assert.equal(seen[0].cardId, 'write_doc')
+})

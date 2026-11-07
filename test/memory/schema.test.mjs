@@ -121,3 +121,57 @@ test('an imported card can be validated but keeps its origin', () => {
   assert.equal(validateCard(card).ok, true)
   assert.equal(card.origin, 'imported')
 })
+
+// --- 提示词元信息 / 验收判据（v1.1） -------------------------------------
+
+function validCardForVerify(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    id: 'write_doc',
+    title: '写文档',
+    origin: 'builtin',
+    version: 1,
+    delivery: 'start',
+    autonomy: 'supervised',
+    goal: '按用户要求写一份文档',
+    constraints: [],
+    success: '文档写完并存盘',
+    params: { topic: { type: 'string', required: true, description: '主题' }, path: { type: 'string', required: true, description: '路径' } },
+    ...overrides,
+  }
+}
+
+test('validateCard accepts the new optional prompt metadata', () => {
+  const result = validateCard(validCardForVerify({
+    category: '写作',
+    estimatedSteps: 6,
+    inputs: ['topic', 'path'],
+    verify: [{ type: 'file', path: '{{path}}', minBytes: 200 }],
+  }))
+  assert.equal(result.ok, true, JSON.stringify(result.errors))
+})
+
+test('validateCard keeps old cards valid without the new fields', () => {
+  const result = validateCard(validCardForVerify())
+  assert.equal(result.ok, true, JSON.stringify(result.errors))
+})
+
+test('validateCard rejects bad prompt metadata', () => {
+  assert.equal(validateCard(validCardForVerify({ category: '' })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ category: 'x'.repeat(30) })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ estimatedSteps: 0 })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ estimatedSteps: 99 })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ inputs: ['topic', 'missing'] })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ verify: [] })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ verify: [{ type: 'nope' }] })).ok, false)
+  assert.equal(validateCard(validCardForVerify({ verify: [{ type: 'file' }] })).ok, false)
+})
+
+test('validateCard points at the exact verify index that is broken', () => {
+  const result = validateCard(validCardForVerify({
+    verify: [{ type: 'file', path: '{{path}}' }, { type: 'exit', command: 'rm -rf /' }],
+  }))
+  assert.equal(result.ok, false)
+  const text = JSON.stringify(result.errors)
+  assert.ok(text.includes('verify[1]'), text)
+})

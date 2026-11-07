@@ -217,9 +217,12 @@ export function registerRoutes({ ctx, runtime, version }) {
         } else if (action === 'begin') {
           const intent = String(body.intent || '').trim()
           if (!intent) return sendJson(res, 400, { ok: false, error: 'intent is required' })
-          const episodeId = runtime.startEpisode(intent, {
+          const episodeId = await runtime.startEpisode(intent, {
             allowedTools: Array.isArray(body.allowedTools) ? body.allowedTools : undefined,
             path: Array.isArray(body.path) ? body.path : undefined,
+            cardId: typeof body.cardId === 'string' ? body.cardId : undefined,
+            verify: Array.isArray(body.verify) ? body.verify : undefined,
+            params: body.params && typeof body.params === 'object' ? body.params : undefined,
           })
           return sendJson(res, 200, { ...stateSnapshot(runtime, version), episodeId })
         } else {
