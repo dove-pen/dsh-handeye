@@ -16,7 +16,13 @@ test('buildWaitArgs always carries a bounded timeout', () => {
   assert.ok(args.includes('保存'))
   assert.equal(args[args.indexOf('--timeout') + 1], '5000')
   assert.ok(args.includes('--json'))
-  assert.ok(args.includes('--fast'))
+  // appear is one blocking call: default to the accurate profile, not the fast one
+  assert.ok(args.includes('--best'))
+  assert.ok(!args.includes('--fast'))
+
+  const fast = buildWaitArgs({ text: 'x', timeoutMs: 5000, fast: true })
+  assert.ok(fast.includes('--fast'))
+  assert.ok(!fast.includes('--best'))
 
   const best = buildWaitArgs({ text: 'x', timeoutMs: 1, fast: false })
   assert.equal(best[best.indexOf('--timeout') + 1], '200')

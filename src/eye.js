@@ -11,8 +11,15 @@ const DEFAULT_POLL_MS = 400
 
 // ---------------------------------------------------------------- pure helpers
 
-/** argv for "block until this text shows up". handeye polls internally. */
-export function buildWaitArgs({ text, timeoutMs = 8000, fast = true } = {}) {
+/**
+ * argv for "block until this text shows up". handeye polls internally.
+ *
+ * Default profile is --best, not --fast: this is one blocking call, and the
+ * fast profile genuinely cannot read small UI text ("HARNESS" in a 9px header
+ * is a real example - fast missed it, best scored 1.00). Polling modes
+ * (gone / change) keep the cheap profile because they run in a loop.
+ */
+export function buildWaitArgs({ text, timeoutMs = 8000, fast = false } = {}) {
   const argv = ['see', '--json', '--wait', String(text ?? ''), '--timeout', String(Math.max(200, Math.round(timeoutMs)))]
   argv.push(fast ? '--fast' : '--best')
   return argv
@@ -67,7 +74,7 @@ export function formatWaitResult(wait, { text, mode = 'appear' } = {}) {
  * Block until `text` appears on screen.
  * @returns {Promise<object|null>} handeye's JSON ({found,text,x,y,w,h,elapsedMs})
  */
-export async function waitForText({ text, timeoutMs = 8000, fast = true }) {
+export async function waitForText({ text, timeoutMs = 8000, fast = false }) {
   const budget = Math.max(500, Math.round(timeoutMs))
   const r = await runHandeye(buildWaitArgs({ text, timeoutMs: budget, fast }), { timeoutMs: budget + 20000 })
   return parseSeeJson(r.stdout)

@@ -411,7 +411,8 @@ export function apply(ctx) {
           const still = (r.hits || []).slice(0, 3).map((h) => `  ${JSON.stringify(h.text)} @(${h.x},${h.y})`).join('\n')
           return `等到 ${budget}ms 超时，「${text}」还在屏幕上${still ? '：\n' + still : ''}`
         }
-        const wait = await waitForText({ text, timeoutMs: budget, fast: args?.fast !== false })
+        // appear 默认走慢档：它只跑一次，而快档读不出 9px 的小字
+        const wait = await waitForText({ text, timeoutMs: budget, fast: args?.fast === true })
         return formatWaitResult(wait, { text, mode })
       } catch (e) {
         return fail('eye_wait 失败', e)
