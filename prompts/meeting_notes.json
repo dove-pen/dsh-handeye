@@ -3,7 +3,7 @@
   "id": "meeting_notes",
   "title": "整理会议记录",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "start",
   "autonomy": "supervised",
   "goal": "把用户给的会议原文整理成结构化纪要：结论、待办、负责人、截止时间。",
@@ -17,7 +17,17 @@
   "onFailure": "原文过短或缺少上下文时先列出缺口，不要脑补。",
   "capabilities": [],
   "params": {
-    "text": { "type": "string", "required": false, "description": "会议原文，或留空让用户提供文件。" }
+    "text": {
+      "type": "string",
+      "required": false,
+      "description": "会议原文，或留空让用户提供文件。"
+    }
   },
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "读取会议原文",
+    "提取结论",
+    "提取待办并对应原文",
+    "标注负责人与时间缺口"
+  ]
 }

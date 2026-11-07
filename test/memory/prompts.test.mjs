@@ -31,6 +31,8 @@ test('every task card is valid, unique and references an existing capability', a
     assert.equal(card.origin, 'builtin', `${file} must be a builtin card`)
     assert.ok(!ids.has(card.id), `duplicate card id ${card.id}`)
     ids.add(card.id)
+    assert.ok(Array.isArray(card.path) && card.path.length >= 3, `${file} must define an ordered path`)
+    assert.ok(card.version >= 2, `${file} must be versioned for upgrade`)
     for (const name of card.capabilities ?? []) {
       assert.ok(known.has(name), `${file} references unknown capability ${name}`)
     }

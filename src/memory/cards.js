@@ -76,7 +76,23 @@ export function createCardStore({ dir, now = () => Date.now() } = {}) {
     const check = validateCard(card)
     if (!check.ok) return failure(ERR.CARD_INVALID, 'Builtin card is invalid', check.errors)
     const current = await get(card.id)
-    if (current.ok) return success({ card: current.value, skipped: true })
+    if (current.ok) {
+      const newer = Number(card.version ?? 1) > Number(current.value.version ?? 1)
+      if (current.value.origin === 'builtin' && newer) {
+        const doc = {
+          ...card,
+          schemaVersion: 1,
+          origin: 'builtin',
+          version: Number(card.version ?? 1),
+          enabled: current.value.enabled !== false,
+          createdAt: current.value.createdAt,
+          updatedAt: nowIso(now),
+        }
+        await writeDoc(doc.id, doc)
+        return success({ card: doc, updated: true })
+      }
+      return success({ card: current.value, skipped: true })
+    }
     const doc = {
       ...card,
       schemaVersion: 1,

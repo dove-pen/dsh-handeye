@@ -3,7 +3,7 @@
   "id": "repo_health_check",
   "title": "代码仓库体检",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "start",
   "autonomy": "readonly",
   "goal": "检查指定仓库的健康状况：目录结构、依赖、测试、未提交改动，输出一份问题清单。",
@@ -17,7 +17,17 @@
   "onFailure": "测试跑不起来时记录失败原因，继续检查其他项，不要停在第一步。",
   "capabilities": [],
   "params": {
-    "path": { "type": "string", "required": true, "description": "仓库路径。" }
+    "path": {
+      "type": "string",
+      "required": true,
+      "description": "仓库路径。"
+    }
   },
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "读取仓库结构与依赖",
+    "运行测试和 lint（只读）",
+    "扫描未提交改动",
+    "按严重程度输出问题清单"
+  ]
 }

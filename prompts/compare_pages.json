@@ -3,7 +3,7 @@
   "id": "compare_pages",
   "title": "对比两个页面",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "start",
   "autonomy": "readonly",
   "goal": "打开两个页面，分别读取正文，输出差异对比：相同点、不同点、哪边更可信。",
@@ -15,10 +15,26 @@
   ],
   "success": "给出结构化对比，每一条差异有原文依据。",
   "onFailure": "其中一个页面打不开时，单独说明并只分析能打开的那个，不要假装对比过。",
-  "capabilities": ["open_url_and_read"],
+  "capabilities": [
+    "open_url_and_read"
+  ],
   "params": {
-    "url_a": { "type": "url", "required": true, "description": "页面 A。" },
-    "url_b": { "type": "url", "required": true, "description": "页面 B。" }
+    "url_a": {
+      "type": "url",
+      "required": true,
+      "description": "页面 A。"
+    },
+    "url_b": {
+      "type": "url",
+      "required": true,
+      "description": "页面 B。"
+    }
   },
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "打开页面 A 并读取正文",
+    "打开页面 B 并读取正文",
+    "列出相同点与不同点",
+    "给出可信度判断"
+  ]
 }

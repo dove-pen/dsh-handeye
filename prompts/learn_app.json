@@ -3,7 +3,7 @@
   "id": "learn_app",
   "title": "教我操作某个软件",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "both",
   "autonomy": "readonly",
   "goal": "观察当前软件界面，输出一份从零开始的操作步骤，标出容易点错的地方。",
@@ -15,9 +15,22 @@
   ],
   "success": "步骤可以照着走通，危险点有提示。",
   "onFailure": "界面信息不足时请用户切到目标页面，不要凭空写步骤。",
-  "capabilities": ["read_active_window", "screenshot_window"],
+  "capabilities": [
+    "read_active_window",
+    "screenshot_window"
+  ],
   "params": {
-    "goal": { "type": "string", "required": false, "description": "想学会的具体操作。" }
+    "goal": {
+      "type": "string",
+      "required": false,
+      "description": "想学会的具体操作。"
+    }
   },
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "读取当前界面结构与文字",
+    "按界面文字写步骤",
+    "标出预期结果",
+    "标出危险按钮"
+  ]
 }

@@ -998,6 +998,7 @@ window.__ModuleLoader__.load({
             detail.onclick = () => {
               goal.textContent = [
                 card.goal,
+                ...(card.path || []).map((step, index) => `${index + 1}) ${step}`),
                 ...(card.constraints || []).map((x) => `· ${x}`),
                 `成功：${card.success}`,
                 card.onFailure ? `失败时：${card.onFailure}` : '',
@@ -1014,8 +1015,46 @@ window.__ModuleLoader__.load({
           }
         }
 
+        function toolsForCard(card) {
+          const base = [
+            'eye_*',
+            'desk_windows',
+            'desk_tree',
+            'desk_find',
+            'desk_text',
+            'browser_tabs',
+            'browser_snapshot',
+            'browser_text',
+            'yl_log',
+            'capability',
+            'episode_*',
+            'pause_request',
+          ]
+          if (card.autonomy === 'readonly') return base
+          return [
+            ...base,
+            'hand_click_text',
+            'hand_type',
+            'hand_key',
+            'hand_focus',
+            'desk_invoke',
+            'desk_set_value',
+            'desk_focus',
+            'desk_launch',
+            'desk_batch',
+            'browser_open',
+            'browser_click',
+            'browser_fill',
+            'browser_navigate',
+          ]
+        }
+
         function formatCard(card) {
           const lines = [`【任务卡｜${card.title}｜${card.origin}｜${card.autonomy}｜v${card.version}】`, `目标：${card.goal}`]
+          if (card.path && card.path.length) {
+            lines.push('执行路径（按顺序，不要跳步）：')
+            card.path.forEach((step, index) => lines.push(`${index + 1}) ${step}`))
+          }
           if (card.constraints && card.constraints.length) {
             lines.push('约束：')
             for (const rule of card.constraints) lines.push(`- ${rule}`)
@@ -1059,7 +1098,7 @@ window.__ModuleLoader__.load({
           await postJson('/dsh-handeye-plus/control', {
             action: 'begin',
             intent: card.title,
-            allowedTools: card.allowedTools,
+            allowedTools: card.allowedTools && card.allowedTools.length ? card.allowedTools : toolsForCard(card),
           }).catch(() => {})
           fillComposer(box, text)
           window.setTimeout(() => {

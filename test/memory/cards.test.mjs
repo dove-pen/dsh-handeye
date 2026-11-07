@@ -92,6 +92,21 @@ test('enable/disable and remove', async () => {
   })
 })
 
+test('a newer builtin version replaces the old builtin, user cards are untouched', async () => {
+  await withStore(async (store) => {
+    await store.installBuiltin(card({ version: 1 }))
+    const upgraded = await store.installBuiltin(card({ version: 2, title: 'v2 title' }))
+    assert.equal(upgraded.value.updated, true)
+    assert.equal(upgraded.value.card.title, 'v2 title')
+
+    await store.saveUser(card({ id: 'user_card', origin: 'user' }))
+    const userUpdate = await store.installBuiltin(card({ id: 'user_card', version: 9, title: 'builtin title' }))
+    assert.equal(userUpdate.value.skipped, true)
+    const kept = await store.get('user_card')
+    assert.equal(kept.value.origin, 'user')
+  })
+})
+
 test('skips malformed card files', async () => {
   await withStore(async (store, dir) => {
     await store.installBuiltin(card())

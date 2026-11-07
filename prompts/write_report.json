@@ -3,7 +3,7 @@
   "id": "write_report",
   "title": "写周报或总结",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "start",
   "autonomy": "supervised",
   "goal": "根据用户提供的素材或本机记录，写一份结构清晰的周报，保存到用户指定路径。",
@@ -17,8 +17,22 @@
   "onFailure": "素材不足时先列出缺口，等用户补充，不要硬写。",
   "capabilities": [],
   "params": {
-    "path": { "type": "string", "required": false, "description": "保存路径。" },
-    "range": { "type": "string", "required": false, "description": "统计周期，例如本周。" }
+    "path": {
+      "type": "string",
+      "required": false,
+      "description": "保存路径。"
+    },
+    "range": {
+      "type": "string",
+      "required": false,
+      "description": "统计周期，例如本周。"
+    }
   },
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "确认素材与统计周期",
+    "给出大纲",
+    "写正文并标注数据来源",
+    "保存到指定路径"
+  ]
 }

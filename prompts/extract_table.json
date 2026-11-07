@@ -3,7 +3,7 @@
   "id": "extract_table",
   "title": "提取表格数据",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "start",
   "autonomy": "supervised",
   "goal": "从页面或文档里提取表格，整理成 CSV，保存到用户指定路径。",
@@ -15,10 +15,26 @@
   ],
   "success": "CSV 列名与源表一致，行数与源表一致，保存路径明确。",
   "onFailure": "表格结构识别不出来时，先截图给用户看，不要猜列。",
-  "capabilities": ["open_url_and_read"],
+  "capabilities": [
+    "open_url_and_read"
+  ],
   "params": {
-    "url": { "type": "url", "required": true, "description": "数据页面。" },
-    "path": { "type": "string", "required": false, "description": "CSV 保存路径。" }
+    "url": {
+      "type": "url",
+      "required": true,
+      "description": "数据页面。"
+    },
+    "path": {
+      "type": "string",
+      "required": false,
+      "description": "CSV 保存路径。"
+    }
   },
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "打开数据页面并读取正文",
+    "确认列名和行数",
+    "提取全部行",
+    "保存 CSV，回报路径与行数"
+  ]
 }

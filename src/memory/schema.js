@@ -296,6 +296,15 @@ export function validateCard(card) {
   if (card.allowedTools !== undefined && !isStringArray(card.allowedTools, 20, 80)) {
     add('allowedTools', 'must be an array of at most 20 tool patterns')
   }
+  if (card.path !== undefined) {
+    if (!Array.isArray(card.path) || card.path.length < 1 || card.path.length > 12) {
+      add('path', 'must be an array of 1-12 ordered steps')
+    } else {
+      card.path.forEach((step, i) => {
+        if (!isString(step, 1, 200)) add(`path[${i}]`, 'must be 1-200 chars')
+      })
+    }
+  }
   if (card.capabilities !== undefined) {
     if (!Array.isArray(card.capabilities) || !card.capabilities.every(isSlug)) {
       add('capabilities', 'must be an array of capability slugs')

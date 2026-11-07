@@ -3,7 +3,7 @@
   "id": "read_screen_answer",
   "title": "看屏回答问题",
   "origin": "builtin",
-  "version": 1,
+  "version": 2,
   "delivery": "both",
   "autonomy": "readonly",
   "goal": "读取当前屏幕上的内容，回答用户的问题；找不到依据就明说找不到，不要猜。",
@@ -14,7 +14,14 @@
   ],
   "success": "答案有屏幕原文作依据，或明确说明屏幕上没有相关信息。",
   "onFailure": "读不到文字时提示用户放大窗口或换一个界面，不要反复截图。",
-  "capabilities": ["read_active_window"],
+  "capabilities": [
+    "read_active_window"
+  ],
   "params": {},
-  "enabled": true
+  "enabled": true,
+  "path": [
+    "读取当前窗口文字",
+    "定位与问题相关的原文",
+    "用原文回答；找不到就明说"
+  ]
 }
