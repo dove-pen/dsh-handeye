@@ -123,6 +123,7 @@ export function createPrimitives({
     systemInfo(scope = 'brief') {
       const full = scope === 'full'
       const script = [
+        '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
         '$os = Get-CimInstance Win32_OperatingSystem',
         '$cs = Get-CimInstance Win32_ComputerSystem',
         '"time=" + (Get-Date -Format s)',
