@@ -1249,6 +1249,11 @@ window.__ModuleLoader__.load({
 
         function renderGoals() {
           if (goalsEditing()) return
+          // 就算这次真的要重画，也把焦点和光标位置带过去：
+          // 用户点输入框的瞬间撞上一次重画，字就会打到聊天框里去。
+          const active = document.activeElement
+          const keepField = active && pageGoals.contains(active) ? active.dataset && active.dataset.field : ''
+          const caret = keepField && typeof active.selectionStart === 'number' ? active.selectionStart : null
           pageGoals.replaceChildren()
 
           // 指标条
@@ -1321,6 +1326,18 @@ window.__ModuleLoader__.load({
             if (open) item.appendChild(buildGoalDetail(goal))
             pageGoals.appendChild(item)
           }
+
+          if (keepField) {
+            const again = pageGoals.querySelector(`[data-field="${keepField}"]`)
+            if (again) {
+              try {
+                again.focus({ preventScroll: true })
+                if (caret !== null && typeof again.setSelectionRange === 'function') {
+                  again.setSelectionRange(caret, caret)
+                }
+              } catch { }
+            }
+          }
         }
 
         function summarizeLine(goal) {
@@ -1340,10 +1357,12 @@ window.__ModuleLoader__.load({
           form.addEventListener('keyup', (e) => e.stopPropagation())
           form.appendChild(mk('div', 'hint', '长期目标写你真正想达成的事；步骤可以留空，之后让 AI 拆。'))
           const name = mk('input')
+          name.dataset.field = 'goal-name'
           name.placeholder = '目标名字（短一点）'
           name.value = goalFormName
           name.oninput = () => { goalFormName = name.value }
           const long = mk('textarea')
+          long.dataset.field = 'goal-long'
           long.rows = 3
           long.placeholder = '长期目标：用自己的话写，AI 会照这个走'
           long.value = goalFormLong
@@ -1383,6 +1402,7 @@ window.__ModuleLoader__.load({
             form.addEventListener('keyup', (e) => e.stopPropagation())
             form.appendChild(mk('div', 'hint', '一行一步，保存后编号是 s1、s2……'))
             const area = mk('textarea')
+            area.dataset.field = 'plan-draft'
             area.rows = 5
             area.value = planDraft
             area.oninput = () => { planDraft = area.value }
@@ -1496,6 +1516,7 @@ window.__ModuleLoader__.load({
           box.addEventListener('keypress', (e) => e.stopPropagation())
           box.addEventListener('keyup', (e) => e.stopPropagation())
           const input = mk('input')
+          input.dataset.field = 'edit-reason'
           input.placeholder = editFor.kind === 'override' ? '放行原因（会写进记录）' : '跳过原因（会写进记录）'
           input.value = editReason
           input.oninput = () => { editReason = input.value }
