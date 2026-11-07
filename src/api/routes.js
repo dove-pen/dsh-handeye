@@ -5,6 +5,7 @@
 // otherwise read-only from the UI.
 
 import { createLogReader } from '../runtime/logReader.js'
+import { compileEpisode } from '../runtime/compile.js'
 import { runHandeye } from '../handeye.js'
 import { pause, resumeByUser, satisfyReplan } from '../core/state.js'
 
@@ -110,6 +111,31 @@ export function registerRoutes({ ctx, runtime, version }) {
         if (!name) return sendJson(res, 400, { ok: false, error: 'name is required' })
         const result = body.enabled === true ? await runtime.capabilities.enable(name) : await runtime.capabilities.disable(name)
         return sendJson(res, result.ok ? 200 : 400, result)
+      })
+
+      reg('/dsh-handeye-plus/capabilities/save', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const episodeId = String(body.episodeId || '')
+        const name = String(body.name || '')
+        const title = String(body.title || '')
+        if (!episodeId || !name || !title) {
+          return sendJson(res, 400, { ok: false, error: 'episodeId, name and title are required' })
+        }
+        const found = await runtime.episodes.read(episodeId)
+        if (!found.ok) return sendJson(res, 404, { ok: false, error: found.message })
+        const compiled = compileEpisode(found.value, {
+          name,
+          title,
+          description: body.description,
+          risk: body.risk,
+        })
+        if (!compiled.ok) {
+          return sendJson(res, 400, { ok: false, error: compiled.message, warnings: compiled.warnings })
+        }
+        const saved = await runtime.capabilities.saveDraft(compiled.capability)
+        if (!saved.ok) return sendJson(res, 400, { ok: false, error: saved.message })
+        return sendJson(res, 200, { ok: true, capability: saved.value, warnings: compiled.warnings })
       })
 
       reg('/dsh-handeye-plus/cards', async (req, res) => {

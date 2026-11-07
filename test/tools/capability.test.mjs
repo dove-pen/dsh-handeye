@@ -25,7 +25,7 @@ function cap(overrides = {}) {
   }
 }
 
-async function setup({ overrides = {}, executorResult } = {}) {
+async function setup({ overrides = {}, executorResult, episode = null, activeEpisode = null } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'dsh-he-cap-tool-'))
   const store = createCapabilityStore({ dir })
   const confirm = createConfirmStore()
@@ -38,7 +38,11 @@ async function setup({ overrides = {}, executorResult } = {}) {
       return executorResult ?? { ok: true, value: { balance: '18.21' }, trace: [{ index: 0, op: 'read_text', ok: true, ms: 5 }], assumptions: {} }
     },
   }
-  const tool = createCapabilityTool({ state, store, executor, confirm })
+  const episodes = {
+    read: async (id) => (episode ? { ok: true, value: episode } : { ok: false, code: 'NOT_FOUND', message: 'missing' }),
+    list: async () => ({ ok: true, value: episode ? [episode] : [] }),
+  }
+  const tool = createCapabilityTool({ state, store, executor, confirm, episodes, getActiveEpisode: () => activeEpisode })
   const saved = await store.saveDraft(cap(overrides))
   assert.equal(saved.ok, true)
   await store.enable(overrides.name ?? 'check_balance')
@@ -112,6 +116,40 @@ test('disabled capabilities are refused', async () => {
     await store.disable('check_balance')
     const out = await tool.execute({ action: 'run', name: 'check_balance' })
     assert.match(out, /disabled/)
+  } finally {
+    await cleanup()
+  }
+})
+
+test('capability save compiles the active episode into a draft', async () => {
+  const episode = {
+    id: 'ep_test',
+    startedAt: '2026-11-07T10:00:00+08:00',
+    outcome: 'success',
+    steps: [
+      { tool: 'hand_focus', args: { title: 'Chrome' }, ok: true },
+      { tool: 'hand_click_text', args: { text: '登录' }, ok: true },
+    ],
+  }
+  const { tool, store, cleanup } = await setup({ episode, activeEpisode: episode })
+  try {
+    const out = await tool.execute({ action: 'save', name: 'focus_and_click', title: 'focus and click' })
+    assert.match(out, /Draft "focus_and_click" saved/)
+    const doc = await store.get('focus_and_click')
+    assert.equal(doc.ok, true)
+    assert.equal(doc.value.status, 'draft')
+    assert.equal(doc.value.fromEpisode, 'ep_test')
+    assert.equal(doc.value.steps.length, 2)
+  } finally {
+    await cleanup()
+  }
+})
+
+test('capability save without an episode explains what is missing', async () => {
+  const { tool, cleanup } = await setup()
+  try {
+    const out = await tool.execute({ action: 'save', name: 'nothing_here', title: 'nothing' })
+    assert.match(out, /no episode/i)
   } finally {
     await cleanup()
   }

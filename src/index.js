@@ -980,6 +980,8 @@ export function apply(ctx) {
       store: capabilities,
       executor,
       confirm: confirmStore,
+      episodes,
+      getActiveEpisode: () => ACTIVE,
     }),
   )
 

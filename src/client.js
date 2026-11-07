@@ -197,6 +197,7 @@ window.__ModuleLoader__.load({
     function ensureExtraStyle() {
       const ID = 'dsh-he-extra'
       const css = `
+        .dsh-he.has-tab .dsh-he-pill { display: none; }
         .dsh-he-tabs { display: flex; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--he-border, rgba(255,255,255,.08)); }
         .dsh-he-tabs button { flex: 1; border: 0; background: transparent; color: var(--he-muted); font: inherit; font-size: 12px; padding: 7px 0 8px; cursor: pointer; border-bottom: 2px solid transparent; }
         .dsh-he-tabs button.on { color: var(--he-text, #e8e8ea); border-bottom-color: #7aa2ff; }
@@ -307,6 +308,10 @@ window.__ModuleLoader__.load({
         failsCard.className = 'dsh-he-card dsh-he-fails'
         failsCard.style.display = 'none'
 
+        const episodeCard = document.createElement('div')
+        episodeCard.className = 'dsh-he-card'
+        episodeCard.style.display = 'none'
+
         const bar = document.createElement('div')
         bar.className = 'dsh-he-bar'
 
@@ -321,7 +326,7 @@ window.__ModuleLoader__.load({
 
         const pageToday = document.createElement('div')
         pageToday.className = 'dsh-he-page on'
-        for (const el of [kpis, distCard, failsCard, bar, list]) pageToday.appendChild(el)
+        for (const el of [kpis, distCard, failsCard, episodeCard, bar, list]) pageToday.appendChild(el)
 
         const pageCaps = document.createElement('div')
         pageCaps.className = 'dsh-he-page'
@@ -656,6 +661,52 @@ window.__ModuleLoader__.load({
           }
         }
 
+        // 把入口挂到宿主顶部的「对话 / 轨迹 / 上下文 / 编队」那一排。
+        // 宿主没有公开的插槽 API 时，用 DOM 方式补一个同款的按钮；找不到就退回右下角挂件。
+        function mountTopTab() {
+          if (!document.body) return
+          if (document.querySelector('[data-dsh-he-tab]')) {
+            root.classList.add('has-tab')
+            return
+          }
+          const candidates = [...document.querySelectorAll('button, a, [role="tab"]')]
+          const anchor = candidates.find((node) => {
+            const text = String(node.textContent || '').trim()
+            return (text === '编队' || text === '上下文' || text === '轨迹') && node.children.length <= 2
+          })
+          if (!anchor || !anchor.parentElement) return
+          const tab = document.createElement('button')
+          tab.type = 'button'
+          tab.dataset.dshHeTab = '1'
+          tab.className = anchor.className
+          tab.textContent = '手眼+'
+          tab.style.cssText =
+            'background:transparent;border:0;font:inherit;cursor:pointer;padding:6px 10px;pointer-events:auto;position:relative;z-index:5'
+          const openPanel = (event) => {
+            if (event) {
+              event.preventDefault()
+              event.stopPropagation()
+            }
+            toggle(true)
+          }
+          tab.addEventListener('pointerdown', openPanel, true)
+          tab.addEventListener('click', openPanel, true)
+          anchor.parentElement.insertBefore(tab, anchor.nextSibling)
+          root.classList.add('has-tab')
+        }
+
+        // Delegated in the capture phase: the host may re-render the tab row and
+        // replace our button, so a per-button listener is not reliable enough.
+        function onTopTabClick(event) {
+          const target = event.target
+          const tab = target && typeof target.closest === 'function' ? target.closest('[data-dsh-he-tab]') : null
+          if (!tab) return
+          event.preventDefault()
+          event.stopPropagation()
+          toggle(true)
+        }
+        document.addEventListener('click', onTopTabClick, true)
+
         const toggle = (next) => {
           open = typeof next === 'boolean' ? next : !open
           root.classList.toggle('open', open)
@@ -717,6 +768,7 @@ window.__ModuleLoader__.load({
               cards: '选一张任务卡直接发给 AI',
               log: 'handeye 七段日志：谁、做了什么、成没成',
             }[next] || ''
+          if (next === 'today') void loadEpisodes()
           if (next === 'caps') void loadCaps()
           if (next === 'cards') void loadCards()
           if (next === 'log') void loadLog()
@@ -731,6 +783,100 @@ window.__ModuleLoader__.load({
             runtimeState = await res.json()
             renderState()
           } catch { }
+        }
+
+        async function loadEpisodes() {
+          try {
+            const res = await fetch('/dsh-handeye-plus/episodes?limit=5', { credentials: 'same-origin' })
+            if (!res.ok) return
+            const payload = await res.json()
+            if (!payload.ok) return
+            renderEpisodes(Array.isArray(payload.value) ? payload.value : [])
+          } catch { }
+        }
+
+        function renderEpisodes(episodes) {
+          // Do not wipe an inline "save as capability" form that the user is editing.
+          if (episodeCard.querySelector('input')) return
+          episodeCard.replaceChildren()
+          if (!episodes.length) {
+            episodeCard.style.display = 'none'
+            return
+          }
+          episodeCard.style.display = ''
+          const heading = mk('div', '', '最近任务')
+          heading.style.cssText = 'font-size:11.5px;color:var(--he-muted);margin-bottom:6px'
+          episodeCard.appendChild(heading)
+
+          for (const ep of episodes) {
+            const row = mk('div')
+            row.style.cssText =
+              'display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid rgba(255,255,255,.05);font-size:11.5px'
+            const label = mk(
+              'span',
+              '',
+              `${String(ep.startedAt || '').slice(11, 16)}  ${ep.intent?.text || ep.intent || '（无意图）'}  ${ep.outcome || ''}`,
+            )
+            label.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--he-text,#e8e8ea)'
+            const saveBtn = mk('button', 'dsh-he-btn', '存成能力')
+            saveBtn.onclick = () => beginSaveEpisode(ep, row)
+            row.appendChild(label)
+            row.appendChild(saveBtn)
+            episodeCard.appendChild(row)
+          }
+        }
+
+        function episodeMessage(text, ok = true) {
+          let message = episodeCard.querySelector('.dsh-he-ep-msg')
+          if (!message) {
+            message = mk('div')
+            message.className = 'dsh-he-ep-msg'
+            episodeCard.appendChild(message)
+          }
+          message.style.cssText = `font-size:11px;margin-top:6px;color:${ok ? '#7fd19a' : '#ff8080'}`
+          message.textContent = text
+        }
+
+        function beginSaveEpisode(ep, row) {
+          row.replaceChildren()
+          const inputStyle =
+            'font:inherit;font-size:11px;background:var(--he-hover,rgba(255,255,255,.06));border:1px solid var(--he-border,rgba(255,255,255,.12));color:var(--he-text,#e8e8ea);border-radius:5px;padding:3px 5px'
+          const name = document.createElement('input')
+          name.placeholder = '能力名'
+          name.style.cssText = `${inputStyle};width:86px`
+          const title = document.createElement('input')
+          title.placeholder = '标题'
+          title.value = ep.intent?.text || ''
+          title.style.cssText = `${inputStyle};flex:1;min-width:60px`
+          const ok = mk('button', 'dsh-he-btn', '保存')
+          const cancel = mk('button', 'dsh-he-btn', '取消')
+          cancel.onclick = () => loadEpisodes()
+          ok.onclick = async () => {
+            const nameValue = name.value.trim()
+            const titleValue = title.value.trim()
+            if (!nameValue || !titleValue) {
+              episodeMessage('名称和标题都要填', false)
+              return
+            }
+            ok.disabled = true
+            const res = await postJson('/dsh-handeye-plus/capabilities/save', {
+              episodeId: ep.id,
+              name: nameValue,
+              title: titleValue,
+            })
+            if (res.ok) {
+              episodeMessage(`已保存草稿 ${nameValue}，去「能力」页检查并启用`, true)
+              void loadCaps()
+              window.setTimeout(() => loadEpisodes(), 1200)
+            } else {
+              episodeMessage(`保存失败：${res.error || res.message || 'unknown error'}`, false)
+              ok.disabled = false
+            }
+          }
+          row.appendChild(name)
+          row.appendChild(title)
+          row.appendChild(ok)
+          row.appendChild(cancel)
         }
 
         function renderState() {
@@ -993,12 +1139,16 @@ window.__ModuleLoader__.load({
         renderBar()
         setTab('today')
         document.body.appendChild(root)
+        mountTopTab()
         refresh()
         void loadState()
+        void loadEpisodes()
         const timer = setInterval(refresh, POLL_MS)
+        const topTabTimer = setInterval(mountTopTab, 2000)
         const stateTimer = setInterval(loadState, 2000)
         const pageTimer = setInterval(() => {
-          if (tab === 'caps') void loadCaps()
+          if (tab === 'today') void loadEpisodes()
+          else if (tab === 'caps') void loadCaps()
           else if (tab === 'cards') void loadCards()
           else if (tab === 'log') void loadLog()
         }, 4000)
@@ -1008,6 +1158,9 @@ window.__ModuleLoader__.load({
           clearInterval(timer)
           clearInterval(stateTimer)
           clearInterval(pageTimer)
+          clearInterval(topTabTimer)
+          document.querySelectorAll('[data-dsh-he-tab]').forEach((node) => node.remove())
+          document.removeEventListener('click', onTopTabClick, true)
           document.removeEventListener('keydown', onKey)
           root.remove()
         }
