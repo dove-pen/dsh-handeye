@@ -227,6 +227,9 @@ export function apply(ctx) {
   const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
   const runtimeState = createState()
   const episodes = createEpisodeStore({ dir: dataDir })
+  // prune() 一直没人调用，episodes 的 jsonl 会无限长下去（一个动作一行）。
+  // 启动时清一次旧日子，失败也不影响本次运行。
+  void episodes.prune({}).catch(() => {})
   const capabilities = createCapabilityStore({ dir: dataDir })
   const cards = createCardStore({ dir: dataDir })
   const goals = createGoalStore({ dir: dataDir })

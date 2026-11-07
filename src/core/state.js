@@ -70,9 +70,14 @@ export function beginEpisode(state, intent, opts = {}) {
   state.path = Array.isArray(opts.path) ? opts.path.map((step) => String(step)).filter(Boolean).slice(0, 12) : []
   state.pathIndex = 0
   state.actionsSinceCheckpoint = 0
-  state.cardId = String(opts.cardId ?? '')
-  state.verifyChecks = Array.isArray(opts.verify) && opts.verify.length > 0 ? opts.verify : null
-  state.verifyVars = opts.params && typeof opts.params === 'object' ? { ...opts.params } : {}
+  // 目标步骤进行中时，不让 episode_begin 冲掉这一步的验收判据：
+  // episode_begin 是 meta 工具、不过门卫，否则模型只要在完成前开一个新 episode，
+  // 判据就变成空，整道验收门等于自己走掉。
+  if (!state.currentStep) {
+    state.cardId = String(opts.cardId ?? '')
+    state.verifyChecks = Array.isArray(opts.verify) && opts.verify.length > 0 ? opts.verify : null
+    state.verifyVars = opts.params && typeof opts.params === 'object' ? { ...opts.params } : {}
+  }
   state.verifyFailures = 0
   resetBudget(state)
   return state

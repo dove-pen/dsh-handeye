@@ -203,3 +203,29 @@ test('a step with no acceptance checks records verify=none, not pass', async () 
     await s.cleanup()
   }
 })
+
+test('finishing the last step releases the goal, so unrelated actions are not blocked', async () => {
+  const s = await setup({ verifyStep: async () => ({ ok: true, checks: [] }) })
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: ['a'] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    assert.equal(s.state.goalId, id)
+    const out = await s.by('goal_step_done').execute({ goalId: id, stepId: 's1', summary: '做完了' })
+    assert.match(out, /已退出步骤模式/)
+    assert.equal(s.state.goalId, '', '做完最后一步必须放开目标，否则后续所有写操作都会被拦')
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('an unfinished goal keeps its focus after a step finishes', async () => {
+  const s = await setup({ verifyStep: async () => ({ ok: true, checks: [] }) })
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: ['a', 'b'] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    await s.by('goal_step_done').execute({ goalId: id, stepId: 's1', summary: '第一步好了' })
+    assert.equal(s.state.goalId, id, '还有下一步，焦点不能放开')
+  } finally {
+    await s.cleanup()
+  }
+})

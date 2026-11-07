@@ -40,7 +40,35 @@ function sendJson(res, status, payload) {
   res.end(body)
 }
 
+/**
+ * 跨站写请求拦截。
+ *
+ * 这些路由挂在宿主同源的 localhost 上，没有鉴权。浏览器对 application/json 的跨站 POST
+ * 会先发预检，但 text/plain 属于「简单请求」——不预检、直接打过来。所以任意网页都能
+ * 构造 POST 去调 /goals/override，把「人工放行」这道唯一的门禁绕过。
+ * 两道关：Origin 必须是同源；写请求必须是 application/json。
+ */
+function isCrossOrigin(req) {
+  const origin = req.headers?.origin
+  if (!origin) return false // curl / 本地脚本没有 Origin 头
+  const host = String(req.headers?.host || '')
+  try {
+    return new URL(origin).host !== host
+  } catch {
+    return true
+  }
+}
+
+function badRequest(status, message) {
+  const error = new Error(message)
+  error.status = status
+  return error
+}
+
 async function readBody(req) {
+  if (isCrossOrigin(req)) throw badRequest(403, 'cross-origin write rejected')
+  const type = String(req.headers?.['content-type'] || '')
+  if (!/application\/json/i.test(type)) throw badRequest(415, 'content-type must be application/json')
   const chunks = []
   let size = 0
   for await (const chunk of req) {
@@ -87,7 +115,7 @@ export function registerRoutes({ ctx, runtime, version }) {
               .then(() => handler(req, res))
               .catch((error) => {
                 try {
-                  sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+                  sendJson(res, (error && error.status) || 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
                 } catch {
                   // response already closed
                 }

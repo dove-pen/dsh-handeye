@@ -197,3 +197,26 @@ test('validateGoal rejects two doing steps and duplicate ids', () => {
   assert.equal(dup.ok, false)
   assert.ok(JSON.stringify(dup.errors).includes('duplicate step id'))
 })
+
+test('concurrent writes to the same goal do not lose records and do not crash', async () => {
+  // 以前：所有写手共用 <id>.json.tmp，rename 互相抢 -> ENOENT；而且 RMW 不串行 -> 丢更新
+  await withStore(async (store) => {
+    const g = (await store.create({ title: 'race', longTermGoal: 'x', steps: ['a'] })).value
+    const results = await Promise.allSettled(
+      Array.from({ length: 12 }, (_, i) => store.appendRun(g.id, { stepId: 's1', summary: `run ${i}` })),
+    )
+    assert.equal(results.filter((r) => r.status === 'rejected').length, 0, '并发写不应该抛异常')
+    const doc = (await store.get(g.id)).value
+    assert.equal(doc.runs.length, 12, '12 条必须全部落盘')
+  })
+})
+
+test('writes to different goals do not block each other', async () => {
+  await withStore(async (store) => {
+    const a = (await store.create({ title: 'a', longTermGoal: 'x', steps: ['s'] })).value
+    const b = (await store.create({ title: 'b', longTermGoal: 'x', steps: ['s'] })).value
+    const started = Date.now()
+    await Promise.all([store.appendRun(a.id, { stepId: 's1' }), store.appendRun(b.id, { stepId: 's1' })])
+    assert.ok(Date.now() - started < 2000, '不同目标之间不应该串行排队')
+  })
+})

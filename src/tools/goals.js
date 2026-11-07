@@ -296,8 +296,14 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
         if (verdict?.overridden) lines.push('（本次是人工放行，验收没有跑）')
         lines.push(`目标进度：${progressLine(summaryLine)}`)
         const next = after.steps.find((s) => s.status === 'todo')
-        if (next) lines.push(`下一步：goal_step_enter ${goalId} ${next.id}`)
-        else lines.push('所有步骤都做完了，可以用 goal_status 复核一遍。')
+        if (next) {
+          lines.push(`下一步：goal_step_enter ${goalId} ${next.id}`)
+        } else {
+          // 全部做完必须放开目标焦点：否则 state.goalId 一直挂着，
+          // 接下来任何写操作都会被 GOAL_STEP_REQUIRED 拒掉，模型会原地打转。
+          if (state.goalId === goalId) state.goalId = ''
+          lines.push('所有步骤都做完了，已退出步骤模式（要归档就 goal_set_status ' + goalId + ' done）。')
+        }
         return lines.join('\n')
       },
     },

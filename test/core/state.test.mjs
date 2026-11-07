@@ -132,3 +132,22 @@ test('the time budget pauses the runtime', () => {
   assert.equal(budget.ok, false)
   assert.equal(state.state, STATES.PAUSED)
 })
+
+test('episode_begin cannot wash away the acceptance checks of the running step', () => {
+  const state = createState()
+  beginEpisode(state, 'goal step', { path: ['s1'], verify: [{ type: 'file', path: 'x.md', minBytes: 10 }] })
+  state.goalId = 'goal_20261107_abcdef'
+  state.currentStep = { stepId: 's1', allowedTools: null, budgetActions: 8 }
+  const before = state.verifyChecks
+  assert.ok(Array.isArray(before) && before.length === 1)
+
+  // 模型如果中途再开一个 episode，判据必须还在
+  beginEpisode(state, 'restart', { path: ['x'] })
+  assert.deepEqual(state.verifyChecks, before, '步骤进行中，episode_begin 不许清掉判据')
+
+  // 没有步骤在跑时，正常覆盖是允许的
+  state.currentStep = null
+  beginEpisode(state, 'fresh', { verify: [{ type: 'text', path: 'a.txt', contains: 'x' }] })
+  assert.equal(state.verifyChecks.length, 1)
+  assert.equal(state.verifyChecks[0].type, 'text')
+})

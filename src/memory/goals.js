@@ -15,6 +15,9 @@ import { ERR, failure, success } from '../core/errors.js'
 export const GOAL_STATUS = ['active', 'paused', 'done', 'archived']
 export const STEP_STATUS = ['todo', 'doing', 'blocked', 'done', 'skipped']
 
+/** 会写盘的方法：这些必须串行执行。 */
+const MUTATORS = ['setPlan', 'enterStep', 'finishStep', 'blockStep', 'skipStep', 'recordVerifyFailure', 'appendRun', 'setStatus', 'remove']
+
 export const MAX_STEPS = 20
 export const MAX_TITLE = 80
 export const MAX_LONG_GOAL = 2000
@@ -102,11 +105,24 @@ export function createGoalStore({ dir, now = () => Date.now() } = {}) {
     return path.join(goalDir, `${id}.json`)
   }
 
+  let tmpSeq = 0
+  const writeQueues = new Map()
+
+  /** 同一个目标的写操作排队执行；上一个失败也不会卡住后面。 */
+  function enqueue(key, job) {
+    const prev = writeQueues.get(key) || Promise.resolve()
+    const next = prev.then(job, job)
+    writeQueues.set(key, next.catch(() => {}))
+    return next
+  }
+
   async function writeDoc(doc) {
     await ensureDir()
     await mkdir(goalDir, { recursive: true })
     const file = fileOf(doc.id)
-    const tmp = `${file}.tmp`
+    // 每个写手用自己唯一的临时文件：共用 <id>.json.tmp 时，一个 rename 会把
+    // 另一个正要 rename 的临时文件抢走，直接 ENOENT 崩掉（实测并发写复现）。
+    const tmp = `${file}.${process.pid}.${(tmpSeq += 1)}.tmp`
     await writeFile(tmp, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
     await rename(tmp, file)
   }
@@ -298,7 +314,7 @@ export function createGoalStore({ dir, now = () => Date.now() } = {}) {
     }
   }
 
-  return {
+  const store = {
     get,
     list,
     create,
@@ -314,6 +330,13 @@ export function createGoalStore({ dir, now = () => Date.now() } = {}) {
     remove,
     dir: goalDir,
   }
+
+  // 串行化同一个目标的读-改-写。不同目标互不影响。
+  for (const name of MUTATORS) {
+    const run = store[name].bind(store)
+    store[name] = (id, ...rest) => enqueue(String(id ?? ''), () => run(id, ...rest))
+  }
+  return store
 }
 
 /** Accepts ["第一步", ...] or [{ title, promptId?, verify? }, ...]. */
