@@ -1240,7 +1240,15 @@ window.__ModuleLoader__.load({
           return { todo: '○', doing: '▸', done: '✓', blocked: '×', skipped: '-' }[status] || '?'
         }
 
+        /** 正在这个页里打字吗？是的话这次重画就跳过。 */
+        function goalsEditing() {
+          const active = document.activeElement
+          if (!active || !pageGoals.contains(active)) return false
+          return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA'
+        }
+
         function renderGoals() {
+          if (goalsEditing()) return
           pageGoals.replaceChildren()
 
           // 指标条
@@ -1327,6 +1335,9 @@ window.__ModuleLoader__.load({
 
         function buildGoalForm() {
           const form = mk('div', 'dsh-he-gform')
+          form.addEventListener('keydown', (e) => e.stopPropagation())
+          form.addEventListener('keypress', (e) => e.stopPropagation())
+          form.addEventListener('keyup', (e) => e.stopPropagation())
           form.appendChild(mk('div', 'hint', '长期目标写你真正想达成的事；步骤可以留空，之后让 AI 拆。'))
           const name = mk('input')
           name.placeholder = '目标名字（短一点）'
@@ -1367,6 +1378,9 @@ window.__ModuleLoader__.load({
           // 步骤：先给个可编辑清单
           if (planDraftFor === goal.id) {
             const form = mk('div', 'dsh-he-gform')
+            form.addEventListener('keydown', (e) => e.stopPropagation())
+            form.addEventListener('keypress', (e) => e.stopPropagation())
+            form.addEventListener('keyup', (e) => e.stopPropagation())
             form.appendChild(mk('div', 'hint', '一行一步，保存后编号是 s1、s2……'))
             const area = mk('textarea')
             area.rows = 5
@@ -1478,6 +1492,9 @@ window.__ModuleLoader__.load({
 
         function buildEditBox(goal, step) {
           const box = mk('div', 'dsh-he-gpick')
+          box.addEventListener('keydown', (e) => e.stopPropagation())
+          box.addEventListener('keypress', (e) => e.stopPropagation())
+          box.addEventListener('keyup', (e) => e.stopPropagation())
           const input = mk('input')
           input.placeholder = editFor.kind === 'override' ? '放行原因（会写进记录）' : '跳过原因（会写进记录）'
           input.value = editReason
@@ -1599,7 +1616,9 @@ window.__ModuleLoader__.load({
           if (tab === 'today') void loadEpisodes()
           else if (tab === 'caps') void loadCaps()
           else if (tab === 'cards') void loadCards()
-          else if (tab === 'goals') void loadGoals()
+          else if (tab === 'goals') {
+            if (!goalsEditing()) void loadGoals()
+          }
           else if (tab === 'log') void loadLog()
         }, 4000)
 
