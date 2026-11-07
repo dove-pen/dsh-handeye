@@ -236,6 +236,13 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
         const doc = await goalOf(goalId)
         if (!doc) return fail(`找不到目标 ${goalId}`)
         const step = doc.steps.find((s) => s.id === stepId)
+
+        // 只能给正在跑的那一步结账：否则可以在做 s1 的时候把 s3 标成完成，
+        // 验收用的却是 s1 的判据。
+        if (!state.currentStep || state.currentStep.stepId !== stepId) {
+          const running = state.currentStep ? state.currentStep.stepId : '（没有步骤在跑）'
+          return fail(`这一步没在跑：当前是 ${running}，不能替 ${stepId} 结账。先 goal_step_enter ${goalId} ${stepId}。`)
+        }
         if (!step) return fail(`目标里没有步骤 ${stepId}`)
         if (step.status !== 'doing') return fail(`步骤 ${stepId} 当前是 ${step.status}，不是 doing`)
 

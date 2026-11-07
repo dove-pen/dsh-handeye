@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.11.5 — 2026-11-07
+
+专项审计第二轮：三个子代理分头扫 gate/verify/risk、goals 存储与状态、client+routes，
+加上我自己查 index.js，一共确认 **16 个真问题**。这一版修掉其中 6 个，都是"门禁形同虚设"级别。
+
+### 已修
+
+1. **暂停可以被模型自己解除**（严重）
+   `episode_begin` 是 meta 工具、不过门卫，而它内部 `beginEpisode` 会把状态改回 RUNNING、
+   清掉 reason 和 allowedTools。于是"暂停"只是摆设：模型调一次 `episode_begin` 就能继续动手。
+   现在暂停期间 `beginEpisode` 保持 PAUSED，只有用户恢复能动。
+
+2. **判据配置写坏 → 验收门静默关闭**（严重）
+   `normalizeChecks` 失败时，三处调用方都把它变成"没有判据"，于是验收照常推进（fail-open）。
+   现在写坏判据会挂一个**必然验不过**的哨兵判据（用不存在的文件）。
+   注意：我第一版哨兵写成了 `exit + echo`，退出码 0 反而通过 —— 那等于把门打开，已改。
+
+3. **命令判据可注入**（严重）
+   判据命令走 `cmd.exe /c`，白名单只看第一个 token，所以 `node -v & del /f x` 的 head 也是 node。
+   现在含 `& | < > ^ % ! ; $ ?` 之类元字符一律拒绝（替换变量之后再检查一遍）。
+
+4. **`'*'` 等于全部放行**（中等）
+   `matchTool('*', t)` 恒真，而 `allowedTools` 是模型能自己传的参数 —— 白名单可以自己写、自己放大。
+   现在单独一个星号不匹配任何工具，`browser_*` 也不会把 `browser` 本身带进来。
+
+5. **`eye_shot` / `eye_region` 被当成只读**（中等）
+   它们会按 `args.path` 往任意绝对路径写 PNG，暂停时却能直接跑、不计预算、不过白名单。现在算写操作。
+
+6. **跨步冒领**（中等）
+   在跑 s1 时可以调 `goal_step_done` 给 s3 结账，验的却是 s1 的判据。现在只能给正在跑的那一步结账。
+
+### 测试
+220 → **224**（暂停不可解除、星号不放行、截图算写、跨步结账被拒）
+
+### 还没修（下一轮，按严重度）
+
+- verify 从全局 state 取判据、不校验 stepId；重启后 state 丢失 → 判据空 → 步骤被静默标成完成
+- 重复 `goal_step_enter` 同一步会把 `stepActions` 归零 → 预算可以无限刷新
+- `budget.actions` 没有上限（可以写 1000000），而 `goal_step_continue` 却夹在 1..40
+- `blocked` 的步骤可以立刻重进，`verifyFailures` 不复位 → blocked 循环
+- `goal_step_continue` 加到"当前步骤"而不是文件里那一步；且它自己吃掉 1 个动作
+- `normalizeSteps` 静默截断、id 会出现空洞（s1、s3）
+- `CONFIRM_REQUIRED` 被调用方丢掉 → 破坏性动作永远没有二次确认
+- 判据路径没有根目录约束（可以用 text 判据去探测任意文件）
+- `capability run` 内部的每一步都不计入步骤预算
+- `text` 判据在数据源读失败时，`absent` 会被判成"通过"
+
 ## v0.11.4 — 2026-11-07
 
 专项找 bug，一次修五个。前三个都能让"门卫"形同虚设或把人锁死。

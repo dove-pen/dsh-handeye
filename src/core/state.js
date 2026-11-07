@@ -60,10 +60,14 @@ function resetBudget(state) {
 }
 
 export function beginEpisode(state, intent, opts = {}) {
-  state.state = STATES.RUNNING
-  state.reason = ''
-  state.needsReplan = false
-  state.replanPlan = ''
+  // 暂停是用户动作：模型不能靠开一个新 episode 把门卫解除。
+  const stayPaused = state.state === STATES.PAUSED
+  if (!stayPaused) state.state = STATES.RUNNING
+  if (!stayPaused) {
+    state.reason = ''
+    state.needsReplan = false
+    state.replanPlan = ''
+  }
   state.intent = String(intent ?? '')
   state.episodeId = String(opts.episodeId ?? '')
   state.allowedTools = Array.isArray(opts.allowedTools) ? [...opts.allowedTools] : null

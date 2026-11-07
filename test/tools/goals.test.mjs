@@ -229,3 +229,17 @@ test('an unfinished goal keeps its focus after a step finishes', async () => {
     await s.cleanup()
   }
 })
+
+test('a step cannot be closed while another step is running', async () => {
+  const s = await setup({ verifyStep: async () => ({ ok: true, checks: [] }) })
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: ['a', 'b'] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    const out = await s.by('goal_step_done').execute({ goalId: id, stepId: 's2', summary: '偷跑' })
+    assert.match(out, /没在跑/)
+    const doc = (await s.store.get(id)).value
+    assert.equal(doc.steps[1].status, 'todo', 's2 不能被隔空标成完成')
+  } finally {
+    await s.cleanup()
+  }
+})

@@ -56,6 +56,8 @@ export function isMetaTool(tool) {
 
 export function isReadTool(tool, args = {}) {
   const name = String(tool)
+  // eye_shot / eye_region 会按 args.path 往任意绝对路径写 PNG，不是纯读
+  if (name === 'eye_shot' || name === 'eye_region') return false
   if (name.startsWith('eye_')) return true
   if (READ_TOOLS.has(name)) return true
   if (name === 'capability') return args?.action === 'list' || args?.action === 'show'
@@ -87,8 +89,12 @@ export function classifyRisk(tool, args = {}) {
 
 export function matchTool(pattern, tool) {
   const p = String(pattern ?? '')
-  if (!p) return false
-  if (p.endsWith('*')) return String(tool).startsWith(p.slice(0, -1))
+  // 单独一个星号不等于全部放行：那会让白名单失去意义（卡片和模型都能写它）
+  if (!p || p === '*') return false
+  if (p.endsWith('*')) {
+    const head = p.slice(0, -1)
+    return head.length > 0 && String(tool).startsWith(head)
+  }
   return p === String(tool)
 }
 

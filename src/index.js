@@ -293,9 +293,31 @@ export function apply(ctx) {
     }
   }
 
+  /**
+   * 判据配置写坏时的兜底。必须是"一定验不过"的判据：
+   * 早期版本这里写成了 exit + echo，退出码 0 反而通过，等于把门打开。
+   */
+  function brokenChecks(errors) {
+    return [
+      {
+        type: 'file',
+        path: '__broken_checks_config__',
+        minBytes: 1,
+        broken: errors.map((e) => `${e.path} ${e.message}`).join('；'),
+      },
+    ]
+  }
+
   function runCommand(command, timeoutMs = 60000) {
     return new Promise((resolve) => {
-      const head = String(command).trim().split(/\s+/, 1)[0].toLowerCase().replace(/\.(exe|cmd|bat)$/, '')
+      const raw = String(command)
+      // cmd.exe /c 会解释 & | > < ^ 这些元字符，白名单只看第一个 token 是拦不住的：
+      // "node -v & del /f x" 的 head 也是 node。含元字符一律拒。
+      if (/[&|<>^%!;\`$]/.test(raw)) {
+        resolve({ code: -1, stdout: '', stderr: 'command rejected: shell metacharacters are not allowed' })
+        return
+      }
+      const head = raw.trim().split(/\s+/, 1)[0].toLowerCase().replace(/\.(exe|cmd|bat)$/, '')
       // 第二道锁：normalizeChecks 已经拦过一次，这里再拦一次，防止别处直接调用
       if (!COMMAND_ALLOWLIST.includes(head)) {
         resolve({ code: -1, stdout: '', stderr: `命令「${head}」不在白名单里` })
@@ -391,7 +413,12 @@ export function apply(ctx) {
     // 步骤自己写的判据优先于卡片
     if (Array.isArray(step.verify) && step.verify.length > 0) {
       const norm = normalizeChecks(step.verify)
-      checks = norm.ok && norm.checks.length > 0 ? norm.checks : null
+      if (!norm.ok) {
+        // 判据写坏了就挂一个必然失败的判据：绝不能降级成"没有判据"直接放行
+        checks = brokenChecks(norm.errors)
+      } else {
+        checks = norm.checks.length > 0 ? norm.checks : null
+      }
     }
 
     // 先开 episode（它会重置卡片相关字段），再挂目标步骤，顺序不能反
@@ -454,7 +481,13 @@ export function apply(ctx) {
       }
       const card = got.value
       const norm = normalizeChecks(card.verify ?? [])
-      runtimeState.verifyChecks = norm.ok && norm.checks.length > 0 ? norm.checks : null
+      if (!norm.ok) {
+        // 卡片判据写坏了：挂哨兵，宁可这一步验不过，也不能静静地把门打开
+        runtimeState.verifyChecks = brokenChecks(norm.errors)
+        runtimeState.cardId = card.id
+        return
+      }
+      runtimeState.verifyChecks = norm.checks.length > 0 ? norm.checks : null
       runtimeState.cardId = card.id
       if (Array.isArray(card.path) && card.path.length > 0 && (runtimeState.path || []).length === 0) {
         runtimeState.path = card.path.map((s) => String(s)).slice(0, 12)

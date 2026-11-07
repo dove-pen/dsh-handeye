@@ -14,6 +14,8 @@ import {
   resumeByUser,
   satisfyReplan,
 } from '../../src/core/state.js'
+import { matchTool, isReadTool } from '../../src/core/risk.js'
+import { canAct } from '../../src/core/gate.js'
 
 test('beginEpisode enters RUNNING and resets the budget', () => {
   const state = createState({ maxSteps: 10 })
@@ -150,4 +152,26 @@ test('episode_begin cannot wash away the acceptance checks of the running step',
   beginEpisode(state, 'fresh', { verify: [{ type: 'text', path: 'a.txt', contains: 'x' }] })
   assert.equal(state.verifyChecks.length, 1)
   assert.equal(state.verifyChecks[0].type, 'text')
+})
+
+test('the model cannot lift a pause by starting a new episode', () => {
+  const state = createState()
+  beginEpisode(state, 'work')
+  pause(state, 'user')
+  beginEpisode(state, 'sneaky restart')
+  assert.equal(state.state, STATES.PAUSED, '暂停只能由用户恢复')
+  assert.equal(canAct(state, 'hand_click', {}).ok, false)
+})
+
+test('a bare wildcard no longer whitelists everything', () => {
+  assert.equal(matchTool('*', 'hand_click'), false)
+  assert.equal(matchTool('*', 'desk_launch'), false)
+  assert.equal(matchTool('browser_*', 'browser_click'), true)
+  assert.equal(matchTool('browser_*', 'browser'), false, '前缀匹配不能把 browser 本身带进来')
+})
+
+test('writing screenshots is not a read-only action', () => {
+  assert.equal(isReadTool('eye_shot', { path: 'D:\\x.png' }), false)
+  assert.equal(isReadTool('eye_region', { region: '1,2,3,4' }), false)
+  assert.equal(isReadTool('eye_see', {}), true)
 })
