@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.7.0 — 2026-11-07
+
+一次真实任务（用浏览器订阅邮件通讯、点确认链接）暴露的三个硬伤，逐条修：
+
+### 手：点击不再"盲点"
+- 新增 `src/winui.ps1` + `src/winui.js`：聚焦、命中检测、按下鼠标在**同一个进程**里完成
+- `hand_click` 新增 `hwnd` / `title` / `doubleClick` / `dryRun`：给目标窗口时，
+  用 `WindowFromPoint` 确认这个像素确实属于它，**不属于就不点**，并说明实际压在上面的是谁
+- 回包固定带上「命中窗口 / 目标窗口 / 操作后前台」，点错一眼能看出来
+- `hand_focus` 改为「切完必须验证真的到前台」，Windows 拒绝时借前台线程输入队列重试，
+  失败明确报错（原来是 handeye 回一句"已切换"就算成功）
+- `hand_type` / `hand_key` 支持先切窗口；新工具 `hand_where` 只查询坐标属于哪个窗口
+- `desk_tree` 对 Chromium 窗口补一句提示：读不到页面控件不是故障，是它不导出无障碍树
+
+### 网页：能接管用户自己的浏览器
+- 新增 `browser_attach`：扫描 `--remote-debugging-port`、`DevToolsActivePort` 与常见端口，
+  接管**已登录**的 Chrome/Edge，保留 Cookie 与登录态
+- 接管模式下 `browser_stop` 拒绝关闭用户的浏览器；端点消失就报错，绝不偷偷另起一个
+- CDP 连接断开会立刻作废缓存并在下一次动作自动重连一次（原来只会一直说"调试通道已断开"）
+- 独立实例的 stdout/stderr 落盘 `browser.log`，崩溃后能查原因
+
+### 眼：等待与细读
+- 新增 `eye_wait`：`appear` / `gone` / `change` 三种等待，全部带超时
+- 新增 `eye_region`：GDI+ 直接抓屏裁一块放大（默认 3 倍）存 PNG，可选顺带 OCR；
+  不依赖 handeye 存盘，沙箱里也能用
+- `src/eye.js` 把这些逻辑收成可单测的纯函数
+
+### 其他
+- 工具从 35 个涨到 39 个；`hand_where` 保守归为只读，`browser_attach` 归为写操作
+- 单测 127 → 151（新增 winui / eye / browser 三个测试文件）
+
 ## v0.6.6 — 2026-11-07
 
 - 修复系统快照中文系统名称乱码：PowerShell 输出强制 UTF-8

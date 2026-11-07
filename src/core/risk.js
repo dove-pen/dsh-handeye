@@ -16,6 +16,7 @@ const READ_TOOLS = new Set([
   'browser_tabs',
   'browser_snapshot',
   'browser_text',
+  'hand_where',
   'yl_log',
 ])
 
@@ -31,6 +32,7 @@ const WRITE_TOOLS = new Set([
   'desk_launch',
   'desk_batch',
   'browser_open',
+  'browser_attach',
   'browser_click',
   'browser_fill',
   'browser_navigate',

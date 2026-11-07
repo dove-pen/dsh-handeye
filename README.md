@@ -37,11 +37,18 @@ DeepSeek Harness（dsh）插件：**手（真实鼠标键盘）+ 眼（屏幕投
 | `eye_find` | 按文字找位置 |
 | `eye_changed` | 只问"屏幕变了没有"，图像指纹，最便宜 |
 | `eye_shot` | 截图存 PNG，只返回路径 |
+| `eye_wait` | 等事情发生：文字出现 / 文字消失 / 画面变化，带超时，不用 sleep |
+| `eye_region` | 按框裁一小块并放大（默认 3 倍）存 PNG，可选顺带 OCR；读验证码、金额、时间戳用这个 |
 | `eye_text` | 文字瘦身：去重、去噪、保头保尾、报警行不丢 |
 
 ### 手（动作，会动鼠标）
 
-`hand_click`、`hand_click_text`、`hand_type`、`hand_key`、`hand_focus`。
+`hand_click`、`hand_click_text`、`hand_type`、`hand_key`、`hand_focus`、`hand_where`。
+
+`hand_click` 支持 `hwnd` / `title`：一次调用内先聚焦、再问 Windows「这个像素属于谁」，
+不属于目标就把点击**拦下来**并说明原因，而不是点错窗口还报成功。
+`dryRun: true` 只做聚焦和命中判断、不按下鼠标。
+`hand_where` 只问「这个坐标现在属于哪个窗口」，不点。
 
 ### 后台控件（不碰鼠标）
 
@@ -49,7 +56,10 @@ DeepSeek Harness（dsh）插件：**手（真实鼠标键盘）+ 眼（屏幕投
 
 ### 网页（按元素，不猜坐标）
 
-`browser_open`、`browser_snapshot`、`browser_click`、`browser_fill`、`browser_text`、`browser_navigate`、`browser_tabs`、`browser_close`、`browser_stop`。
+`browser_open`、`browser_attach`、`browser_snapshot`、`browser_click`、`browser_fill`、`browser_text`、`browser_navigate`、`browser_tabs`、`browser_close`、`browser_stop`。
+
+`browser_attach` 接管**用户正在用的**浏览器（需它带 `--remote-debugging-port` 启动）：
+有登录态和 Cookie，可以点确认邮件里的链接；这个模式下 `browser_stop` 不会关掉用户的浏览器。
 
 ### 记忆与审计
 
@@ -61,7 +71,7 @@ DeepSeek Harness（dsh）插件：**手（真实鼠标键盘）+ 眼（屏幕投
 | `pause_request` | 模型自己喊停 |
 | `yl_log` | 查 handeye 七段系统日志 |
 
-共 **34 个工具**（29 个手眼 + 4 个 meta + 1 个能力）。
+共 **39 个工具**（33 个手眼 + 4 个 meta + 1 个能力）。
 
 ---
 

@@ -51,7 +51,34 @@ import {
   stopBrowser,
   ensureBrowser,
   browserPort,
+  browserMode,
+  isAttached,
+  attachBrowser,
+  detachBrowser,
+  discoverEndpoints,
 } from './browser.js'
+import {
+  clickAt,
+  focusWindowTarget,
+  windowAt,
+  listTopWindows,
+  cropRegion,
+  grabRegion,
+  resolveTarget,
+  describeWindow,
+  pickWindowByTitle,
+  formatClickResult,
+  formatFocusResult,
+  parseRegion,
+  WinUiError,
+} from './winui.js'
+import {
+  waitForText,
+  waitForGone,
+  waitForChange,
+  readRegion,
+  formatWaitResult,
+} from './eye.js'
 
 export const name = 'dsh-handeye'
 // cordis 要求显式声明依赖，否则 ctx.tools 取不到（会报 cannot get property "tools" without inject）。
@@ -347,31 +374,181 @@ export function apply(ctx) {
     },
   })
 
+  // ------------------------------------------------------------ 等待与区域细读
+
+  reg(ctx, {
+    name: 'eye_wait',
+    description:
+      'Wait for something to happen instead of sleeping and screenshotting in a loop. mode=appear blocks until the text shows up and returns its coordinates; mode=gone blocks until the text disappears (polls); mode=change blocks until the screen image changes at all. Always bounded by timeoutMs, so it cannot hang.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Text to wait for (required for appear / gone).' },
+        mode: { type: 'string', enum: ['appear', 'gone', 'change'], description: 'Default appear.' },
+        timeoutMs: { type: 'number', description: 'Budget in milliseconds, default 8000, capped at 120000.' },
+        fast: { type: 'boolean', description: 'Use the fast OCR profile. Default true (right for polling).' },
+      },
+    },
+    timeoutMs: 150000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      const mode = args?.mode === 'gone' || args?.mode === 'change' ? args.mode : 'appear'
+      const budget = Math.min(120000, Math.max(200, Number.isFinite(args?.timeoutMs) ? args.timeoutMs : 8000))
+      try {
+        if (mode === 'change') {
+          const r = await waitForChange({ timeoutMs: budget })
+          if (r.changed) {
+            const d = r.delta || {}
+            return `屏幕变了（等了 ${r.elapsedMs}ms）：新增 ${d.added ?? 0} 行、消失 ${d.removed ?? 0} 行。需要细节就用 eye_see。`
+          }
+          return `屏幕在 ${budget}ms 内没有变化。` + (r.error === 'timeout' ? '（超时）' : '')
+        }
+        const text = String(args?.text ?? '').trim()
+        if (!text) return `eye_wait mode=${mode} 需要 text`
+        if (mode === 'gone') {
+          const r = await waitForGone({ text, timeoutMs: budget, fast: args?.fast !== false })
+          if (r.gone) return `「${text}」已经消失（等了 ${r.elapsedMs}ms）`
+          const still = (r.hits || []).slice(0, 3).map((h) => `  ${JSON.stringify(h.text)} @(${h.x},${h.y})`).join('\n')
+          return `等到 ${budget}ms 超时，「${text}」还在屏幕上${still ? '：\n' + still : ''}`
+        }
+        const wait = await waitForText({ text, timeoutMs: budget, fast: args?.fast !== false })
+        return formatWaitResult(wait, { text, mode })
+      } catch (e) {
+        return fail('eye_wait 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'eye_region',
+    description:
+      'Crop one rectangle out of the screen, scale it up (default 3x) and save it as a PNG — that is how you read a small code, amount or timestamp without OCR guessing at 1x. Optionally also OCR just that rectangle. Returns the image path plus the exact region that was actually captured.',
+    parameters: {
+      type: 'object',
+      properties: {
+        region: { type: 'string', description: 'Rectangle "x,y,w,h" in screen coordinates (comma or space separated).' },
+        scale: { type: 'number', description: 'Upscale factor 1-8, default 3.' },
+        path: { type: 'string', description: 'Where to save the PNG. Default: %TEMP%\\dsh-handeye-region-<timestamp>.png' },
+        text: { type: 'boolean', description: 'Also OCR the region and return its text.' },
+      },
+      required: ['region'],
+    },
+    timeoutMs: 90000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      const rect = parseRegion(args?.region)
+      if (!rect) return 'eye_region 需要 region="x,y,w,h"（宽高必须大于 0）'
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const temp = process.env.TEMP || 'C:\\Windows\\Temp'
+      const outPath =
+        typeof args?.path === 'string' && args.path.trim() ? args.path.trim() : `${temp}\\dsh-handeye-region-${stamp}.png`
+      try {
+        const scale = Number.isFinite(args?.scale) ? args.scale : 3
+        let crop = null
+        let via = 'GDI+ 直接抓屏'
+        try {
+          crop = await grabRegion({ x: rect.x, y: rect.y, w: rect.w, h: rect.h, scale, outImage: outPath })
+        } catch (grabError) {
+          // 抓屏被拦（沙箱/DPR 异常）时退回 handeye 存全屏再裁
+          const fullPath = `${temp}\\dsh-handeye-full-${stamp}.png`
+          const shot = await runHandeye(['see', '--save', fullPath], { timeoutMs: 35000 })
+          if (!shot.ok) {
+            return fail('eye_region 失败', new Error(`抓屏和截图都失败了：${grabError.message} / ${shot.stderr.trim()}`))
+          }
+          crop = await cropRegion({ source: fullPath, x: rect.x, y: rect.y, w: rect.w, h: rect.h, scale, outImage: outPath })
+          via = 'handeye 截图后裁切'
+        }
+        const lines = [
+          `区域截图已保存：${crop.image}（${via}）`,
+          `实际截取：(${crop.region.x},${crop.region.y}) ${crop.region.w}x${crop.region.h}，放大 ${crop.scale} 倍 → ${crop.outW}x${crop.outH}`,
+          '（需要看图就把这个路径交给支持看图的模型或 modlens。）',
+        ]
+        if (args?.text) {
+          const ocr = await readRegion({ region: `${rect.x},${rect.y},${rect.w},${rect.h}`, scale: 4 })
+          if (!ocr.ok) lines.push(`区域 OCR 失败：${ocr.error}`)
+          else if (ocr.lines.length === 0) lines.push('区域 OCR：没有识别到文字。')
+          else {
+            lines.push('区域 OCR：')
+            for (const l of ocr.lines.slice(0, 30)) lines.push(`  ${JSON.stringify(l.text)}`)
+          }
+        }
+        return lines.join('\n')
+      } catch (e) {
+        return fail('eye_region 失败', e)
+      }
+    },
+  })
+
   // ------------------------------------------------------------ 动作（手）
 
   reg(ctx, {
     name: 'hand_click',
     description:
-      'Click at absolute screen coordinates with the real mouse. Prefer hand_click_text (by text) or desk_invoke (by control) when possible: this one actually moves the pointer.',
+      'Click at absolute screen coordinates with the real mouse. Pass hwnd (from desk_windows) or title to make it safe: focus, hit-test and click then happen inside one process, and the click is skipped entirely if the pixel turns out to belong to another window. The reply always names the window that was actually hit, so a misfire is visible instead of silent. Prefer hand_click_text (by text) or desk_invoke (by control) when you have a control name.',
     parameters: {
       type: 'object',
       properties: {
         x: { type: 'number', description: 'Absolute X.' },
         y: { type: 'number', description: 'Absolute Y.' },
         button: { type: 'string', enum: ['left', 'right'], description: 'Mouse button, default left.' },
+        hwnd: { type: 'number', description: 'Target window handle from desk_windows. Recommended: enables the wrong-window guard.' },
+        title: {
+          type: 'string',
+          description: 'Or a window title fragment (exact beats prefix beats substring). Ignored when hwnd is given.',
+        },
+        doubleClick: { type: 'boolean', description: 'Double click instead of single click.' },
+        dryRun: {
+          type: 'boolean',
+          description: 'Do the focus + hit-test but do not press the mouse. Use it to check a coordinate before trusting it.',
+        },
       },
       required: ['x', 'y'],
     },
-    timeoutMs: 20000,
+    timeoutMs: 40000,
     isConcurrencySafe: () => false,
     async execute(args) {
       const x = Number(args?.x)
       const y = Number(args?.y)
       if (!Number.isFinite(x) || !Number.isFinite(y)) return 'hand_click 需要数字 x 和 y'
-      const argv = ['click', String(Math.round(x)), String(Math.round(y))]
-      if (args?.button === 'right') argv.push('--right')
-      const r = await runHandeye(argv, { timeoutMs: 15000 })
-      return r.ok ? `已点击 (${Math.round(x)},${Math.round(y)})` : fail('hand_click 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      const target = resolveTarget(args)
+      try {
+        const json = await clickAt({
+          x,
+          y,
+          button: args?.button === 'right' ? 'right' : 'left',
+          doubleClick: !!args?.doubleClick,
+          target,
+          dryRun: !!args?.dryRun,
+        })
+        return formatClickResult(json)
+      } catch (e) {
+        if (e instanceof WinUiError) {
+          if (e.code === 'wrong-window') {
+            const wanted = e.extra?.wanted
+            const actual = e.extra?.actual
+            return [
+              `失败：点击被拦下（没有按下鼠标）——(${Math.round(x)},${Math.round(y)}) 这个像素不属于目标窗口。`,
+              wanted ? `目标：${describeWindow(wanted)}` : '',
+              actual ? `实际：${describeWindow(actual)}` : '',
+              '说明有别的东西压在目标上面（常见是 DSH 自己的窗口抢了前台）。',
+              '可以重试一次；还不行就先 hand_focus 那个窗口，或者改用 hand_click_text / desk_invoke。',
+            ]
+              .filter(Boolean)
+              .join('\n')
+          }
+          if (e.code === 'window-not-found') {
+            let hint = ''
+            try {
+              const wins = await listTopWindows()
+              const top = wins.slice(0, 8).map((w) => `  ${w.hwnd}  ${JSON.stringify(w.title || '')}`).join('\n')
+              if (top) hint = `\n当前可见窗口：\n${top}`
+            } catch { }
+            return `失败：找不到目标窗口（${e.message}）${hint}`
+          }
+          return `失败：${e.message}${e.extra ? `（${JSON.stringify(e.extra).slice(0, 300)}）` : ''}`
+        }
+        return fail('hand_click 失败', e)
+      }
     },
   })
 
@@ -407,55 +584,136 @@ export function apply(ctx) {
   reg(ctx, {
     name: 'hand_type',
     description:
-      'Type text into the focused window (supports Chinese and any Unicode; does not touch the clipboard). To fill a known edit control in the background, prefer desk_set_value.',
+      'Type text into the focused window (supports Chinese and any Unicode; does not touch the clipboard). Pass hwnd/title to focus that window first — keystrokes still go wherever focus ends up, so this narrows the race but cannot close it. To fill a known edit control with no race at all, prefer desk_set_value.',
     parameters: {
       type: 'object',
-      properties: { text: { type: 'string', description: 'Text to type.' } },
+      properties: {
+        text: { type: 'string', description: 'Text to type.' },
+        hwnd: { type: 'number', description: 'Optional: focus this window handle first.' },
+        title: { type: 'string', description: 'Optional: focus the window matching this title first.' },
+      },
       required: ['text'],
     },
-    timeoutMs: 30000,
+    timeoutMs: 40000,
     isConcurrencySafe: () => false,
     async execute(args) {
       const text = String(args?.text ?? '')
       if (!text) return 'hand_type 需要一个非空的 text'
+      const target = resolveTarget(args)
+      let note = ''
+      if (target) {
+        try {
+          const focused = await focusWindowTarget(target)
+          note = `\n（已先切到 ${describeWindow(focused.window)}）`
+        } catch (e) {
+          return `失败：打字前切窗口没成功 — ${e.message}`
+        }
+      }
       const r = await runHandeye(['type', text], { timeoutMs: 25000 })
-      return r.ok ? `已输入 ${[...text].length} 个字符` : fail('hand_type 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      return r.ok ? `已输入 ${[...text].length} 个字符${note}` : fail('hand_type 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
     },
   })
 
   reg(ctx, {
     name: 'hand_key',
-    description: 'Press a key or key combination, e.g. ENTER, TAB, ESC, CTRL+S, ALT+F4.',
+    description:
+      'Press a key or key combination, e.g. ENTER, TAB, ESC, CTRL+S, ALT+F4. Pass hwnd/title to focus that window first (same caveat as hand_type: the keystroke lands on whatever is in front at that instant).',
     parameters: {
       type: 'object',
-      properties: { key: { type: 'string', description: 'Key name or combination.' } },
+      properties: {
+        key: { type: 'string', description: 'Key name or combination.' },
+        hwnd: { type: 'number', description: 'Optional: focus this window handle first.' },
+        title: { type: 'string', description: 'Optional: focus the window matching this title first.' },
+      },
       required: ['key'],
     },
-    timeoutMs: 20000,
+    timeoutMs: 30000,
     isConcurrencySafe: () => false,
     async execute(args) {
       const key = String(args?.key ?? '').trim()
       if (!key) return 'hand_key 需要一个非空的 key'
+      const target = resolveTarget(args)
+      let note = ''
+      if (target) {
+        try {
+          const focused = await focusWindowTarget(target)
+          note = `\n（已先切到 ${describeWindow(focused.window)}）`
+        } catch (e) {
+          return `失败：按键前切窗口没成功 — ${e.message}`
+        }
+      }
       const r = await runHandeye(['key', key], { timeoutMs: 15000 })
-      return r.ok ? `已按键 ${key}` : fail('hand_key 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      return r.ok ? `已按键 ${key}${note}` : fail('hand_key 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
     },
   })
 
   reg(ctx, {
     name: 'hand_focus',
-    description: 'Bring a window to the foreground by title fragment.',
+    description:
+      'Bring a window to the foreground by title fragment, then verify it actually got there. Exact titles beat prefixes beat substrings, and a minimized window is restored first. If Windows refuses the switch, it retries through the foreground thread input queue instead of silently reporting success.',
     parameters: {
       type: 'object',
-      properties: { title: { type: 'string', description: 'Window title fragment.' } },
-      required: ['title'],
+      properties: {
+        title: { type: 'string', description: 'Window title fragment.' },
+        hwnd: { type: 'number', description: 'Or an exact window handle; skips title matching.' },
+      },
     },
-    timeoutMs: 20000,
+    timeoutMs: 30000,
     isConcurrencySafe: () => false,
     async execute(args) {
-      const title = String(args?.title ?? '').trim()
-      if (!title) return 'hand_focus 需要一个非空的 title'
-      const r = await runHandeye(['focus', title], { timeoutMs: 15000 })
-      return r.ok ? `已切到「${title}」` : fail('hand_focus 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      const target = resolveTarget(args)
+      if (!target) return 'hand_focus 需要 title 或 hwnd'
+      try {
+        const json = await focusWindowTarget(target)
+        return formatFocusResult(json)
+      } catch (e) {
+        if (e instanceof WinUiError && e.code === 'window-not-found') {
+          let hint = ''
+          try {
+            const wins = await listTopWindows()
+            const match = target.title ? pickWindowByTitle(wins, target.title) : null
+            const top = wins.slice(0, 8).map((w) => `  ${w.hwnd}  ${JSON.stringify(w.title || '')}`).join('\n')
+            if (match) hint = `\n最接近的是：${describeWindow(match)}`
+            if (top) hint += `\n当前可见窗口：\n${top}`
+          } catch { }
+          return `失败：${e.message}${hint}`
+        }
+        if (e instanceof WinUiError && e.code === 'focus-failed') {
+          return `失败：窗口存在但没能拿到前台（${e.message}）。可以再试一次；如果是 UWP/全屏应用，Windows 不允许后台程序切它。`
+        }
+        // 老路：winui 后端不可用时退回 handeye focus
+        const title = target.title || ''
+        const r = await runHandeye(['focus', title], { timeoutMs: 15000 })
+        return r.ok ? `已切到「${title}」（未做前台校验）` : fail('hand_focus 失败', e)
+      }
+    },
+  })
+
+  reg(ctx, {
+    name: 'hand_where',
+    description:
+      'Ask which window owns a screen pixel right now, without clicking anything. Use it to check whether the window you think is in front really is in front — this is the cheapest way to catch a stolen foreground before a click goes astray.',
+    parameters: {
+      type: 'object',
+      properties: {
+        x: { type: 'number', description: 'Absolute X.' },
+        y: { type: 'number', description: 'Absolute Y.' },
+      },
+      required: ['x', 'y'],
+    },
+    timeoutMs: 20000,
+    isConcurrencySafe: () => true,
+    async execute(args) {
+      const x = Number(args?.x)
+      const y = Number(args?.y)
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 'hand_where 需要数字 x 和 y'
+      try {
+        const win = await windowAt(x, y)
+        if (!win) return `(${Math.round(x)},${Math.round(y)}) 上没有窗口（桌面）。`
+        return `(${Math.round(x)},${Math.round(y)}) 属于：${describeWindow(win)}`
+      } catch (e) {
+        return fail('hand_where 失败', e)
+      }
     },
   })
 
@@ -506,7 +764,17 @@ export function apply(ctx) {
           depth: Number.isFinite(args?.depth) ? args.depth : 3,
           max: Number.isFinite(args?.max) ? args.max : 400,
         })
-        return `窗口 ${hwnd} 共 ${nodes.length} 个节点（已过滤无名无动作的容器）：\n${formatTree(nodes)}`
+        const head = `窗口 ${hwnd} 共 ${nodes.length} 个节点（已过滤无名无动作的容器）：`
+        const body = formatTree(nodes)
+        // Chrome/Electron 默认不暴露页面无障碍树，只给窗口按钮。不说清楚的话，
+        // 模型会以为"这个窗口没有控件"，然后白白换成截图乱猜。
+        const chromiumHint =
+          nodes.length <= 30
+            ? '\n（如果这是 Chrome/Edge/Electron 窗口：它默认不导出页面控件的无障碍树，' +
+              '所以看不到网页里的按钮和输入框。这种情况用 browser_attach 接管浏览器按 DOM 操作，' +
+              '或者 hand_click 带 hwnd 安全点击坐标。）'
+            : ''
+        return head + '\n' + body + chromiumHint
       } catch (e) {
         return fail('desk_tree 失败', e)
       }
@@ -715,6 +983,58 @@ export function apply(ctx) {
   // ------------------------------------------------------------ 浏览器（网页按元素操作）
 
   reg(ctx, {
+    name: 'browser_attach',
+    description:
+      "Attach to the browser the user is already using instead of starting a throwaway one. That instance keeps the user's logins and cookies, so you can click a confirmation link without asking for a password. It only works if that browser was started with --remote-debugging-port; call this with no arguments to scan for one and get exact instructions if none is found. While attached, browser_stop will NOT close the user's browser, and browser_open opens a normal tab in it.",
+    parameters: {
+      type: 'object',
+      properties: {
+        port: { type: 'number', description: 'Specific debugging port to attach to. Omit to scan.' },
+        detach: { type: 'boolean', description: 'Leave attached mode and go back to the throwaway instance.' },
+      },
+    },
+    timeoutMs: 60000,
+    isConcurrencySafe: () => false,
+    async execute(args) {
+      try {
+        if (args?.detach) {
+          const r = detachBrowser()
+          return `已断开接管，回到独立调试实例（端口 ${r.port}）。用户自己的浏览器没有被动过。`
+        }
+        const r = await attachBrowser({ port: args?.port })
+        const tabs = (r.tabs || []).slice(0, 10)
+        const lines = [
+          `已接管用户的浏览器：端口 ${r.port}，${r.browser}（来源 ${r.source}）`,
+          `标签页 ${r.tabs?.length ?? 0} 个：`,
+          ...tabs.map((t) => `  ${t.id}  ${JSON.stringify(t.title)}  ${String(t.url || '').slice(0, 90)}`),
+          '注意：这个模式下 browser_stop 不会关掉用户的浏览器。',
+        ]
+        return lines.join('\n')
+      } catch (e) {
+        let found = []
+        try {
+          found = await discoverEndpoints()
+        } catch { }
+        if (found.length > 0) {
+          const list = found.map((f) => `  端口 ${f.port}（${f.browser}，来源 ${f.source}）`).join('\n')
+          return [
+            `接管失败：${e instanceof Error ? e.message : e}`,
+            '但下面这些端口上有调试通道，直接指定 port 再试：',
+            list,
+          ].join('\n')
+        }
+        return [
+          `没有找到带调试端口的浏览器：${e instanceof Error ? e.message : e}`,
+          '用户的 Chrome/Edge 默认不带调试端口，所以现在只能接管不了。两个办法：',
+          '1) 让用户彻底退出浏览器，再用下面这条命令重开（配置目录不变，登录态都还在）：',
+          '   chrome.exe --remote-debugging-port=9222',
+          '2) 或者继续用 browser_open 的独立实例（没有登录态）。',
+        ].join('\n')
+      }
+    },
+  })
+
+  reg(ctx, {
     name: 'browser_open',
     description:
       'Open a URL in a dedicated browser instance (Edge or Chrome) driven by the DevTools protocol, and return a tabId. This instance uses its own profile and sits off-screen, so it never steals focus or your tabs — but it also does not carry your logins. Operate the page with browser_snapshot / browser_click / browser_fill, which work on real DOM elements instead of pixel guessing.',
@@ -731,7 +1051,7 @@ export function apply(ctx) {
       try {
         if (args?.headless) await ensureBrowser({ headless: true })
         const r = await openUrl(typeof args?.url === 'string' ? args.url : '')
-        return `已在调试浏览器打开：${r.url}\ntabId=${r.tabId}（端口 ${browserPort()}）`
+        return `已在${isAttached() ? '用户自己的浏览器' : '调试浏览器'}打开：${r.url}\ntabId=${r.tabId}（端口 ${browserPort()}${isAttached() ? '，接管模式' : ''}）`
       } catch (e) {
         return fail('browser_open 失败', e)
       }
@@ -879,8 +1199,9 @@ export function apply(ctx) {
     async execute() {
       try {
         const tabs = await listTabs()
-        if (tabs.length === 0) return '调试浏览器里没有标签页（可能还没启动，先 browser_open）。'
-        return tabs.map((t) => `${t.id}  ${JSON.stringify(t.title)}  ${t.url.slice(0, 100)}`).join('\n')
+        const mode = isAttached() ? `接管模式（端口 ${browserPort()}，用的是用户自己的浏览器）` : `独立实例（端口 ${browserPort()}）`
+        if (tabs.length === 0) return `${mode}：没有标签页（先 browser_open）。`
+        return `${mode}\n` + tabs.map((t) => `${t.id}  ${JSON.stringify(t.title)}  ${t.url.slice(0, 100)}`).join('\n')
       } catch (e) {
         return fail('browser_tabs 失败', e)
       }
@@ -919,6 +1240,7 @@ export function apply(ctx) {
     async execute() {
       try {
         const r = await stopBrowser()
+        if (r.attached) return '当前是接管模式，不会关掉用户自己的浏览器。要断开接管用 browser_attach detach=true。'
         return r.stopped ? '调试浏览器已关闭，端口已释放。' : '调试浏览器本来就没在跑。'
       } catch (e) {
         return fail('browser_stop 失败', e)
@@ -1041,7 +1363,7 @@ export function apply(ctx) {
           const payload = JSON.stringify({
             ok: true,
             now: new Date().toISOString(),
-            meta: { version: PKG.version, exe: exePath(), port: browserPort() },
+            meta: { version: PKG.version, exe: exePath(), port: browserPort(), browserMode: browserMode() },
             items: ACTIVITY.slice(-120),
           })
           res.writeHead(200, {

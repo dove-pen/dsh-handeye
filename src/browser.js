@@ -1,19 +1,25 @@
 // 浏览器通道：用 Chrome/Edge 的调试协议（CDP）直接读写网页。
 //
-// 为什么不用鼠标点网页：网页元素有结构，按元素操作既准又不用抢前台。
-// 为什么不复用用户正在用的浏览器：那会把标签页、登录态、焦点全搅在一起。
-// 所以这里起一个**独立配置目录**的浏览器实例，窗口放在屏幕外，互不打扰。
+// 两种模式，区别很大，必须让调用方（和用户）一眼看清：
+//   own      —— 我们自己起一个独立配置目录的浏览器，窗口放到屏幕外。
+//               不碰用户的标签页、不抢焦点；但没有登录态。
+//   attached —— 接管用户**正在用的**那个浏览器（它必须已经带着调试端口启动）。
+//               有登录态、有 Cookie，适合"要点一封确认邮件里的链接"这类活。
 //
-// 代价要说清楚：独立配置 = 没有你的登录态。需要登录的站点请自己先在那个窗口
-// 里登一次，或者改用 hand_* 走你现成的浏览器。
+// attached 模式有两条铁律：
+//   - 绝不关闭用户的浏览器（stopBrowser 在 attached 下什么都不做）
+//   - 绝不假装成功：端口没了就明确报错，而不是偷偷另起一个
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-const PORT = Number(process.env.DSH_HANDEYE_CDP_PORT || 9333)
+const DEFAULT_PORT = Number(process.env.DSH_HANDEYE_CDP_PORT || 9333)
 const PROFILE_DIR = process.env.DSH_HANDEYE_BROWSER_PROFILE || path.join(tmpdir(), 'dsh-handeye-browser')
 const MAX_ELEMENTS = 120
+
+// Ports that a browser with --remote-debugging-port is commonly started on.
+export const COMMON_PORTS = [9333, 9222, 9223, 9224, 9225, 9515]
 
 const CANDIDATES = [
   process.env.DSH_HANDEYE_BROWSER,
@@ -23,7 +29,22 @@ const CANDIDATES = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ].filter(Boolean)
 
+let PORT = DEFAULT_PORT
+let MODE = 'own' // 'own' | 'attached'
 let launching = null
+
+export function browserPort() {
+  return PORT
+}
+
+/** 'own' = our throwaway instance, 'attached' = the user's own browser. */
+export function browserMode() {
+  return MODE
+}
+
+export function isAttached() {
+  return MODE === 'attached'
+}
 
 function findBrowser() {
   for (const p of CANDIDATES) {
@@ -32,6 +53,10 @@ function findBrowser() {
     } catch { }
   }
   return null
+}
+
+function endpoint(pathname, port = PORT) {
+  return `http://127.0.0.1:${port}${pathname}`
 }
 
 async function httpJson(url, { method = 'GET', timeoutMs = 5000 } = {}) {
@@ -44,19 +69,173 @@ async function httpJson(url, { method = 'GET', timeoutMs = 5000 } = {}) {
   }
 }
 
-export async function browserStatus() {
+export async function browserStatus({ port = PORT } = {}) {
   try {
-    const v = await httpJson(`http://127.0.0.1:${PORT}/json/version`, { timeoutMs: 1500 })
-    return { running: true, webSocketDebuggerUrl: v.webSocketDebuggerUrl, browser: v.Browser }
+    const v = await httpJson(endpoint('/json/version', port), { timeoutMs: 1500 })
+    return { running: true, port, webSocketDebuggerUrl: v.webSocketDebuggerUrl, browser: v.Browser }
   } catch {
-    return { running: false }
+    return { running: false, port }
   }
 }
+
+// ---------------------------------------------------------------- 端点发现（纯函数 + 探测）
+
+/** Chrome/Edge 把实际端口写在这个文件里（只有 --remote-debugging-port=0 时才有）。 */
+export function parseDevToolsActivePort(text) {
+  const first = String(text ?? '').split(/\r?\n/, 1)[0].trim()
+  const n = Number(first)
+  if (!Number.isFinite(n) || n <= 0 || n > 65535) return null
+  return Math.trunc(n)
+}
+
+/** 从一堆命令行里抽出 --remote-debugging-port=N。 */
+export function parseRemoteDebuggingPorts(commandLines) {
+  const ports = []
+  for (const line of Array.isArray(commandLines) ? commandLines : []) {
+    const text = String(line ?? '')
+    const re = /--remote-debugging-port[= ](\d{1,5})/gi
+    let m
+    while ((m = re.exec(text)) !== null) {
+      const n = Number(m[1])
+      if (n > 0 && n <= 65535) ports.push(n)
+    }
+  }
+  return ports
+}
+
+/** 去重并保持顺序，丢掉非法值。 */
+export function normalisePorts(values) {
+  const seen = new Set()
+  const out = []
+  for (const v of Array.isArray(values) ? values : []) {
+    const n = Number(v)
+    if (!Number.isFinite(n) || n <= 0 || n > 65535) continue
+    const p = Math.trunc(n)
+    if (seen.has(p)) continue
+    seen.add(p)
+    out.push(p)
+  }
+  return out
+}
+
+function runProcessScan() {
+  return new Promise((resolve) => {
+    const script =
+      "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(chrome|msedge|brave|vivaldi)\\.exe$' } | " +
+      'ForEach-Object { $_.CommandLine }'
+    let out = ''
+    let child
+    try {
+      child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+        windowsHide: true,
+      })
+    } catch {
+      resolve([])
+      return
+    }
+    child.stdout.on('data', (d) => { out += String(d) })
+    child.on('error', () => resolve([]))
+    child.on('close', () => resolve(out.split(/\r?\n/).filter(Boolean)))
+    setTimeout(() => {
+      try { child.kill() } catch { }
+      resolve(out ? out.split(/\r?\n/).filter(Boolean) : [])
+    }, 8000)
+  })
+}
+
+function readActivePortFiles() {
+  const base = process.env.LOCALAPPDATA || ''
+  if (!base) return []
+  const files = [
+    path.join(base, 'Google', 'Chrome', 'User Data', 'DevToolsActivePort'),
+    path.join(base, 'Microsoft', 'Edge', 'User Data', 'DevToolsActivePort'),
+    path.join(base, 'BraveSoftware', 'Brave-Browser', 'User Data', 'DevToolsActivePort'),
+  ]
+  const ports = []
+  for (const file of files) {
+    try {
+      if (!existsSync(file)) continue
+      const p = parseDevToolsActivePort(readFileSync(file, 'utf8'))
+      if (p) ports.push(p)
+    } catch { }
+  }
+  return ports
+}
+
+/**
+ * 找一个「已经在跑、且带调试端口」的浏览器。
+ * @returns {Promise<Array<{port:number,browser:string,source:string}>>}
+ */
+export async function discoverEndpoints({ extraPorts = [] } = {}) {
+  const fromEnv = String(process.env.DSH_HANDEYE_ATTACH_PORT || '')
+    .split(/[,\s]+/)
+    .filter(Boolean)
+  const candidates = []
+  const push = (port, source) => {
+    for (const p of normalisePorts([port])) candidates.push({ port: p, source })
+  }
+
+  for (const p of normalisePorts(fromEnv)) push(p, 'env')
+  for (const p of normalisePorts(extraPorts)) push(p, 'argument')
+  for (const p of readActivePortFiles()) push(p, 'DevToolsActivePort')
+  for (const p of parseRemoteDebuggingPorts(await runProcessScan())) push(p, 'process')
+  for (const p of COMMON_PORTS) push(p, 'scan')
+
+  const seen = new Set()
+  const found = []
+  for (const c of candidates) {
+    if (seen.has(c.port)) continue
+    seen.add(c.port)
+    const status = await browserStatus({ port: c.port })
+    if (status.running) found.push({ port: c.port, browser: status.browser || 'unknown', source: c.source })
+  }
+  return found
+}
+
+/**
+ * 接管用户正在用的浏览器。接管后所有 browser_* 都作用在它上面。
+ * @returns {Promise<{port:number,browser:string,tabs:Array}>}
+ */
+export async function attachBrowser({ port } = {}) {
+  const wanted = Number(port)
+  let target = null
+  if (Number.isFinite(wanted) && wanted > 0) {
+    const status = await browserStatus({ port: wanted })
+    if (!status.running) throw new Error(`端口 ${wanted} 上没有调试通道`)
+    target = { port: Math.trunc(wanted), browser: status.browser || 'unknown', source: 'argument' }
+  } else {
+    const all = await discoverEndpoints()
+    // 优先接管「不是我们自己那个」的实例
+    target = all.find((e) => e.port !== DEFAULT_PORT && e.source !== 'scan') || all[0] || null
+  }
+  if (!target) throw new Error('没找到带调试端口的浏览器')
+
+  MODE = 'attached'
+  PORT = target.port
+  tabs.clear()
+  lastTabId = null
+  const list = await listTabs()
+  return { port: PORT, browser: target.browser, source: target.source, tabs: list }
+}
+
+/** 回到自己那个独立实例。不会碰用户浏览器。 */
+export function detachBrowser() {
+  MODE = 'own'
+  PORT = DEFAULT_PORT
+  tabs.clear()
+  lastTabId = null
+  return { port: PORT }
+}
+
+// ---------------------------------------------------------------- 启动 / 关闭
 
 /** 确保有一个带调试端口的浏览器在跑；返回它的版本信息。 */
 export async function ensureBrowser({ headless = false } = {}) {
   const now = await browserStatus()
   if (now.running) return now
+  if (MODE === 'attached') {
+    throw new Error(`接管的浏览器（端口 ${PORT}）已经不在了；不会自动另起一个，请先重开它，或用 browser_attach 重新找`)
+  }
   if (launching) return launching
 
   launching = (async () => {
@@ -65,6 +244,13 @@ export async function ensureBrowser({ headless = false } = {}) {
       throw new Error('找不到 Edge 或 Chrome（可用环境变量 DSH_HANDEYE_BROWSER 指定路径）')
     }
     mkdirSync(PROFILE_DIR, { recursive: true })
+    const logPath = path.join(PROFILE_DIR, 'browser.log')
+    let logFd = null
+    try {
+      logFd = openSync(logPath, 'a')
+    } catch {
+      logFd = null
+    }
     const args = [
       `--remote-debugging-port=${PORT}`,
       `--user-data-dir=${PROFILE_DIR}`,
@@ -75,12 +261,19 @@ export async function ensureBrowser({ headless = false } = {}) {
       '--window-size=1280,900',
       // 放到屏幕外：看得见、但不会挡住你，也不会抢前台
       '--window-position=-32000,-32000',
-      // 起始页用空白页，省得每次多出一个"新建标签页"
       'about:blank',
     ]
     if (headless) args.push('--headless=new')
-    const child = spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: false })
+    const child = spawn(exe, args, {
+      detached: true,
+      // 把浏览器自己的 stdout/stderr 落盘，崩了能查原因；否则只能看到「连不上」
+      stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],
+      windowsHide: false,
+    })
     child.unref()
+    if (logFd !== null) {
+      try { closeSync(logFd) } catch { }
+    }
 
     const deadline = Date.now() + 20000
     for (;;) {
@@ -90,7 +283,9 @@ export async function ensureBrowser({ headless = false } = {}) {
         await closeJunkTabs()
         return s
       }
-      if (Date.now() > deadline) throw new Error(`浏览器在 20 秒内没有打开调试端口 ${PORT}`)
+      if (Date.now() > deadline) {
+        throw new Error(`浏览器在 20 秒内没有打开调试端口 ${PORT}（日志：${logPath}）`)
+      }
     }
   })()
 
@@ -107,14 +302,14 @@ const JUNK_TAB = /^(edge|chrome):\/\/(sync-confirmation|welcome|first-run|newtab
 
 async function closeJunkTabs() {
   try {
-    const list = await httpJson(`http://127.0.0.1:${PORT}/json/list`)
+    const list = await httpJson(endpoint('/json/list'))
     if (!Array.isArray(list)) return
     for (const t of list) {
       if (t.type !== 'page') continue
       const url = String(t.url || '')
       if (!JUNK_TAB.test(url) && !/ntp\.msn/i.test(url)) continue
       try {
-        await httpJson(`http://127.0.0.1:${PORT}/json/close/${t.id}`)
+        await httpJson(endpoint(`/json/close/${t.id}`))
       } catch { }
       tabs.delete(t.id)
     }
@@ -136,8 +331,13 @@ function killByProfile() {
   })
 }
 
-/** 关掉调试浏览器实例。只认我们自己的配置目录，不碰用户正常用的浏览器。 */
+/** 关掉调试浏览器实例。attached 模式下**不动**用户的浏览器。 */
 export async function stopBrowser() {
+  if (MODE === 'attached') {
+    tabs.clear()
+    lastTabId = null
+    return { stopped: false, attached: true }
+  }
   const now = await browserStatus()
   if (!now.running) {
     tabs.clear()
@@ -145,7 +345,7 @@ export async function stopBrowser() {
     return { stopped: false }
   }
   try {
-    const v = await httpJson(`http://127.0.0.1:${PORT}/json/version`, { timeoutMs: 1500 })
+    const v = await httpJson(endpoint('/json/version'), { timeoutMs: 1500 })
     if (v && v.webSocketDebuggerUrl) {
       const cdp = await new Cdp(v.webSocketDebuggerUrl).connect()
       cdp.send('Browser.close').catch(() => { })
@@ -176,6 +376,8 @@ class Cdp {
     this.ws = null
     this.seq = 0
     this.pending = new Map()
+    this.dead = false
+    this.closedReason = ''
   }
 
   async connect(timeoutMs = 8000) {
@@ -188,11 +390,23 @@ class Cdp {
       ws.addEventListener('open', () => {
         clearTimeout(timer)
         this.ws = ws
+        this.dead = false
         resolve()
       })
-      ws.addEventListener('error', (e) => {
+      ws.addEventListener('error', () => {
         clearTimeout(timer)
-        reject(new Error(`调试通道出错：${e?.message || 'unknown'}`))
+        this.dead = true
+        reject(new Error('调试通道出错'))
+      })
+      // 页面被关掉、渲染进程崩溃、浏览器退出，都会走这里。
+      // 之前没处理，缓存里留着一条死连接，之后每个动作都只会说「调试通道已断开」。
+      ws.addEventListener('close', () => {
+        this.dead = true
+        this.closedReason = '调试通道已断开（页面或浏览器关闭了）'
+        for (const [, entry] of this.pending) {
+          entry.reject(new Error(this.closedReason))
+        }
+        this.pending.clear()
       })
       ws.addEventListener('message', (ev) => {
         let msg
@@ -211,8 +425,8 @@ class Cdp {
   send(method, params = {}) {
     const id = ++this.seq
     return new Promise((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== 1) {
-        reject(new Error('调试通道已断开'))
+      if (this.dead || !this.ws || this.ws.readyState !== 1) {
+        reject(new Error(this.closedReason || '调试通道已断开'))
         return
       }
       this.pending.set(id, { resolve, reject })
@@ -234,38 +448,67 @@ class Cdp {
 const tabs = new Map() // tabId -> { wsUrl, cdp }
 let lastTabId = null // 最近一次由我们打开的标签页，作为默认目标
 
+/** 让一个动作在连接刚断时能自愈一次，而不是直接报废。 */
+async function withPage(fn) {
+  try {
+    return await fn()
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    if (!/调试通道|websocket|ECONNRESET|没有了/.test(message)) throw e
+    // 缓存作废，重新从 /json/list 解析一次再试
+    for (const entry of tabs.values()) {
+      try { entry.cdp?.close() } catch { }
+    }
+    tabs.clear()
+    return fn()
+  }
+}
+
+async function listPages() {
+  const list = await httpJson(endpoint('/json/list'))
+  if (!Array.isArray(list)) throw new Error('读不到标签页列表（浏览器可能在关闭）')
+  return list.filter((t) => t.type === 'page')
+}
+
 async function pageCdp(tabId) {
   if (!tabId && lastTabId) tabId = lastTabId
-  if (tabId && tabs.has(tabId)) {
-    const entry = tabs.get(tabId)
-    if (!entry.cdp) entry.cdp = await new Cdp(entry.wsUrl).connect()
-    return entry.cdp
-  }
-  const list = await httpJson(`http://127.0.0.1:${PORT}/json/list`)
-  if (!Array.isArray(list)) throw new Error('读不到标签页列表')
-  const pages = list.filter((t) => t.type === 'page')
+  const pages = await listPages()
   if (pages.length === 0) throw new Error('没有打开的标签页，先 browser_open')
-  const target = tabId ? pages.find((p) => p.id === tabId) : pages[pages.length - 1]
-  if (!target) throw new Error(`找不到标签页 ${tabId}`)
+  let target = null
+  if (tabId) {
+    target = pages.find((p) => p.id === tabId) || null
+    if (!target) {
+      throw new Error(`标签页 ${tabId} 已经不在了（可能被关掉）。先 browser_tabs 看看现在有哪些。`)
+    }
+  } else {
+    target = pages[pages.length - 1]
+  }
   const key = target.id
-  if (!tabs.has(key)) tabs.set(key, { wsUrl: target.webSocketDebuggerUrl, cdp: null })
-  const entry = tabs.get(key)
-  if (!entry.cdp) entry.cdp = await new Cdp(entry.wsUrl).connect()
-  return entry.cdp
+  const existing = tabs.get(key)
+  if (existing?.cdp && !existing.cdp.dead) return existing.cdp
+  if (existing?.cdp?.dead) {
+    try { existing.cdp.close() } catch { }
+  }
+  const cdp = await new Cdp(target.webSocketDebuggerUrl).connect()
+  tabs.set(key, { wsUrl: target.webSocketDebuggerUrl, cdp })
+  return cdp
 }
 
 async function evaluate(tabId, expression) {
-  const cdp = await pageCdp(tabId)
-  const r = await cdp.send('Runtime.evaluate', {
-    expression,
-    returnByValue: true,
-    awaitPromise: true,
-    userGesture: true,
-  })
-  if (r.exceptionDetails) {
-    throw new Error(r.exceptionDetails.exception?.description || '页面脚本报错')
+  const run = async () => {
+    const cdp = await pageCdp(tabId)
+    const r = await cdp.send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+      userGesture: true,
+    })
+    if (r.exceptionDetails) {
+      throw new Error(r.exceptionDetails.exception?.description || '页面脚本报错')
+    }
+    return r.result?.value
   }
-  return r.result?.value
+  return withPage(run)
 }
 
 function jsString(s) {
@@ -277,18 +520,12 @@ function jsString(s) {
 export async function openUrl(url) {
   await ensureBrowser()
   const target = url && url.trim() ? url.trim() : 'about:blank'
-  const created = await httpJson(`http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(target)}`, { method: 'PUT' })
-  if (!created || !created.id) {
-    // 某些版本用 GET；再试一次
-    const again = await httpJson(`http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(target)}`)
-    if (!again || !again.id) throw new Error('新建标签页失败')
-    tabs.set(again.id, { wsUrl: again.webSocketDebuggerUrl, cdp: null })
-    lastTabId = again.id
-    return { tabId: again.id, url: again.url || target }
-  }
-  tabs.set(created.id, { wsUrl: created.webSocketDebuggerUrl, cdp: null })
-  lastTabId = created.id
-  return { tabId: created.id, url: created.url || target }
+  const created = await httpJson(endpoint(`/json/new?${encodeURIComponent(target)}`), { method: 'PUT' })
+  const tab = created && created.id ? created : await httpJson(endpoint(`/json/new?${encodeURIComponent(target)}`))
+  if (!tab || !tab.id) throw new Error('新建标签页失败')
+  tabs.set(tab.id, { wsUrl: tab.webSocketDebuggerUrl, cdp: null })
+  lastTabId = tab.id
+  return { tabId: tab.id, url: tab.url || target }
 }
 
 export async function navigate(url, tabId) {
@@ -388,7 +625,7 @@ export async function pageText(tabId, maxChars = 6000) {
 }
 
 export async function listTabs() {
-  const list = await httpJson(`http://127.0.0.1:${PORT}/json/list`)
+  const list = await httpJson(endpoint('/json/list'))
   if (!Array.isArray(list)) return []
   return list
     .filter((t) => t.type === 'page')
@@ -398,13 +635,9 @@ export async function listTabs() {
 export async function closeTab(tabId) {
   const id = String(tabId)
   try {
-    await httpJson(`http://127.0.0.1:${PORT}/json/close/${id}`)
+    await httpJson(endpoint(`/json/close/${id}`))
   } catch { }
   tabs.delete(id)
   if (lastTabId === id) lastTabId = null
   return true
-}
-
-export function browserPort() {
-  return PORT
 }
