@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.17.0 — 2026-11-08
+
+**M5 · 第一个领域包（会计）。** 核心不动，行业知识以"包"的形式装进来。
+
+### 新增
+
+- **格式仓 `packs/accounting`**（formats v1.1.0）
+  - 3 张卡片：发票整理 / 银行流水对账 / 月度汇总
+  - 2 条判据模板，其中"合计一致"是**真会跑的脚本**（`checks/total.mjs`）
+  - 选会计的理由：判据天生机器可验（金额、笔数、合计），错了能改，风险低
+- **`src/packs/loader.js`**：领域包加载器
+  - `loadPack()` 先过格式校验，不合格整包不装
+  - `installPack()` 装进本地卡片库；`{{packCheck:xxx}}` 替换成包内脚本真实路径
+  - 重复安装报告冲突，不静默覆盖
+- **CLI**：`node bin/he-server.js pack validate|install <目录>`
+
+### 实测
+
+```
+$ node bin/he-server.js pack validate <...>\packs\accounting
+通过：accounting v0.1.0 · 3 张卡片 · 2 条判据模板
+
+$ node bin/he-server.js pack install <...>\packs\accounting
+领域包 accounting v0.1.0：装了 3 张卡片，0 张失败
+  ✓ invoice_tidy  发票整理
+  ✓ bank_reconcile  银行流水对账
+  ✓ monthly_summary  月度汇总
+
+$ node ...\checks\total.mjs ...\invoices.csv --total 7244.50 --count 4 --amount-col 2
+通过：4 笔，合计 7244.50（列「金额」）
+```
+
+### 过程中修的一个真 bug
+
+CSV 解析没处理引号：`"￥1,200.00"` 被逗号切成两格，合计从 1288 变成 89。
+真实会计表里这种写法到处都是，现在按引号状态解析，并补了测试（BOM、货币符号、非数字行）。
+
+### 还没做
+
+- 还没有真实用户跑两周（这是 M5 的**验收标准**，目前只验证了工具链）
+- 面板里没有"领域包"页（现在用 CLI 装）
+- 包只装卡片，技能模板还没接
+
+### 测试
+272 → **278**（加载器 6 条：校验、拒绝、缺文件、占位替换、安装、重复安装）
+
 ## v0.16.0 — 2026-11-08
 
 **M4 · 格式独立成仓。** 产品会被抄，格式会被继承。

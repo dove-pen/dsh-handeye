@@ -11,7 +11,7 @@ import { validate, summarize } from './validate.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
-export const FORMATS_VERSION = '1.0.1'
+export const FORMATS_VERSION = '1.1.0'
 
 function load(name) {
   return JSON.parse(readFileSync(path.join(here, 'schemas', name), 'utf8'))

@@ -18,6 +18,8 @@ function usage() {
   console.log('  node bin/he-server.js list                 列出可用工具')
   console.log('  node bin/he-server.js call <工具> [JSON]   调用一个工具')
   console.log('  node bin/he-server.js skills [--min N]      从历史里编译技能草案')
+  console.log('  node bin/he-server.js pack validate <目录>  校验一个领域包')
+  console.log('  node bin/he-server.js pack install <目录>   安装领域包（卡片进本地库）')
   console.log('共 ' + core.tools.length + ' 个工具')
 }
 
@@ -33,6 +35,44 @@ if (cmd === 'list') {
   }
   console.log(`\n共 ${core.tools.length} 个工具`)
   process.exit(0)
+}
+
+if (cmd === 'pack') {
+  const { loadPack, installPack } = await import('../src/packs/loader.js')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const [sub, dir] = [arg, rawJson] // pack <sub> <dir>
+  if (!sub || !dir) {
+    console.error('用法：node bin/he-server.js pack validate|install <目录>')
+    process.exit(2)
+  }
+  if (sub === 'validate') {
+    const loaded = loadPack(dir)
+    if (!loaded.ok) {
+      console.error('失败：' + loaded.message)
+      process.exit(1)
+    }
+    const pack = loaded.value.pack
+    console.log(`通过：${pack.name} v${pack.version} · ${(pack.cards ?? []).length} 张卡片 · ${(pack.verify ?? []).length} 条判据模板`)
+    process.exit(0)
+  }
+  if (sub === 'install') {
+    const { createCardStore } = await import('../src/memory/cards.js')
+    const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+    const cards = createCardStore({ dir: dataDir })
+    const result = await installPack(dir, { cards })
+    if (!result.ok) {
+      console.error('失败：' + result.message)
+      process.exit(1)
+    }
+    const r = result.value
+    console.log(`领域包 ${r.pack.name} v${r.pack.version}：装了 ${r.installed.length} 张卡片，${r.failed.length} 张失败`)
+    for (const c of r.installed) console.log('  ✓ ' + c.id + '  ' + c.title)
+    for (const f of r.failed) console.log('  × ' + f.id + '  ' + f.message)
+    process.exit(r.failed.length ? 1 : 0)
+  }
+  console.error('未知子命令：' + sub)
+  process.exit(2)
 }
 
 if (cmd === 'skills') {
