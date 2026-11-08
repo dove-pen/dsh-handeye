@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.16.0 — 2026-11-08
+
+**M4 · 格式独立成仓。** 产品会被抄，格式会被继承。
+
+### 新增
+
+- **独立仓 `dsh-handeye-formats`**（`D:\Huawei\projects\dsh-handeye-formats`，v1.0.1）
+  - `schemas/skill.schema.json` / `verify.schema.json` / `domain-pack.schema.json`
+  - `lib/validate.mjs`：零依赖 JSON Schema 子集校验器
+  - `examples/`：三份可直接抄的示例；`test/`：8 条（含反面用例）
+- 插件侧 `src/formats/`：schema 与校验器的**副本**，`tools/sync-formats.mjs` 同步并**比对版本号**
+- `skillStore.save()` 现在**先过格式校验**：不合格的技能写不进库
+- README 增加"格式"一节，说明版本规则（1.x 只加字段不改语义）
+
+### 过程中被抓出来的三处不一致（这正是把格式抽出来的价值）
+
+校验一开，格式和真实数据立刻打架：
+
+1. 编译产物里 `anchor` 可能是 null → schema 放宽为 `["object","null"]`
+2. 参数上带 `step`/`tool` 来源 → schema 承认这两个字段
+3. 存储层每次写都会更新 `updatedAt` → schema 加上它
+
+另外修了校验器一个真 bug：`oneOf` 命中后**提前 return**，导致同层的
+`required` / `additionalProperties` 全被跳过 —— 校验看起来通过，其实没查。
+
+### 测试
+267 → **272**（格式集成：编译产物必须能过格式校验、未知字段被拒、verify 形状校验）
+
 ## v0.15.0 — 2026-11-08
 
 **M3 · 技能素材层。** 记得的是"下一步该干什么"，不是鼠标坐标。

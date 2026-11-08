@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dove-pen/dsh-handeye-formats/schemas/verify.schema.json",
+  "title": "手眼判据（verify checks）",
+  "description": "一步做完没做对，用机器能判的方式表达。五个类型：file / text / screen / exit / changed。数组里全部通过才算这一步验过。",
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 12,
+  "items": {
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "file"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "text"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "screen": {
+            "type": "boolean"
+          },
+          "appear": {
+            "type": "string",
+            "minLength": 1
+          },
+          "absent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "type": "string"
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "file"
+            ]
+          },
+          {
+            "required": [
+              "screen"
+            ],
+            "properties": {
+              "screen": {
+                "const": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "appear"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "screen"
+          },
+          "appear": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "type": "string"
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "command"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "exit"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "changed"
+          },
+          "region": {
+            "type": "string"
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    ]
+  }
+}

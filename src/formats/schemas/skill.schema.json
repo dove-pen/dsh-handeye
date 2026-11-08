@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dove-pen/dsh-handeye-formats/schemas/skill.schema.json",
+  "title": "手眼技能（skill）",
+  "description": "一件事的逻辑：下一步该干什么、怎么找目标、怎么算做对了。刻意不存坐标 —— 坐标换屏幕就废。",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "version",
+    "origin",
+    "steps",
+    "health"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "origin": {
+      "type": "object",
+      "required": [
+        "kind",
+        "createdAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "episode",
+            "card",
+            "manual"
+          ]
+        },
+        "episodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "type": "string"
+        }
+      }
+    },
+    "params": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "required"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "example": {},
+          "pattern": {
+            "type": "string"
+          },
+          "default": {},
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tool": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "intent",
+          "tool"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "type": "object"
+          },
+          "anchor": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "container": {
+                "type": "string"
+              },
+              "point": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  }
+                }
+              },
+              "fragile": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "expect": {},
+          "onFail": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "retry1",
+              "ask"
+            ]
+          }
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": [
+        "runs",
+        "ok",
+        "fail",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ok": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failsInRow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastRunAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastFailReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "untested",
+            "healthy",
+            "needs-review",
+            "broken"
+          ]
+        }
+      }
+    },
+    "incomplete": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stepsWithoutChecks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fragileSteps": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "updatedAt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

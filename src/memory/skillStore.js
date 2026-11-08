@@ -7,6 +7,7 @@ import { mkdir, readdir, readFile, writeFile, rename, unlink } from 'node:fs/pro
 import path from 'node:path'
 
 import { failure, success, ERR } from '../core/errors.js'
+import { validateSkill } from '../formats/index.js'
 
 const MAX_TITLE = 120
 const SKILL_ID_RE = /^skill_\d{8}_\d{2}$/
@@ -66,6 +67,9 @@ export function createSkillStore({ dir }) {
     if (!String(draft.title ?? '').trim() || String(draft.title).length > MAX_TITLE) {
       return failure(ERR.INVALID, `title must be 1-${MAX_TITLE} chars`)
     }
+    // 格式校验放在这里：不合格的技能写不进库，别等半年后才发现字段对不上
+    const shape = validateSkill(draft)
+    if (!shape.ok) return failure(ERR.INVALID, `skill format: ${shape.message}`)
     const existing = await get(draft.id)
     const version = existing.ok ? Number(existing.value.version ?? 1) + 1 : Number(draft.version ?? 1)
     const doc = { ...draft, version, updatedAt: new Date().toISOString() }

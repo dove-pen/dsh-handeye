@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dove-pen/dsh-handeye-formats/schemas/domain-pack.schema.json",
+  "title": "领域包（domain pack）",
+  "description": "一个行业的人能贡献的完整一包：判据 + 任务卡 + 技能模板。核心不随行业变，行业包由社区维护。",
+  "type": "object",
+  "required": ["schemaVersion", "name", "version", "description", "verify", "cards"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "author": { "type": "string" },
+    "license": { "type": "string" },
+    "verify": {
+      "type": "array",
+      "description": "这个行业特有的判据模板（会被卡片与技能引用）",
+      "items": {
+        "type": "object",
+        "required": ["name", "checks"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "checks": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "goal", "path"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "goal": { "type": "string", "minLength": 1 },
+          "path": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "verify": {},
+          "category": { "type": "string" },
+          "inputs": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "预置技能模板（结构同 skill.schema.json，但允许没有 health：装进来时初始化为 untested）",
+      "items": { "type": "object" }
+    }
+  }
+}
