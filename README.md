@@ -1,6 +1,6 @@
 ## 格式（技能 / 判据 / 领域包）
 
-三份格式独立成仓：**`dsh-handeye-formats`**（本仓 `src/formats/` 是它的副本，
+三份格式独立成仓：**[`dsh-handeye-formats`](https://github.com/dove-pen/dsh-handeye-formats)**（本仓 `src/formats/` 是它的副本，
 `node tools/sync-formats.mjs` 同步，跑一次会顺带比对版本号）。
 
 | 格式 | 管什么 |
