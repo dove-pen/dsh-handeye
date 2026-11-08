@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.13.0 — 2026-11-08
+
+**M1 · 抽层。** 核心从宿主里拆出来：调用、门卫、记账集中到一处，宿主只负责注册与转发。
+
+### 新增
+
+- **`src/server/toolServer.js`**：与宿主无关的工具服务器
+  - `wrap(def)`：包一层——调用前过门卫，调用后记账（逻辑与历史版本逐字一致）
+  - `callTool(name, args)`：**唯一入口**，门卫就在里面
+  - `listTools()`：给 MCP / 文档用的工具清单（名称 + 说明 + 参数 schema）
+  - 依赖全部注入（14 个端口），不 import 任何宿主 API；缺端口直接抛错，不会静默放行
+- **`bin/he-server.js`**：独立命令行，证明核心能脱离 DSH 跑
+  - `node bin/he-server.js list`
+  - `node bin/he-server.js call desk_windows`
+  - 用的是同一个 `callTool`，**命令行绕不过门卫**（同一份代码）
+- `reg()` 缩成三行：只做注册，不再自带门卫
+
+### 为什么这么做
+
+门卫必须活在这个 `callTool` 里，不能活在任何一个适配器里。否则每接一个宿主就多一套门，
+其中几套一定是漏的 —— 那就又回到了"假装在拦"。
+
+### 实测
+
+```
+$ node bin/he-server.js call desk_windows     # 没有 DSH，直接读到 5 个真实窗口
+hwnd=196888 pid=5496 "语音悬浮窗" class=BaseGui @(698,88 238x118)
+hwnd=197872 pid=19012 "DeepSeek Harness" class=Chrome_WidgetWin_1 @(72,16 1296x828)
+...
+```
+
+### 测试
+229 → **238**（toolServer 9 条：拒绝短路、一次性授权、episode 记账、预算、meta 豁免、
+失败标记、异常传播、清单、缺端口）
+
 ## v0.12.2 — 2026-11-08
 
 **M0 · 止血。** 把审计里"门禁会说谎"的六条一次清干净。这一版不加任何新功能。

@@ -28,6 +28,7 @@ import { createPrimitives } from './runtime/primitives.js'
 import { createMetaTools } from './tools/meta.js'
 import { createCapabilityTool } from './tools/capability.js'
 import { registerRoutes } from './api/routes.js'
+import { createToolServer } from './server/toolServer.js'
 import { runHandeye, runHandeyeJson, exePath, codeMeaning } from './handeye.js'
 import { project, headline, findAlarms } from './project.js'
 import { slimText } from './text.js'
@@ -137,6 +138,9 @@ function recordActivity(tool, args, ok, brief, ms) {
 // 运行时会话（状态机、存储、执行器）。apply 时创建，工具层通过它过闸。
 let RUNTIME = null
 
+/** 主机无关的工具服务器：调用、门卫、记账都在这里，宿主只负责注册与转发。 */
+let toolServer = null
+
 // 破坏性动作的人工确认：面板上点"允许一次"写这里，下一次同工具调用消费掉。
 // 刻意只放在内存里 —— 重启即失效，不留下可被复用的长期授权。
 const GRANT_MS = 120000
@@ -187,66 +191,10 @@ function startActiveEpisode({ id, intent }) {
 }
 
 function reg(ctx, def) {
-  const original = def.execute
-  ctx.tools.register({
-    output: TEXT_OUTPUT,
-    ...def,
-    async execute(args, exec) {
-      const started = Date.now()
-      const name = def.name
-
-      // 动作前的唯一闸门：暂停 / 重规划 / 工具白名单 / 预算。
-      if (RUNTIME && !isMetaTool(name)) {
-        let verdict = canAct(RUNTIME.state, name, args ?? {})
-        if (!verdict.ok && verdict.code === 'CONFIRM_REQUIRED') {
-          // 用户刚在面板上点了"允许一次" -> 放行这一次
-          if (takeGrant(name)) verdict = { ok: true, code: 'CONFIRMED', risk: verdict.risk }
-          else notePendingConfirm(name, args ?? {})
-        }
-        if (!verdict.ok) {
-          noteRefusal(verdict.code)
-          const message = `Refused: ${verdict.code}${verdict.message ? ` — ${verdict.message}` : ''}`
-          recordActivity(name, args, false, message, 0)
-          return message
-        }
-      }
-
-      try {
-        const out = await original(args, exec)
-        // 工具自己把错误 catch 成字符串返回，所以不能只看有没有 throw；
-        // 统一约定：fail() 产出的话里带"失败："，据此标记失败，界面才不会永远显示 0 失败。
-        const failed = typeof out === 'string' && out.includes('失败：')
-        recordActivity(name, args, !failed, out, Date.now() - started)
-
-        if (RUNTIME && !isMetaTool(name)) {
-          if (ACTIVE) {
-            ACTIVE.steps.push({
-              seq: ACTIVE.steps.length + 1,
-              tool: name,
-              args: redactDeep(args ?? {}),
-              ok: !failed,
-              ms: Date.now() - started,
-              brief: redactText(clip(out, 300)),
-            })
-          }
-          // 目标类工具是"管理状态"，不是"动屏幕"，不计入动作预算与路径打卡
-          const manageOnly = name.startsWith('goal_')
-          if (!manageOnly && name !== 'capability' && isActionTool(name, args ?? {}) && RUNTIME.state.state === 'RUNNING') {
-            const trip = noteAction(RUNTIME.state, name, args ?? {}, !failed)
-            // 目标步骤的动作预算：每个真动作都算一次
-            if (RUNTIME.state.currentStep) countStepAction(RUNTIME.state)
-            if (trip.tripped) return `${out}\n\n[PAUSED] ${trip.reason}`
-          }
-        }
-        return out
-      } catch (e) {
-        recordActivity(name, args, false, e instanceof Error ? e.message : e, Date.now() - started)
-        throw e
-      }
-    },
-  })
+  // 真正的调用/门卫/记账逻辑在 server/toolServer.js 里，这里只做注册。
+  // 宿主（DSH / MCP / CLI）都走同一个 callTool，门卫只有一份。
+  ctx.tools.register({ output: TEXT_OUTPUT, ...toolServer.wrap(def) })
 }
-
 
 function fail(prefix, err) {
   return `${prefix}：${err instanceof Error ? err.message : String(err)}`
@@ -258,6 +206,26 @@ export function apply(ctx) {
   // 状态机、episode 存储、能力仓库、确认令牌、执行器。数据放在本地应用目录，
   // 不进 profile：卸载插件不该顺手删掉用户的操作记忆。
   const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  // 门卫/记账逻辑集中在一个与宿主无关的地方；这里只把它的依赖注入进去。
+  toolServer = createToolServer({
+    ports: {
+      runtime: () => RUNTIME,
+      active: () => ACTIVE,
+      isMetaTool,
+      isActionTool,
+      canAct,
+      takeGrant,
+      notePendingConfirm,
+      noteRefusal,
+      recordActivity,
+      redactDeep,
+      redactText,
+      clip,
+      noteAction,
+      countStepAction,
+    },
+  })
+
   const runtimeState = createState()
   const episodes = createEpisodeStore({ dir: dataDir })
   // prune() 一直没人调用，episodes 的 jsonl 会无限长下去（一个动作一行）。
