@@ -5,42 +5,19 @@
 //   node bin/he-server.js call desk_windows
 //   node bin/he-server.js call eye_text '{"text":"..."}'
 //
-// 注意：这里用的是同一个 toolServer.callTool —— 门卫照样生效，
-// 也就是说 CLI 和插件的拦截行为是同一份代码，不存在"命令行能绕过"的口子。
+// 走的是同一个 headless 启动 + 同一个 toolServer.callTool —— 门卫照样生效，
+// 也就是说 CLI、MCP、插件三处的拦截行为来自同一份代码。
 
-import { apply } from '../src/index.js'
+import { bootHeadless } from '../src/server/headless.js'
 
-function makeHost() {
-  const tools = []
-  const host = {
-    tools: { register: (def) => tools.push(def) },
-    logger: { info() {}, warn() {}, error() {}, debug() {} },
-    effect: (fn) => {
-      try {
-        fn()
-      } catch {}
-    },
-    // 没有 webServer：路由不注册，CLI 不需要
-    inject: () => {},
-    webServer: { register() {} },
-  }
-  return { host, tools }
-}
-
-const { host, tools } = makeHost()
-apply(host)
-
-// 运行时是同步创建的，但 episode prune 之类是异步的，给一点时间
-await new Promise((resolve) => setTimeout(resolve, 400))
-
-const byName = new Map(tools.map((t) => [t.name, t]))
 const [cmd, arg, rawJson] = process.argv.slice(2)
+const core = await bootHeadless()
 
 function usage() {
   console.log('用法：')
   console.log('  node bin/he-server.js list                 列出可用工具')
   console.log('  node bin/he-server.js call <工具> [JSON]   调用一个工具')
-  console.log('共 ' + tools.length + ' 个工具')
+  console.log('共 ' + core.tools.length + ' 个工具')
 }
 
 if (!cmd || cmd === '-h' || cmd === '--help') {
@@ -49,22 +26,17 @@ if (!cmd || cmd === '-h' || cmd === '--help') {
 }
 
 if (cmd === 'list') {
-  for (const t of tools) {
+  for (const t of core.listTools()) {
     const first = String(t.description || '').split('\n')[0].slice(0, 70)
     console.log(`${t.name.padEnd(18)} ${first}`)
   }
-  console.log(`\n共 ${tools.length} 个工具`)
+  console.log(`\n共 ${core.tools.length} 个工具`)
   process.exit(0)
 }
 
 if (cmd === 'call') {
   if (!arg) {
     usage()
-    process.exit(2)
-  }
-  const tool = byName.get(arg)
-  if (!tool) {
-    console.error(`失败：没有这个工具 ${arg}`)
     process.exit(2)
   }
   let args = {}
@@ -76,16 +48,10 @@ if (cmd === 'call') {
       process.exit(2)
     }
   }
-  try {
-    const out = await tool.execute(args, null)
-    console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 2))
-    // 门卫拒绝与工具失败都用非零退出码，方便脚本判断
-    const text = typeof out === 'string' ? out : ''
-    process.exit(text.startsWith('Refused:') || text.includes('失败：') ? 1 : 0)
-  } catch (e) {
-    console.error('失败：' + (e instanceof Error ? e.message : String(e)))
-    process.exit(1)
-  }
+  const result = await core.callTool(arg, args)
+  console.log(result.text)
+  // 门卫拒绝与工具失败都用非零退出码，方便脚本判断
+  process.exit(result.ok ? 0 : 1)
 }
 
 usage()

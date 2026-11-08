@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.14.0 — 2026-11-08
+
+**M2 · MCP 适配层。** 分水岭：从"插件"变成"层"——同一套工具、同一道门，Claude / ChatGPT / Cursor 都能接。
+
+### 新增
+
+- **`src/mcp/server.js`**：MCP over stdio
+  - stdout 只写 JSON-RPC，日志走 stderr（否则客户端解析失败）
+  - 消息**串行处理**：工具调用共享同一套运行时状态，乱序会互相踩
+  - stdin 关闭时**等队列排空再退出**（实测 bug：短管道喂三条消息，最后一条调用被掐掉）
+- **`src/mcp/protocol.js`**：纯函数协议层（输入一条消息 → 输出一条响应），可单测
+  - `initialize` 回显客户端的 protocolVersion
+  - `tools/list` 把内部的 `parameters` 映射成 MCP 的 `inputSchema`
+  - `tools/call`：门卫拒绝与工具失败都标 `isError: true`
+- **`src/server/headless.js`**：无宿主启动，CLI 与 MCP 共用一份启动逻辑
+- `package.json` 增加 `bin` / `scripts.mcp`
+
+### 实测（stdio 握手）
+
+```
+id=1 initialize  -> handeye@0.14.0 / proto=2025-06-18
+id=2 tools/list  -> 47 工具
+id=3 desk_windows-> isError=False / hwnd=132422 pid=17032 "StatusView" ...
+id=4 不存在工具   -> isError=True / 失败：没有这个工具 nope_tool
+```
+
+### 测试
+238 → **248**（协议 10 条：版本协商、inputSchema 映射、拒绝 → isError、抛错 → JSON-RPC 错误且服务不死、通知不回包、畸形消息、资源清单）
+
 ## v0.13.0 — 2026-11-08
 
 **M1 · 抽层。** 核心从宿主里拆出来：调用、门卫、记账集中到一处，宿主只负责注册与转发。

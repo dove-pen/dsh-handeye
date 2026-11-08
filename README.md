@@ -73,6 +73,35 @@ DeepSeek Harness（dsh）插件：**手（真实鼠标键盘）+ 眼（屏幕投
 
 共 **47 个工具**（32 个手眼 + 4 个 episode + 8 个目标 + 3 个其他）。
 
+## 接入 MCP（Claude / ChatGPT / Cursor 等）
+
+核心不依赖 DSH：同一套工具、**同一道门**，可以被任何支持 MCP 的宿主调用。
+
+```bash
+node bin/he-server.js list                        # 列出 47 个工具
+node bin/he-server.js call desk_windows           # 直接调一个
+node src/mcp/server.js                            # MCP over stdio
+```
+
+Claude Desktop（`claude_desktop_config.json`）：
+
+```json
+{
+  "mcpServers": {
+    "handeye": {
+      "command": "node",
+      "args": ["D:\\Huawei\\projects\\dsh-handeye\\src\\mcp\\server.js"]
+    }
+  }
+}
+```
+
+行为一致的地方：**门卫在 `callTool` 里，不在适配器里**。所以在 MCP 下照样会被
+暂停、步骤门、预算门拦；拒绝以 `isError: true` 返回，宿主会看到"这次没成"。
+
+差异：破坏性动作需要用户在面板上点"允许一次"，而 MCP 场景没有面板 —— 此时会返回
+"需要确认"，不执行。这是刻意的（宁可拒绝，也不静默放行）。
+
 ---
 
 ## 目标层（v0.9）：长期目标 → 分项步骤
