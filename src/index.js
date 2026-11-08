@@ -29,6 +29,7 @@ import { createMetaTools } from './tools/meta.js'
 import { createCapabilityTool } from './tools/capability.js'
 import { registerRoutes } from './api/routes.js'
 import { createToolServer } from './server/toolServer.js'
+import { buildAnchor } from './memory/anchor.js'
 import { runHandeye, runHandeyeJson, exePath, codeMeaning } from './handeye.js'
 import { project, headline, findAlarms } from './project.js'
 import { slimText } from './text.js'
@@ -223,6 +224,7 @@ export function apply(ctx) {
       clip,
       noteAction,
       countStepAction,
+      buildAnchor,
     },
   })
 

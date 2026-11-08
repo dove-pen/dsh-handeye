@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.15.0 — 2026-11-08
+
+**M3 · 技能素材层。** 记得的是"下一步该干什么"，不是鼠标坐标。
+
+### 新增
+
+- **`src/memory/anchor.js`**：语义锚点
+  - 从参数/输出里提取"操作的是什么"：显式文本（`text`/`url`/`selector`…）+ 容器窗口名
+  - **拿不到语义线索时不假装拿到**：标 `fragile`，一路传到技能草案上
+  - 只有"知道窗口名"不算可迁移——按坐标点的操作永远记 `fragile`
+- **`src/memory/skills.js`**：从 episode 编译技能（纯函数）
+  - `similarity()` / `clusterEpisodes()`：同类运行聚合（工具序列逐位 + 集合重合 + 意图）
+  - `extractParams()`：同一位置多次取值不同 → 参数；**差异过大就放弃，不把特例当规则**
+  - `compileSkill()`：每步产出 `{intent, tool, args, anchor, expect, onFail}`
+  - **坐标绝不进模板**；没判据的步数如实记在 `incomplete` 里，不伪造 `expect`
+- **`src/memory/skillStore.js`**：技能库 + 健康度
+  - 健康度口径：连续 3 次失败 → `broken`；有失败且成功率 < 90% → `needs-review`；否则 `healthy`
+  - 唯一入口 `recordRun()`，别处不许改健康度
+- **anchor 落进 episode**：`toolServer` 每次调用都记 `anchor`（技能层的素材来源）
+- **CLI**：`node bin/he-server.js skills [--min N] [--save]`
+
+### 实测（真实历史）
+
+```
+$ node bin/he-server.js skills --min 1 --save
+扫了 14 条 episode，同类出现 ≥1 次的技能草案：1 份
+
+【系统状态巡检】skill_20261108_02
+  来自 2 次运行 · 1 步 · 参数 0 个
+  ⚠ 1 步没有判据（草案不完整，不能直接当"验过了"）
+   s1 capability：system_deep
+
+已存入技能库 1 份 -> %LOCALAPPDATA%\dsh-handeye-plus\skills
+```
+
+### 还没做（下一步）
+
+- 面板里的技能页（列表 / 草案确认 / 健康度红条）
+- 技能执行（**刻意不做自动重放**：v1 的价值是"交给模型照着做"）
+- 画面上"检测到 3 次同类操作，存成技能？"的主动提示（现在要手动跑 CLI）
+- `capability` 内部子步骤目前只记成 1 步，编译出来会偏粗（已知限制）
+
+### 测试
+248 → **267**（锚点 4 条 + 编译 9 条 + 技能库 8 条）
+
 ## v0.14.0 — 2026-11-08
 
 **M2 · MCP 适配层。** 分水岭：从"插件"变成"层"——同一套工具、同一道门，Claude / ChatGPT / Cursor 都能接。

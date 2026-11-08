@@ -62,6 +62,8 @@ export function createToolServer({ ports = {} } = {}) {
                 ok: !failed,
                 ms: Date.now() - started,
                 brief: need('redactText')(need('clip')(out, 300)),
+                // 语义锚点：技能层靠它把"点了个像素"变成"点了含某文字的按钮"
+                anchor: typeof ports.buildAnchor === 'function' ? ports.buildAnchor(name, args ?? {}, out) : null,
               })
             }
             // 目标类工具是"管理状态"，不是"动屏幕"，不计入动作预算与路径打卡
