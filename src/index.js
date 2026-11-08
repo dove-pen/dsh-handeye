@@ -229,7 +229,9 @@ function reg(ctx, def) {
               brief: redactText(clip(out, 300)),
             })
           }
-          if (name !== 'capability' && isActionTool(name, args ?? {}) && RUNTIME.state.state === 'RUNNING') {
+          // 目标类工具是"管理状态"，不是"动屏幕"，不计入动作预算与路径打卡
+          const manageOnly = name.startsWith('goal_')
+          if (!manageOnly && name !== 'capability' && isActionTool(name, args ?? {}) && RUNTIME.state.state === 'RUNNING') {
             const trip = noteAction(RUNTIME.state, name, args ?? {}, !failed)
             // 目标步骤的动作预算：每个真动作都算一次
             if (RUNTIME.state.currentStep) countStepAction(RUNTIME.state)
@@ -388,7 +390,8 @@ export function apply(ctx) {
       try { return statSync(p).size } catch { return 0 }
     },
     readText: async (p) => {
-      try { return readFileSync(p, 'utf8') } catch { return '' }
+      // 读失败必须抛错：返回空串会让 absent 判据把"读不到"判成"没出现"=通过
+      return readFileSync(p, 'utf8')
     },
     // 屏幕类判据复用眼层：能看见的文字才算数，不另起一套 OCR
     screenText: async (region) => {
@@ -433,7 +436,11 @@ export function apply(ctx) {
   }
 
   /** 进入目标的某一步：挂上这一步的验收、白名单，并开一个 episode。 */
-  async function handleStepEnter({ goal, step, params }) {
+  /**
+   * 算出"这一步该验什么"。进步骤和结账都走这里 —— 结账时重算，
+   * 是为了兜住"重启后 state 丢了、判据变空、步骤被静默标成完成"这个洞。
+   */
+  async function resolveStepChecks(step) {
     let checks = null
     let allowedTools = null
     if (step.promptId) {
@@ -441,19 +448,25 @@ export function apply(ctx) {
       if (card.ok) {
         allowedTools = Array.isArray(card.value.allowedTools) ? [...card.value.allowedTools] : null
         const norm = normalizeChecks(card.value.verify ?? [])
-        checks = norm.ok && norm.checks.length > 0 ? norm.checks : null
+        checks = norm.ok ? (norm.checks.length > 0 ? norm.checks : null) : brokenChecks(norm.errors)
       }
     }
-    // 步骤自己写的判据优先于卡片
     if (Array.isArray(step.verify) && step.verify.length > 0) {
       const norm = normalizeChecks(step.verify)
-      if (!norm.ok) {
-        // 判据写坏了就挂一个必然失败的判据：绝不能降级成"没有判据"直接放行
-        checks = brokenChecks(norm.errors)
-      } else {
-        checks = norm.checks.length > 0 ? norm.checks : null
-      }
+      checks = norm.ok ? (norm.checks.length > 0 ? norm.checks : null) : brokenChecks(norm.errors)
     }
+    return { checks, allowedTools }
+  }
+
+  /** 结账前重挂判据：state 可能因重启/换 episode 而空了。 */
+  async function prepareStepChecks({ step }) {
+    const { checks } = await resolveStepChecks(step)
+    runtimeState.verifyChecks = checks
+    return { checks: checks ? checks.length : 0 }
+  }
+
+  async function handleStepEnter({ goal, step, params }) {
+    const { checks, allowedTools } = await resolveStepChecks(step)
 
     // 先开 episode（它会重置卡片相关字段），再挂目标步骤，顺序不能反
     const episodeId = await RUNTIME.startEpisode(`${goal.title} / ${step.title}`, {
@@ -1615,6 +1628,7 @@ export function apply(ctx) {
     state: runtimeState,
     goals,
     verifyStep,
+    prepareStepChecks,
     onStepEnter: handleStepEnter,
     onStepLeave: handleStepLeave,
   })

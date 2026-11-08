@@ -8,7 +8,7 @@ import { createGoalTools } from '../../src/tools/goals.js'
 import { createGoalStore } from '../../src/memory/goals.js'
 import { createState, beginEpisode } from '../../src/core/state.js'
 
-async function setup({ verifyStep } = {}) {
+async function setup({ verifyStep, prepareStepChecks } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'dsh-goaltools-'))
   const store = createGoalStore({ dir })
   const state = createState()
@@ -19,6 +19,7 @@ async function setup({ verifyStep } = {}) {
     state,
     goals: store,
     verifyStep,
+    prepareStepChecks,
     onStepEnter: async ({ goal, step }) => {
       entered.push({ goalId: goal.id, stepId: step.id })
       state.goalId = goal.id
@@ -239,6 +240,71 @@ test('a step cannot be closed while another step is running', async () => {
     assert.match(out, /没在跑/)
     const doc = (await s.store.get(id)).value
     assert.equal(doc.steps[1].status, 'todo', 's2 不能被隔空标成完成')
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('结账前重新挂判据：重启后 state 空了也不能白送通过', async () => {
+  const seen = []
+  let s
+  s = await setup({
+    prepareStepChecks: async () => {
+      // 模拟"从文件重新读出这一步的判据"
+      s.state.verifyChecks = [{ type: 'file', path: 'x.md', minBytes: 1 }]
+      return { checks: 1 }
+    },
+    verifyStep: async (state) => {
+      const n = Array.isArray(state.verifyChecks) ? state.verifyChecks.length : 0
+      seen.push(n)
+      return n > 0
+        ? { ok: false, checks: [{ type: 'file', target: 'x.md', ok: false, expected: '存在', actual: '文件不存在' }] }
+        : { ok: true, checks: [] }
+    },
+  })
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: [{ title: 'a', verify: [{ type: 'file', path: 'x.md', minBytes: 1 }] }] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    // 模拟进程重启：内存里的判据没了
+    s.state.verifyChecks = null
+    const out = await s.by('goal_step_done').execute({ goalId: id, stepId: 's1', summary: '好了' })
+    assert.match(out, /验收没过/)
+    assert.deepEqual(seen, [1], '结账时必须先重挂判据再验')
+    const doc = (await s.store.get(id)).value
+    assert.equal(doc.steps[0].status, 'doing', '没验过就不能标完成')
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('被卡住的步骤不能无理由重进', async () => {
+  const s = await setup()
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: ['a'] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    await s.store.recordVerifyFailure(id, 's1', '第一次失败')
+    await s.store.recordVerifyFailure(id, 's1', '第二次失败')
+
+    const noReason = await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    assert.match(noReason, /卡住/)
+
+    const withReason = await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1', reason: '换个办法再来一次' })
+    assert.match(withReason, /已进入/)
+    const doc = (await s.store.get(id)).value
+    assert.equal(doc.steps[0].status, 'doing')
+    assert.equal(doc.steps[0].verifyFailures, 0, '重进要把失败计数清零')
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('不能给不是正在跑的那一步续预算', async () => {
+  const s = await setup()
+  try {
+    const id = (await s.by('goal_create').execute({ title: 't', longTermGoal: 'g', steps: ['a', 'b'] })).match(/已建目标 (goal_\S+)：/)[1]
+    await s.by('goal_step_enter').execute({ goalId: id, stepId: 's1' })
+    const out = await s.by('goal_step_continue').execute({ goalId: id, stepId: 's2', reason: '这一堆文件要处理', extra: 5 })
+    assert.match(out, /没在跑/)
   } finally {
     await s.cleanup()
   }

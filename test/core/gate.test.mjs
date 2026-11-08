@@ -154,3 +154,13 @@ test('countStepAction tracks per-step usage and flags the budget', () => {
   endGoalStep(state)
   assert.equal(countStepAction(state).tracked, false)
 })
+
+test('预算上限被夹到 40：plan 里写多大都绕不过去', () => {
+  const state = createState()
+  beginEpisode(state, 'goal work')
+  state.goalId = 'goal_20261107_abcdef'
+  state.currentStep = { stepId: 's1', allowedTools: null, budgetActions: 1000000 }
+  state.stepActions = 40
+  const verdict = canAct(state, 'hand_click', { x: 1, y: 2 })
+  assert.equal(verdict.code, ERR.STEP_BUDGET_EXCEEDED)
+})

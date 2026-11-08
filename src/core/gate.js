@@ -53,7 +53,8 @@ export function canAct(state, tool, args = {}, now = Date.now()) {
         message: `Step "${step.stepId}" only allows: ${step.allowedTools.join(', ')}`,
       }
     }
-    const limit = Number(step.budgetActions) || 8
+    // 预算上限必须夹死：plan 里可以写 1000000，那样这道门就永远不会触发
+    const limit = Math.min(Math.max(Number(step.budgetActions) || 8, 1), 40)
     if (!read && Number(state.stepActions ?? 0) >= limit) {
       return {
         ok: false,

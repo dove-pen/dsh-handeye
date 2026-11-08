@@ -222,6 +222,8 @@ export function createGoalStore({ dir, now = () => Date.now() } = {}) {
       status: 'doing',
       attempts: Number(step.attempts ?? 0) + 1,
       doneAt: null,
+      // 重进就是重新开始：不清零的话，上轮的失败次数会把这一轮直接判成 blocked
+      verifyFailures: 0,
       promptId: patch.promptId !== undefined ? patch.promptId : step.promptId,
       verify: patch.verify !== undefined ? patch.verify : step.verify,
       budget: patch.budget ?? step.budget ?? { actions: DEFAULT_STEP_BUDGET },
@@ -355,7 +357,9 @@ export function normalizeSteps(steps) {
         status: 'todo',
         promptId: base.promptId ? String(base.promptId) : null,
         verify: Array.isArray(base.verify) ? base.verify : null,
-        budget: isPlainObject(base.budget) && Number.isInteger(base.budget.actions) ? { actions: base.budget.actions } : { actions: DEFAULT_STEP_BUDGET },
+        budget: isPlainObject(base.budget) && Number.isInteger(base.budget.actions)
+          ? { actions: Math.min(Math.max(base.budget.actions, 1), 40) }
+          : { actions: DEFAULT_STEP_BUDGET },
         attempts: 0,
         verifyFailures: 0,
         blocks: [],

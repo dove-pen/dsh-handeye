@@ -26,7 +26,7 @@ function stepLine(step) {
   return `${mark} ${step.id} ${step.title}${prompt}`
 }
 
-export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepLeave }) {
+export function createGoalTools({ state, goals, verifyStep, prepareStepChecks, onStepEnter, onStepLeave }) {
   const fail = (message) => `失败：${message}`
 
   async function goalOf(id) {
@@ -189,6 +189,14 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
         const stepId = text(args?.stepId).trim()
         if (!goalId || !stepId) return fail('goal_step_enter 需要 goalId 和 stepId')
 
+        // 被卡住的步骤不能"静悄悄重进"：那等于把 blocked 变成无限重试
+        const before = await goals.get(goalId)
+        const target = before.ok ? before.value.steps.find((s) => s.id === stepId) : null
+        const reason = typeof args?.reason === 'string' ? args.reason.trim() : ''
+        if (target && target.status === 'blocked' && !reason) {
+          return fail(`${stepId} 已经被卡住了。要重进得写 reason（准备怎么改），否则请人决定：goal_skip_step 或让人在面板上放行。`)
+        }
+
         const entered = await goals.enterStep(goalId, stepId, {
           promptId: typeof args?.promptId === 'string' ? args.promptId.trim() : undefined,
         })
@@ -248,6 +256,8 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
 
         let verdict = null
         if (typeof verifyStep === 'function') {
+          // 结账前重挂判据：重启后 state 是空的，不重挂就等于"没验就算过"
+          if (typeof prepareStepChecks === 'function') await prepareStepChecks({ goal: doc, step })
           verdict = await verifyStep(state)
         }
         if (verdict && verdict.ok === false) {
@@ -337,6 +347,11 @@ export function createGoalTools({ state, goals, verifyStep, onStepEnter, onStepL
         const reason = text(args?.reason).trim()
         if (!goalId || !stepId) return fail('goal_step_continue 需要 goalId 和 stepId')
         if (reason.length < 4) return fail('说明一下为什么要续（至少 4 个字），这条会写进记录')
+        // 只能续"正在跑的那一步"：以前会把额度加到别的步骤上，两侧永久错位
+        if (!state.currentStep || state.currentStep.stepId !== stepId) {
+          const running = state.currentStep ? state.currentStep.stepId : '（没有步骤在跑）'
+          return fail(`这一步没在跑：当前是 ${running}，不能给 ${stepId} 续预算。`)
+        }
         const extra = Math.min(40, Math.max(1, Number.isInteger(args?.extra) ? args.extra : DEFAULT_STEP_BUDGET))
 
         const doc = await goalOf(goalId)

@@ -178,7 +178,9 @@ export function registerRoutes({ ctx, runtime, version }) {
           name,
           title,
           description: body.description,
-          risk: body.risk,
+          // 不信调用方传的 risk：否则可以把含点击/输入的轨迹存成"只读"，
+          // 之后只凭只读级别的确认就以 confirmed:true 跑写操作
+          risk: body.risk === 'destructive' ? 'destructive' : undefined,
         })
         if (!compiled.ok) {
           return sendJson(res, 400, { ok: false, error: compiled.message, warnings: compiled.warnings })
