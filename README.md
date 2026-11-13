@@ -1,3 +1,20 @@
+## 技能与 SKILL.md 互操作
+
+技能是我们内部的 JSON，**对外能读写行业标准** [Agent Skills](https://agentskills.io/specification)
+（`SKILL.md` + `scripts/`）。2026-06 已有约 40 个兼容产品，所以别再自造格式。
+
+```bash
+node bin/he-server.js skill export <id> --to <目录>
+node bin/he-server.js skill import <目录>
+```
+
+- 导出的正文**写给人看**（步骤 / 判据 / 注意事项），后面附一段机器可读 JSON 供我们回读
+- 判据里引用到的本地脚本会复制进 `scripts/`
+- 导入别人的 SKILL.md 时：有机器段就无损还原；没有就退化成"照说明执行"的单步技能，
+  **并明确告诉你这一步没有判据**（不假装能验）
+
+---
+
 ## 格式（技能 / 判据 / 领域包）
 
 三份格式独立成仓：**[`dsh-handeye-formats`](https://github.com/dove-pen/dsh-handeye-formats)**（本仓 `src/formats/` 是它的副本，

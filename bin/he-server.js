@@ -20,6 +20,8 @@ function usage() {
   console.log('  node bin/he-server.js list                 列出可用工具')
   console.log('  node bin/he-server.js call <工具> [JSON]   调用一个工具')
   console.log('  node bin/he-server.js skills [--min N]      从历史里编译技能草案')
+  console.log('  node bin/he-server.js skill export <id> --to <目录>  导出成 SKILL.md')
+  console.log('  node bin/he-server.js skill import <目录>           从 SKILL.md 导入')
   console.log('  node bin/he-server.js pack validate <目录>  校验一个领域包')
   console.log('  node bin/he-server.js pack install <目录>   安装领域包（卡片进本地库）')
   console.log('共 ' + core.tools.length + ' 个工具')
@@ -37,6 +39,59 @@ if (cmd === 'list') {
   }
   console.log(`\n共 ${core.tools.length} 个工具`)
   process.exit(0)
+}
+
+if (cmd === 'skill') {
+  const { exportSkillMarkdown, importSkillMarkdown } = await import('../src/skills/skillmd.js')
+  const { createSkillStore } = await import('../src/memory/skillStore.js')
+  const { copyFileSync, mkdirSync, readFileSync: readF, writeFileSync: writeF, existsSync } = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  const store = createSkillStore({ dir: dataDir })
+
+  const toIndex = process.argv.indexOf('--to')
+  const target = toIndex > 0 ? process.argv[toIndex + 1] : null
+  const [sub, arg2] = [arg, rawJson]
+
+  if (sub === 'export') {
+    if (!arg2 || !target) { console.error('用法：node bin/he-server.js skill export <id> --to <目录>'); process.exit(2) }
+    const found = await store.get(arg2)
+    if (!found.ok) { console.error('失败：' + found.message); process.exit(1) }
+    const out = exportSkillMarkdown(found.value)
+    mkdirSync(target, { recursive: true })
+    for (const file of out.files) {
+      const dest = path.join(target, file.path)
+      mkdirSync(path.dirname(dest), { recursive: true })
+      if (file.from) {
+        if (!existsSync(file.from)) { console.error('警告：找不到脚本 ' + file.from + '，已跳过'); continue }
+        copyFileSync(file.from, dest)
+      } else {
+        writeF(dest, file.content, 'utf8')
+      }
+    }
+    console.log(`已导出「${found.value.title}」-> ${target}`)
+    console.log('  name: ' + out.name)
+    for (const file of out.files) console.log('  ' + file.path)
+    for (const w of out.warnings) console.log('  ⚠ ' + w)
+    process.exit(0)
+  }
+
+  if (sub === 'import') {
+    if (!arg2) { console.error('用法：node bin/he-server.js skill import <目录>'); process.exit(2) }
+    const file = path.join(arg2, 'SKILL.md')
+    if (!existsSync(file)) { console.error('失败：' + file + ' 不存在'); process.exit(1) }
+    const parsed = importSkillMarkdown(readF(file, 'utf8'))
+    if (!parsed.ok) { console.error('失败：' + parsed.error); process.exit(1) }
+    const saved = await store.save(parsed.skill)
+    if (!saved.ok) { console.error('失败：' + saved.message); process.exit(1) }
+    console.log(`已导入「${saved.value.title}」-> ${saved.value.id}（${saved.value.steps.length} 步）`)
+    for (const w of parsed.warnings) console.log('  ⚠ ' + w)
+    process.exit(0)
+  }
+
+  console.error('未知子命令：' + sub + '（可用 export / import）')
+  process.exit(2)
 }
 
 if (cmd === 'pack') {

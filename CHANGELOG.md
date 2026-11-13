@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.19.0 — 2026-11-13
+
+**S2 · SKILL.md 互操作。** 我们的技能现在能变成行业标准格式，也能读别人的。
+
+### 依据
+
+[Agent Skills 规范](https://agentskills.io/specification)：一个技能 = 一个目录，
+必须有 `SKILL.md`（YAML frontmatter + Markdown），必填 `name`（≤64，小写字母数字连字符）与
+`description`（≤1024），可选 `license` / `compatibility` / `metadata` / `allowed-tools`。
+
+### 新增
+
+- **`src/skills/skillmd.js`**
+  - `exportSkillMarkdown(skill)`：内部 JSON → `SKILL.md` + `scripts/`
+    - 正文写给人看（步骤、判据、注意事项），**再附一段机器可读 JSON** 供我们回读
+    - 判据里引用的本地 `.mjs` 会被复制进 `scripts/`
+  - `importSkillMarkdown(text)`：优先读机器可读段（往返无损）；
+    没有那段的"外来" SKILL.md 会退化成"照说明执行"的单步技能，并**明说判据为空**
+  - 极简 frontmatter 解析器（只认 `key: value` 与一层 map，零依赖）
+  - `slugify()`：中文标题转不出合法 name 时回落到 id，保证符合规范
+- **CLI**：`skill export <id> --to <目录>` / `skill import <目录>`
+
+### 实测
+
+```
+$ node bin/he-server.js skill export skill_20261108_02 --to %TEMP%\skillmd-out
+已导出「系统状态巡检」-> ...\skillmd-out
+  name: skill-20261108-02
+  SKILL.md
+
+$ node bin/he-server.js skill import %TEMP%\skillmd-in
+已导入「系统状态巡检」-> skill_20261113_77（1 步）
+```
+
+导出的 `SKILL.md`：
+
+```yaml
+---
+name: "skill-20261108-02"
+description: "系统状态巡检（1 步）；由手眼插件的操作记录编译而来，按步骤执行即可。"
+license: "MIT"
+compatibility: "Windows；需要 Node ≥ 20；桌面自动化需要前台窗口权限"
+metadata:
+  handeye.id: "skill_20261108_02"
+  handeye.version: "1"
+---
+```
+
+### 取舍说明
+
+- **不承诺"和任意客户端双向无损"**：机器可读段只有我们读；别人读正文。
+  外来 SKILL.md 没有判据，我们**照实标空**，不假装能验。
+- **scripts/ 只带判据里引用到的脚本**，不带整个项目。
+
+### 测试
+287 → **297**（Slug 规范、frontmatter 必填、正文可读性、脚本打包、往返无损、外来技能降级、坏 JSON 段降级）
+
 ## v0.18.0 — 2026-11-13
 
 **S1 · 技能闭环。** 从"能存"到"能用"，并且用完会记账。
