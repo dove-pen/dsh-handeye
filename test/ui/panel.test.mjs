@@ -1,7 +1,4 @@
-// 界面回归护栏。
-//
-// 这里不测像素，只测"结构还在不在"：面板文件、页签、叫法、以及旧痕迹有没有残留。
-// 2026-11-13 用户要求：对外叫「手嘴眼」、面板做成 DSH 里的整页视图、别再用浏览器单独开。
+// 面板文件的护栏：只检查 dashboard.html 的结构（客户端注册由 client-slot.test.mjs 管）。
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -10,13 +7,11 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const dashboard = readFileSync(root + 'src/ui/dashboard.html', 'utf8')
-const client = readFileSync(root + 'src/client.js', 'utf8')
 
 test('the panel calls itself 手嘴眼', () => {
   assert.match(dashboard, /<title>手嘴眼/)
   assert.match(dashboard, /<h1>手嘴眼/)
-  assert.match(client, /手嘴眼/)
-  assert.doesNotMatch(client, /手眼\+/, '旧叫法不该再出现在界面上')
+  assert.doesNotMatch(dashboard, /手眼\+/, '旧叫法不该再出现')
 })
 
 test('the panel has the five views, including a tutorial', () => {
@@ -35,31 +30,13 @@ test('the log table keeps the Windows-style columns', () => {
   assert.match(dashboard, /导出 CSV/)
 })
 
-test('the DSH tab opens a full page, not the vertical drawer', () => {
-  assert.match(client, /function openBigView\(\)/)
-  assert.match(client, /id = 'dsh-he-bigview'/)
-  assert.match(client, /dsh-handeye-plus\/dashboard/)
-  // 顶部页签的点击必须走大面板
-  assert.match(client, /const openPanel = \(event\) => \{[\s\S]{0,200}openBigView\(\)/)
-})
-
-test('closing the big view cleans up after itself', () => {
-  assert.match(client, /function closeBigView\(\)/)
-  assert.match(client, /Escape/)
-  assert.match(client, /dsh-he-bigview'\)\s*\n\s*if \(big\) big.remove\(\)/)
-})
-
 test('the overview shows a confirm section for destructive actions', () => {
   assert.match(dashboard, /待确认（破坏性动作）/)
   assert.match(dashboard, /允许一次/)
 })
 
-test('the top tab wins over the composer button', () => {
-  // 2026-11-13 实测踩过：composer 小圆眼挂成功后会把顶部页签删掉，
-  // 结果用户在会话里根本看不到入口。优先级必须是页签优先。
-  const entry = client.slice(client.indexOf('function mountEntry()'))
-  const body = entry.slice(0, entry.indexOf('function openBigView'))
-  assert.match(body, /if \(mountTopTab\(\)\)/)
-  assert.match(body, /document\.querySelectorAll\('\[data-dsh-he-entry\]'\)/, '页签在时应收掉小圆眼')
-  assert.doesNotMatch(body, /data-dsh-he-tab'\]\)\.forEach/, '不许再删顶部页签')
+test('the panel does not depend on being opened in a separate browser window', () => {
+  // iframe 里也要能刷新和暂停轮询；不写死 127.0.0.1
+  assert.doesNotMatch(dashboard, /127\.0\.0\.1/)
+  assert.match(dashboard, /dsh-handeye-plus/)
 })

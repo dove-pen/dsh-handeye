@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.23.0 — 2026-11-13
+
+**客户端重写：走官方 slots API 注册原生页签，旧抽屉整段删除。**
+
+### 为什么删
+
+旧版往 DOM 里塞按钮/抽屉，宿主每次重渲染都会覆盖或删掉它（实测：页签反复消失、
+小圆眼挂上后顶部页签被自己的代码删掉）。这条路走不通。
+
+挖了 dsh-context 的实现，确认官方做法是 **`ctx.slots`**：
+
+| 槽 | 谁在用 | 作用 |
+|---|---|---|
+| `conversation.view` | **编队** | 会话顶部的一个页签 |
+| `main` | **上下文** | 整页主视图 |
+| `sidebar.panellist` | 上下文 | 右侧栏里的一个面板 |
+| `conversation.input.overlay` | — | 输入框浮层 |
+
+### 现在
+
+```js
+ctx.slots.inject('conversation.view', () =>
+  ctx.slots.register({ name: 'conversation.view', id: 'shouzuian', order: 25, label: () => '手嘴眼' }, Panel))
+```
+
+- 页签是宿主自己渲染的，重渲染不会丢
+- `Panel` 是一个 iframe，装插件自己的 `/dsh-handeye-plus/dashboard`
+- 旧抽屉（6 页签、KPI/分布/时间线那一套 DOM 注入）**全部删除**，client.js 从 1780 行降到 96 行
+- 宿主没有 slots API 时只留一个极小入口按钮（不重建抽屉）
+
+### 测试
+344 → **349**（新增 client-slot 7 条：模块 id、require react、注册哪个槽、id/order/label、
+iframe 地址、effect 包装、旧抽屉不再出现）
+
 ## v0.22.1 — 2026-11-13
 
 **修：会话里看不到顶部页签。**
