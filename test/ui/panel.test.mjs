@@ -8,21 +8,39 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const dashboard = readFileSync(root + 'src/ui/dashboard.html', 'utf8')
 
-test('the panel is fully English with bright white text', () => {
+test('the panel defaults to English with bright white text', () => {
   assert.match(dashboard, /<title>HandEye/)
   assert.match(dashboard, /<h1>HandEye/)
-  // 可见文字里不许再有中文（注释不算）
-  const visible = dashboard.split('\n').filter((l) => {
-    const t = l.trim()
-    // 注释、以及"中文数据 -> 英文"的映射表不算可见文字
-    if (t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.startsWith('<!--')) return false
-    if (/_EN\s*=|SOURCE_EN|CATEGORY_EN/.test(l)) return false
-    // 去掉 "'中文': 'English'" 这种映射对再看剩下的中文
-    const stripped = l.replace(/'[^']*'\s*:\s*'[^']*'/g, '')
-    return /[\u4e00-\u9fa5]/.test(stripped)
+  assert.match(dashboard, /--text: #ffffff/)
+  // 语言/字号控件与中文词表是"国际化机制"，不算可见英文文案
+  const stripped = dashboard
+    .replace(/const ZH = \{[\s\S]*?\n\}/, '')
+    .split('\n')
+    .filter((l) => !/id="lang"|id="fontsize"|value="zh">中文/.test(l))
+    .filter((l) => {
+      const t = l.trim()
+      if (t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.startsWith('<!--')) return false
+      if (/_EN\s*=|SOURCE_EN|CATEGORY_EN/.test(l)) return false
+      return true
+    })
+    .join('\n')
+  const visible = stripped.split('\n').filter((l) => {
+    const withoutPairs = l.replace(/'[^']*'\s*:\s*'[^']*'/g, '')
+    return /[\u4e00-\u9fa5]/.test(withoutPairs)
   })
   assert.equal(visible.length, 0, '还有中文：' + visible.slice(0, 3).join(' | '))
-  assert.match(dashboard, /--text: #ffffff/)
+})
+
+test('there is a Chinese mode the user can switch to', () => {
+  assert.match(dashboard, /id="lang"/)
+  assert.match(dashboard, /value="zh">中文/)
+  assert.match(dashboard, /const ZH = \{/)
+  assert.match(dashboard, /localStorage.setItem\('he.lang'/)
+})
+
+test('the user can change font size', () => {
+  assert.match(dashboard, /id="fontsize"/)
+  assert.match(dashboard, /localStorage.setItem\('he.size'/)
 })
 
 test('the layout imitates dsh-context: main card column + right sidebar', () => {

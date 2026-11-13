@@ -141,6 +141,15 @@
     <option value="7" selected>Last 7 days</option>
     <option value="30">Last 30 days</option>
   </select>
+  <select id="lang" title="Language / 语言">
+    <option value="en">EN</option>
+    <option value="zh">中文</option>
+  </select>
+  <select id="fontsize" title="Font size / 字号">
+    <option value="0.92">A-</option>
+    <option value="1">A</option>
+    <option value="1.12">A+</option>
+  </select>
   <button id="btn-tutorial">Guide</button>
   <button id="btn-refresh">Refresh</button>
 </header>
@@ -355,6 +364,79 @@ const pad2 = (n) => String(n).padStart(2, '0')
 const when = (ms) => { const d = new Date(ms); return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) }
 const secs = (ms) => ms >= 60000 ? (ms / 60000).toFixed(1) + 'm' : (ms / 1000).toFixed(1) + 's'
 
+// ---------------- 语言与字号（默认英文；用户可以自己改成中文/调字号）
+//
+// 做法：界面文案本身是英文（en 是源码语言），再挂一张 en→zh 词典，
+// 切到中文时对渲染出来的文本做一次替换；每次重渲染后再补一次。
+const ZH = {
+  'HandEye · Control Panel': '手嘴眼 · 控制面板', 'HandEye': '手嘴眼', 'Connected': '已连接', 'Connecting': '连接中', 'Disconnected': '连接失败',
+  'Today': '今天', 'Last 3 days': '最近 3 天', 'Last 7 days': '最近 7 天', 'Last 30 days': '最近 30 天',
+  'Refresh': '刷新', 'Guide': '教程', 'Execution': '执行统计', 'Tool calls': '工具调用', 'Sources': '执行来源',
+  'Blocked reasons': '被拦原因', 'Outcomes': '动作结果', 'System log': '系统日志', 'Severity mix': '事件级别分布',
+  'Timing': '耗时统计', 'Current goal': '当前目标', 'Cards': '任务卡', 'Capabilities': '能力', 'Plugin': '插件信息',
+  'Pending confirmation': '待确认', 'Skills': '技能', 'Tutorials': '教程', 'All': '全部', 'All sources': '全部来源',
+  'Search message / tool': '搜索描述 / 工具名', 'Export / Open all': '导出 / 打开全部', 'Export CSV': '导出 CSV',
+  'Level': '级别', 'Date and time': '日期和时间', 'Source': '来源', 'Event ID': '事件 ID', 'Category': '任务类别',
+  'Message': '描述', 'Status': '状态', 'Risk': '风险', 'Success rate': '成功率', 'Autonomy': '自主度',
+  'Steps': '步骤', 'Checks': '判据', 'Runs': '跑过', 'New tutorial': '写一份教程', 'Title': '标题', 'Save': '保存',
+  'Cancel': '取消', 'Run': '运行', 'Edit': '编辑', 'Close': '关闭', 'Allow once': '允许一次',
+  'No tutorials yet. Click "New tutorial", write the steps, and the AI will follow them.': '还没有教程。点右上角「写一份教程」：写清楚步骤，AI 就会照着做。',
+  'Goal (what has to be achieved)': '目标（这一步要达成什么）', 'Acceptance check': '验收判据',
+  'No check (self-report only)': '不设判据（只能自己确认）', 'File exists': '文件存在', 'Text on screen': '屏幕出现文字',
+  'Check argument': '判据参数', 'No goal yet': '还没有目标', 'No tool calls': '没有工具调用', 'No data': '没有数据',
+  'Nothing blocked': '没有被拦', 'No events': '没有事件', 'No capabilities': '没有能力', 'No cards': '没有任务卡',
+  'No skills yet': '还没有技能', 'No matching events': '没有符合条件的事件', 'Actions': '动作', 'Failed': '失败',
+  'Gate refusals': '门卫拒绝', 'Warnings': '警告', 'Succeeded': '成功', 'Package': '包名', 'Formats': '格式',
+  'Data dir': '数据目录', 'Settings': '设置', 'Open plugin settings': '打开插件设置', 'hands + voice + eyes, with a gate': '手 + 嘴 + 眼，带门卫',
+  'Critical': '严重', 'Error': '错误', 'Warning': '警告', 'Information': '信息', 'Verbose': '详细',
+  'Adding a skill': '怎么加一份技能', 'Adding a card': '怎么加一张任务卡', 'Installing a domain pack': '怎么装一个领域包',
+  'Moving your data': '怎么把数据带走', 'When the gate refuses': '门卫拦住了怎么办', 'Reading the log': '日志怎么看',
+}
+
+const langSel = $('lang')
+const sizeSel = $('fontsize')
+const savedLang = localStorage.getItem('he.lang') || 'en'
+const savedSize = localStorage.getItem('he.size') || '1'
+langSel.value = savedLang
+sizeSel.value = savedSize
+document.body.style.zoom = savedSize
+
+function translateNode(root) {
+  if (localStorage.getItem('he.lang') !== 'zh') return
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const nodes = []
+  while (walker.nextNode()) {
+    const n = walker.currentNode
+    if (n.parentElement && /^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) continue
+    nodes.push(n)
+  }
+  for (const n of nodes) {
+    const t = n.nodeValue.trim()
+    if (!t) continue
+    const zh = ZH[t]
+    if (zh) n.nodeValue = n.nodeValue.replace(t, zh)
+  }
+  for (const el of root.querySelectorAll('input[placeholder], textarea[placeholder]')) {
+    const ph = el.getAttribute('placeholder')
+    if (ZH[ph]) el.setAttribute('placeholder', ZH[ph])
+  }
+}
+
+function applyLang() {
+  translateNode(document.body)
+}
+
+langSel.addEventListener('change', () => {
+  localStorage.setItem('he.lang', langSel.value)
+  // 切回英文最简单可靠：重新加载（en 是源码语言）
+  if (langSel.value === 'en') location.reload()
+  else applyLang()
+})
+sizeSel.addEventListener('change', () => {
+  localStorage.setItem('he.size', sizeSel.value)
+  document.body.style.zoom = sizeSel.value
+})
+
 const state = { days: 7, events: [], logLevel: 'all', logSource: 'all', logQ: '', fullLevel: 'all', fullSource: 'all', fullQ: '' }
 
 async function get(path) {
@@ -439,6 +521,7 @@ async function loadAll() {
     if (stateSnap && stateSnap.dataDir) $('data-dir').textContent = stateSnap.dataDir
     else $('row-dir').style.display = 'none'
     $('live').textContent = 'Connected'
+    applyLang()
   } catch (error) {
     $('live').textContent = 'Disconnected'
   }
@@ -626,6 +709,7 @@ async function loadTutorials() {
     $('tut-sub').textContent = list.length + ' tutorials'
     $('tut-list-wrap').style.display = list.length ? '' : 'none'
     $('tut-empty').style.display = list.length ? 'none' : ''
+    applyLang()
     $('tut-list').innerHTML = list.map((t) => {
       const h = t.health || {}
       return '<tr><td title="' + esc(t.id) + '">' + esc(t.title) + '</td><td>' + t.path.length + '</td><td>' +
@@ -799,6 +883,14 @@ document.addEventListener('keydown', (e) => {
   $('log-modal').classList.remove('on')
   $('tut-modal').classList.remove('on')
 })
+
+// 中文模式：任何异步渲染后补一次翻译
+let langTimer = null
+new MutationObserver(() => {
+  if (localStorage.getItem('he.lang') !== 'zh') return
+  clearTimeout(langTimer)
+  langTimer = setTimeout(applyLang, 120)
+}).observe(document.body, { childList: true, subtree: true })
 
 loadAll()
 void loadTutorials()
