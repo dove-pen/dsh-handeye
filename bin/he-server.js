@@ -16,18 +16,18 @@ const [cmd, arg, rawJson] = process.argv.slice(2)
 const core = await bootHeadless()
 
 function usage() {
-  console.log('用法：')
-  console.log('  node bin/he-server.js list                 列出可用工具')
-  console.log('  node bin/he-server.js call <工具> [JSON]   调用一个工具')
-  console.log('  node bin/he-server.js skills [--min N]      从历史里编译技能草案')
-  console.log('  node bin/he-server.js confirm <工具>  给破坏性动作一次性授权（等价面板按钮）')
-  console.log('  node bin/he-server.js export <文件> [--include-logs]  打包技能/目标/卡片')
-  console.log('  node bin/he-server.js import <文件> [--dry-run] [--force]  恢复打包')
-  console.log('  node bin/he-server.js skill export <id> --to <目录>  导出成 SKILL.md')
-  console.log('  node bin/he-server.js skill import <目录>           从 SKILL.md 导入')
-  console.log('  node bin/he-server.js pack validate <目录>  校验一个领域包')
-  console.log('  node bin/he-server.js pack install <目录>   安装领域包（卡片进本地库）')
-  console.log('共 ' + core.tools.length + ' 个工具')
+  console.log('Usage:')
+  console.log('  node bin/he-server.js list                 list available tools')
+  console.log('  node bin/he-server.js call <tool> [JSON]   call one tool')
+  console.log('  node bin/he-server.js skills [--min N]      compile skill drafts from history')
+  console.log('  node bin/he-server.js confirm <tool>  grant a destructive action once (same as the panel button)')
+  console.log('  node bin/he-server.js export <file> [--include-logs]  pack skills/goals/cards')
+  console.log('  node bin/he-server.js import <file> [--dry-run] [--force]  restore a pack')
+  console.log('  node bin/he-server.js skill export <id> --to <dir>  export as SKILL.md')
+  console.log('  node bin/he-server.js skill import <dir>           import from SKILL.md')
+  console.log('  node bin/he-server.js pack validate <dir>  validate a domain pack')
+  console.log('  node bin/he-server.js pack install <dir>   install a domain pack (cards into the store)')
+  console.log(core.tools.length + ' tools')
 }
 
 if (!cmd || cmd === '-h' || cmd === '--help') {
@@ -40,21 +40,21 @@ if (cmd === 'list') {
     const first = String(t.description || '').split('\n')[0].slice(0, 70)
     console.log(`${t.name.padEnd(18)} ${first}`)
   }
-  console.log(`\n共 ${core.tools.length} 个工具`)
+  console.log(`\n${core.tools.length} tools`)
   process.exit(0)
 }
 
 if (cmd === 'confirm') {
   // 给 MCP / 无面板场景用：允许某一个工具的下一次调用
-  if (!arg) { console.error('用法：node bin/he-server.js confirm <工具名>'); process.exit(2) }
+  if (!arg) { console.error('usage: node bin/he-server.js confirm <tool>'); process.exit(2) }
   const rt = core.runtime
   if (!rt || typeof rt.grantConfirm !== 'function') {
-    console.error('失败：这个运行时没有确认通道')
+    console.error('Failed: this runtime has no confirmation channel')
     process.exit(1)
   }
   const granted = rt.grantConfirm(arg)
-  console.log(`已允许一次：${granted.tool}（有效期到 ${granted.expiresAt}）`)
-  console.log('下一次调用它会放行；之后再调用仍然会被拦。')
+  console.log(`allowed once: ${granted.tool} (valid until ${granted.expiresAt})`)
+  console.log('the next call is allowed; calls after that are still blocked.')
   process.exit(0)
 }
 
@@ -63,12 +63,12 @@ if (cmd === 'export') {
   const { writeFileSync: writeF } = await import('node:fs')
   const os = await import('node:os')
   const path = await import('node:path')
-  if (!arg) { console.error('用法：node bin/he-server.js export <文件> [--include-logs]'); process.exit(2) }
+  if (!arg) { console.error('usage: node bin/he-server.js export <file> [--include-logs]'); process.exit(2) }
   const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
   const { bundle, counts, warnings } = exportBundle({ dataDir, includeLogs: process.argv.includes('--include-logs') })
   writeF(arg, JSON.stringify(bundle, null, 2), 'utf8')
-  console.log(`已打包 -> ${arg}`)
-  console.log(`  技能 ${counts.skills} · 目标 ${counts.goals} · 卡片 ${counts.cards}${counts.logs ? ` · 日志 ${counts.logs}` : ''}`)
+  console.log(`packed -> ${arg}`)
+  console.log(`  skills ${counts.skills} · goals ${counts.goals} · cards ${counts.cards}${counts.logs ? ` · logs ${counts.logs}` : ''}`)
   for (const w of warnings) console.log('  ⚠ ' + w)
   process.exit(0)
 }
@@ -78,12 +78,12 @@ if (cmd === 'import') {
   const { readFileSync: readF } = await import('node:fs')
   const os = await import('node:os')
   const path = await import('node:path')
-  if (!arg) { console.error('用法：node bin/he-server.js import <文件> [--dry-run] [--force]'); process.exit(2) }
+  if (!arg) { console.error('usage: node bin/he-server.js import <file> [--dry-run] [--force]'); process.exit(2) }
   let bundle
   try {
     bundle = JSON.parse(readF(arg, 'utf8'))
   } catch (e) {
-    console.error('失败：不是合法 JSON —— ' + (e instanceof Error ? e.message : String(e)))
+    console.error('Failed: not valid JSON - ' + (e instanceof Error ? e.message : String(e)))
     process.exit(2)
   }
   const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
@@ -94,21 +94,21 @@ if (cmd === 'import') {
     force: process.argv.includes('--force'),
   })
   if (!result.ok) {
-    console.error('失败：这次导入没有改动任何数据')
+    console.error('Failed: the import changed nothing')
     for (const e of result.errors.slice(0, 8)) console.error('  - ' + e)
     process.exit(1)
   }
-  const label = process.argv.includes('--dry-run') ? '（预演，没有写盘）' : ''
+  const label = process.argv.includes('--dry-run') ? ' (dry run, nothing written)' : ''
   const summarize = (list) => {
     const counts = { add: 0, skip: 0, overwrite: 0 }
     for (const item of list) counts[item.state] += 1
-    return `新增 ${counts.add} · 跳过 ${counts.skip} · 覆盖 ${counts.overwrite}`
+    return `new ${counts.add} · skipped ${counts.skip} · overwritten ${counts.overwrite}`
   }
-  console.log('导入计划' + label + '：')
-  console.log('  技能 ' + summarize(result.plan.skills))
-  console.log('  目标 ' + summarize(result.plan.goals))
-  console.log('  卡片 ' + summarize(result.plan.cards))
-  if (result.applied) console.log(`已写入：技能 ${result.applied.skills} · 目标 ${result.applied.goals} · 卡片 ${result.applied.cards}`)
+  console.log('import plan' + label + ':')
+  console.log('  skills ' + summarize(result.plan.skills))
+  console.log('  goals ' + summarize(result.plan.goals))
+  console.log('  cards ' + summarize(result.plan.cards))
+  if (result.applied) console.log(`written: skills ${result.applied.skills} · goals ${result.applied.goals} · cards ${result.applied.cards}`)
   for (const w of result.warnings ?? []) console.log('  ⚠ ' + w)
   process.exit(0)
 }
@@ -127,22 +127,22 @@ if (cmd === 'skill') {
   const [sub, arg2] = [arg, rawJson]
 
   if (sub === 'export') {
-    if (!arg2 || !target) { console.error('用法：node bin/he-server.js skill export <id> --to <目录>'); process.exit(2) }
+    if (!arg2 || !target) { console.error('usage: node bin/he-server.js skill export <id> --to <dir>'); process.exit(2) }
     const found = await store.get(arg2)
-    if (!found.ok) { console.error('失败：' + found.message); process.exit(1) }
+    if (!found.ok) { console.error('Failed: ' + found.message); process.exit(1) }
     const out = exportSkillMarkdown(found.value)
     mkdirSync(target, { recursive: true })
     for (const file of out.files) {
       const dest = path.join(target, file.path)
       mkdirSync(path.dirname(dest), { recursive: true })
       if (file.from) {
-        if (!existsSync(file.from)) { console.error('警告：找不到脚本 ' + file.from + '，已跳过'); continue }
+        if (!existsSync(file.from)) { console.error('warning: script not found: ' + file.from + ' (skipped)'); continue }
         copyFileSync(file.from, dest)
       } else {
         writeF(dest, file.content, 'utf8')
       }
     }
-    console.log(`已导出「${found.value.title}」-> ${target}`)
+    console.log(`exported "${found.value.title}" -> ${target}`)
     console.log('  name: ' + out.name)
     for (const file of out.files) console.log('  ' + file.path)
     for (const w of out.warnings) console.log('  ⚠ ' + w)
@@ -150,19 +150,19 @@ if (cmd === 'skill') {
   }
 
   if (sub === 'import') {
-    if (!arg2) { console.error('用法：node bin/he-server.js skill import <目录>'); process.exit(2) }
+    if (!arg2) { console.error('usage: node bin/he-server.js skill import <dir>'); process.exit(2) }
     const file = path.join(arg2, 'SKILL.md')
-    if (!existsSync(file)) { console.error('失败：' + file + ' 不存在'); process.exit(1) }
+    if (!existsSync(file)) { console.error('Failed: ' + file + ' does not exist'); process.exit(1) }
     const parsed = importSkillMarkdown(readF(file, 'utf8'))
-    if (!parsed.ok) { console.error('失败：' + parsed.error); process.exit(1) }
+    if (!parsed.ok) { console.error('Failed: ' + parsed.error); process.exit(1) }
     const saved = await store.save(parsed.skill)
-    if (!saved.ok) { console.error('失败：' + saved.message); process.exit(1) }
-    console.log(`已导入「${saved.value.title}」-> ${saved.value.id}（${saved.value.steps.length} 步）`)
+    if (!saved.ok) { console.error('Failed: ' + saved.message); process.exit(1) }
+    console.log(`imported "${saved.value.title}" -> ${saved.value.id} (${saved.value.steps.length} steps)`)
     for (const w of parsed.warnings) console.log('  ⚠ ' + w)
     process.exit(0)
   }
 
-  console.error('未知子命令：' + sub + '（可用 export / import）')
+  console.error('unknown subcommand: ' + sub + ' (available: export / import)')
   process.exit(2)
 }
 
@@ -172,17 +172,17 @@ if (cmd === 'pack') {
   const path = await import('node:path')
   const [sub, dir] = [arg, rawJson] // pack <sub> <dir>
   if (!sub || !dir) {
-    console.error('用法：node bin/he-server.js pack validate|install <目录>')
+    console.error('usage: node bin/he-server.js pack validate|install <dir>')
     process.exit(2)
   }
   if (sub === 'validate') {
     const loaded = loadPack(dir)
     if (!loaded.ok) {
-      console.error('失败：' + loaded.message)
+      console.error('Failed: ' + loaded.message)
       process.exit(1)
     }
     const pack = loaded.value.pack
-    console.log(`通过：${pack.name} v${pack.version} · ${(pack.cards ?? []).length} 张卡片 · ${(pack.verify ?? []).length} 条判据模板`)
+    console.log(`ok: ${pack.name} v${pack.version} · ${(pack.cards ?? []).length} cards · ${(pack.verify ?? []).length} check templates`)
     process.exit(0)
   }
   if (sub === 'install') {
@@ -191,16 +191,16 @@ if (cmd === 'pack') {
     const cards = createCardStore({ dir: dataDir })
     const result = await installPack(dir, { cards })
     if (!result.ok) {
-      console.error('失败：' + result.message)
+      console.error('Failed: ' + result.message)
       process.exit(1)
     }
     const r = result.value
-    console.log(`领域包 ${r.pack.name} v${r.pack.version}：装了 ${r.installed.length} 张卡片，${r.failed.length} 张失败`)
+    console.log(`pack ${r.pack.name} v${r.pack.version}: installed ${r.installed.length} cards, ${r.failed.length} failed`)
     for (const c of r.installed) console.log('  ✓ ' + c.id + '  ' + c.title)
     for (const f of r.failed) console.log('  × ' + f.id + '  ' + f.message)
     process.exit(r.failed.length ? 1 : 0)
   }
-  console.error('未知子命令：' + sub)
+  console.error('unknown subcommand: ' + sub)
   process.exit(2)
 }
 
@@ -214,7 +214,7 @@ if (cmd === 'skills') {
   const store = createEpisodeStore({ dir: dataDir })
   const listed = await store.list({ limit: 200 })
   if (!listed.ok) {
-    console.error('失败：读不到 episode —— ' + listed.message)
+    console.error('Failed: could not read episodes - ' + listed.message)
     process.exit(1)
   }
   const episodes = listed.value ?? []
@@ -229,17 +229,17 @@ if (cmd === 'skills') {
     const { createSkillStore } = await import('../src/memory/skillStore.js')
     skillStore = createSkillStore({ dir: dataDir })
   }
-  console.log(`扫了 ${episodes.length} 条 episode，同类出现 ≥${minRuns} 次的技能草案：${drafts.length} 份\n`)
+  console.log(`scanned ${episodes.length} episodes; drafts for groups seen >=${minRuns} times: ${drafts.length}\n`)
   for (const draft of drafts) {
     console.log(`【${draft.title}】${draft.id}`)
-    console.log(`  来自 ${draft.origin.episodeIds.length} 次运行 · ${draft.steps.length} 步 · 参数 ${draft.params.length} 个`)
+    console.log(`  from ${draft.origin.episodeIds.length} runs · ${draft.steps.length} steps · ${draft.params.length} params`)
     if (draft.incomplete.stepsWithoutChecks > 0) console.log(`  ⚠ ${draft.incomplete.stepsWithoutChecks} 步没有判据（草案不完整，不能直接当"验过了"）`)
-    if (draft.incomplete.fragileSteps > 0) console.log(`  ⚠ ${draft.incomplete.fragileSteps} 步只记到坐标/窗口（换屏幕可能失效）`)
+    if (draft.incomplete.fragileSteps > 0) console.log(`  ! ${draft.incomplete.fragileSteps} steps only recorded coordinates/windows (may break elsewhere)`)
     for (const step of draft.steps.slice(0, 6)) {
-      const frag = step.anchor && step.anchor.fragile ? '  [脆弱]' : ''
+      const frag = step.anchor && step.anchor.fragile ? '  [fragile]' : ''
       console.log(`   ${step.id} ${step.intent}${frag}`)
     }
-    if (draft.steps.length > 6) console.log(`   … 还有 ${draft.steps.length - 6} 步`)
+    if (draft.steps.length > 6) console.log(`   ... ${draft.steps.length - 6} more steps`)
     console.log('')
   }
   if (shouldSave && drafts.length) {
@@ -247,9 +247,9 @@ if (cmd === 'skills') {
     for (const draft of drafts) {
       const r = await skillStore.save(draft)
       if (r.ok) saved += 1
-      else console.error('失败：' + (r.message ?? '保存失败'))
+      else console.error('Failed: ' + (r.message ?? 'could not save'))
     }
-    console.log(`已存入技能库 ${saved} 份 -> ${skillStore.dir}`)
+    console.log(`saved ${saved} skills -> ${skillStore.dir}`)
   }
   process.exit(0)
 }
@@ -264,10 +264,12 @@ if (cmd === 'call') {
     try {
       // Windows 上 PowerShell 会吃掉内层双引号，所以支持 @文件 传参：
       //   node bin/he-server.js call skill_use @args.json
-      const source = rawJson.startsWith('@') ? readFileSync(rawJson.slice(1), 'utf8') : rawJson
-      args = JSON.parse(source)
+      let source = rawJson.startsWith('@') ? readFileSync(rawJson.slice(1), 'utf8') : rawJson
+      // PowerShell 的 UTF8 会带 BOM，strip 掉再解析
+      if (source.charCodeAt(0) === 0xfeff) source = source.slice(1)
+      args = JSON.parse(source.trim())
     } catch (e) {
-      console.error('失败：参数必须是合法 JSON（或 @文件）—— ' + (e instanceof Error ? e.message : String(e)))
+      console.error('Failed: arguments must be valid JSON (or @file) - ' + (e instanceof Error ? e.message : String(e)))
       process.exit(2)
     }
   }

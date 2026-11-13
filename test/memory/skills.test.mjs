@@ -17,7 +17,7 @@ test('anchor prefers the explicit text argument', () => {
   const a = buildAnchor('hand_click_text', { text: '免费订阅' }, 'hit window: "Chrome"')
   assert.equal(a.kind, 'click-by-text')
   assert.equal(a.text, '免费订阅')
-  assert.equal(a.container, '"Chrome"')
+  assert.equal(a.container, 'Chrome')
   assert.equal(a.fragile, false)
   assert.equal(a.source, 'args.text')
 })
@@ -33,7 +33,7 @@ test('a pure coordinate click is marked fragile', () => {
 
 test('knowing only the window name is not enough to be portable', () => {
   const a = buildAnchor('desk_invoke', {}, '已触发 42（方式 uia），鼠标没有移动。\nhit window: "Notepad"')
-  assert.equal(a.container, '"Notepad"')
+  assert.equal(a.container, 'Notepad')
   assert.equal(a.source, 'output.window')
   // 只知道"在记事本里"、不知道点的是哪个控件 -> 仍然脆弱
   assert.equal(a.fragile, true)
@@ -141,4 +141,9 @@ test('draft title prefers the recorded intent', () => {
   ]
   const draft = compileSkill({ shape: episodeShape(runs[0]), episodes: runs })
   assert.equal(draft.title, '订阅一个邮件通讯')
+})
+
+test('buildAnchor strips hwnd and quotes from the container', () => {
+  const a = buildAnchor('hand_click_text', { text: 'X' }, 'hit window: "Chrome" hwnd=9')
+  assert.equal(a.container, 'Chrome')
 })

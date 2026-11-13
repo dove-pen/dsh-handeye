@@ -7,6 +7,7 @@
 //
 // 设计原则：能用后台控件就不用鼠标；能按名字就不用坐标；能投影就不喂原文。
 import { readFileSync, readdirSync, existsSync, statSync, unlinkSync, writeFileSync, rmSync } from 'node:fs'
+import { parseLogOutput, formatEvents } from './runtime/logReader.js'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import os from 'node:os'
@@ -1636,7 +1637,10 @@ export function apply(ctx) {
       if (typeof args?.grep === 'string' && args.grep.trim()) argv.push('--grep', args.grep.trim())
       const r = await runHandeye(argv, { timeoutMs: 25000 })
       if (!r.ok) return fail('yl_log failed', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
-      return r.stdout.trim() || '(no matching log entries)'
+      // handeye 的 JSON 里级别/来源是中文，这里统一成英文再给模型
+      const parsedLog = parseLogOutput(r.stdout)
+      if (!parsedLog.ok) return r.stdout.trim() || '(no matching log entries)'
+      return formatEvents(parsedLog.events)
     },
   })
 

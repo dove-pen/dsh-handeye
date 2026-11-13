@@ -383,14 +383,8 @@ async function get(path) {
   return res.json()
 }
 
-// 服务端的 source / levelText 是中文（那是数据层），界面按这里翻成英文
-const SOURCE_EN = {
-  '手眼': 'Hands', '浏览器': 'Browser', '后台控件': 'Backend', '目标': 'Goals',
-  '卡片': 'Cards', '技能': 'Skills', '门卫': 'Gate', '语音': 'Voice', '其它': 'Other',
-}
-const CATEGORY_EN = { '动作': 'Action', '门卫': 'Gate', '目标': 'Goal', '技能': 'Skill', '其它': 'Other' }
-const categoryText = (c) => CATEGORY_EN[c] || c
-const sourceText = (src) => SOURCE_EN[src] || src
+const sourceText = (src) => src
+const categoryText = (c) => c
 const levelText = (level) => {
   const found = LEVEL_META.find((l) => l.id === Number(level))
   return found ? found.text : String(level)

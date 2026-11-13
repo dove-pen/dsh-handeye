@@ -24,6 +24,5 @@ jobs:
       - name: Run tests
         run: node --test
 
-      - name: English gate (report only until the translation is finished)
-        run: node tools/check-english.mjs
-        continue-on-error: true
+      - name: English gate (intentional Chinese is allowlisted)
+        run: node tools/check-english.mjs --strict

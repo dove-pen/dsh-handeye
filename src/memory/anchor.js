@@ -64,7 +64,14 @@ export function buildAnchor(tool, args = {}, output = '') {
   if (!anchor.container) {
     const text = String(output ?? '')
     const hit = /hit window[:：]\s*(.+)/.exec(text) || /target window[:：]\s*(.+)/.exec(text)
-    if (hit) anchor.container = hit[1].trim().slice(0, 60)
+    if (hit) {
+      // winui 现在输出：hit window: "Chrome" hwnd=9 —— 只要窗口名
+      anchor.container = hit[1]
+        .replace(/\s*hwnd=\d+.*$/, '')
+        .trim()
+        .replace(/^"|"$/g, '')
+        .slice(0, 60)
+    }
   }
   const hasSemanticText = anchor.source !== 'none'
 

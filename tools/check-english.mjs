@@ -100,12 +100,25 @@ function walk(dir, files = []) {
   return files
 }
 
+// 这些文件里的中文是**故意保留**的：
+//   voice.js 里的 PowerShell 脚本体、text/project 的中文错误词表、markers 的旧前缀兼容
+const INTENTIONAL = new Set([
+  'src/voice.js',
+  'src/text.js',
+  'src/project.js',
+  'src/core/markers.js',
+  'src/server/headless.js',
+])
+
 const strict = process.argv.includes('--strict')
 const rows = []
 let total = 0
 for (const file of walk(root)) {
   const literals = stringLiterals(readFileSync(file, 'utf8')).filter((s) => CJK.test(s))
   if (!literals.length) continue
+  // Windows 的 path.relative 给反斜杠，白名单里写的是正斜杠
+  const rel = path.relative(path.join(root, '..'), file).split(path.sep).join('/')
+  if (INTENTIONAL.has(rel)) continue
   rows.push({ file: path.relative(path.join(root, '..'), file), count: literals.length, sample: literals[0].slice(0, 60) })
   total += literals.length
 }

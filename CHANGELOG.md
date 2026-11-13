@@ -1,5 +1,54 @@
 # Changelog
 
+## v0.31.0 — 2026-11-13
+
+**找 bug 一轮：4 个真 bug + 2 处优化。**
+
+### Bug 1 · `@file` 带 BOM 就解析失败（最影响使用）
+
+Windows PowerShell 的 `Set-Content -Encoding UTF8` 默认写 BOM。以前：
+
+```
+Failed: arguments must be valid JSON (or @file) - Unexpected token '﻿'
+```
+
+用户会以为自己 JSON 写错了。现在读文件后先剥 BOM 再 parse。
+**实测**：同一个带 BOM 的文件，修前失败、修后正常返回。
+
+### Bug 2 · `yl_log` 把中文吐给模型
+
+handeye 的日志 JSON 里 `levelName/source/category` 是中文（"信息/会话/感知"）。以前原样返回。
+现在 `logReader.formatEvents()` 统一成英文，`desc` 保留原文（那是内容）：
+
+```
+2026-11-13 20:57:34.817  Information  Perception  #3012  Perception  OCR 分路统计  [S=7ff08 ...] ms=500
+```
+
+### Bug 3 · 记忆锚点把 `hwnd=9` 和引号一起存进去
+
+`hit window: "Chrome" hwnd=9` 以前整串当作容器名。现在只留 `Chrome`。
+
+### Bug 4 · 英文闸门在 Windows 上白名单从不生效
+
+`path.relative` 返回反斜杠，白名单写的是正斜杠 → **永远匹配不上**，
+`--strict` 看着失败其实没检查。已修（统一成 `/`），现在 `--strict` 真的通过。
+
+### 优化 1 · CLI 全英文
+
+`bin/he-server.js` 里 ~50 条中文（用法、导入导出、技能草案、领域包）全部英文。
+
+### 优化 2 · 面板删掉死代码
+
+events 已经是英文，`SOURCE_EN`/`CATEGORY_EN` 两张映射表成了死代码，删除。
+
+### CI
+
+英文闸门从"只报告"改成 `--strict` 拦截；白名单包含三类故意保留的中文
+（PowerShell 脚本体、中文错误词表、旧前缀兼容）。
+
+### 测试
+374 → **377**（新增：formatEvents 中文名映射、空列表、锚点裁 hwnd）
+
 ## v0.30.0 — 2026-11-13
 
 **英文化收尾：535 → 31 条，剩下的是三类"故意保留"。**

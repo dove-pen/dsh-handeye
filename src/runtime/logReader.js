@@ -123,3 +123,31 @@ export function createLogReader({ run, cacheMs = 2000, now = () => Date.now() } 
 
   return { tail }
 }
+
+// handeye 写日志时用的是中文级别/来源名；这是它的数据，不是我们的界面。
+// 给模型看的时候统一翻成英文，desc 保留原文（那是内容）。
+const LEVEL_BY_NAME = {
+  严重: 'Critical', 错误: 'Error', 警告: 'Warning', 信息: 'Information', 详细: 'Verbose',
+}
+const SOURCE_EN = {
+  核心: 'Core', 崩溃: 'Crash', 感知: 'Perception', 动作: 'Action', 语音: 'Voice',
+  脚本: 'Script', 配置: 'Config', 会话: 'Session', 校验: 'Verify', 界面: 'UI',
+}
+
+/** 一行一条的英文日志；detail 原样保留（key=value）。 */
+export function formatEvents(events) {
+  const list = Array.isArray(events) ? events : []
+  if (!list.length) return '(no matching log entries)'
+  return list
+    .map((e) => {
+      const level = LEVEL_BY_NAME[e.levelName] || e.levelName || LEVEL_NAMES[e.level] || String(e.level)
+      const source = SOURCE_EN[e.source] || e.source || '-'
+      const category = SOURCE_EN[e.category] || e.category || '-'
+      const parts = [String(e.time ?? '-'), level, source, '#' + (e.eventId ?? '-'), category]
+      const head = parts.join('  ')
+      const desc = String(e.desc ?? '').trim()
+      const detail = String(e.detail ?? '').trim()
+      return head + (desc ? '  ' + desc : '') + (detail ? '  ' + detail : '')
+    })
+    .join('\n')
+}

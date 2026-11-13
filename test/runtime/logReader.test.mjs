@@ -1,12 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import {
-  buildTailArgs,
-  createLogReader,
-  parseLogOutput,
-  summarize,
-} from '../../src/runtime/logReader.js'
+import { buildTailArgs, createLogReader, parseLogOutput, summarize, formatEvents } from '../../src/runtime/logReader.js'
 
 function fixture(events = []) {
   return JSON.stringify({ count: events.length, events })
@@ -108,4 +103,18 @@ test('surfaces process failures as structured errors', async () => {
   assert.equal(result.ok, false)
   assert.equal(result.code, 'INTERNAL')
   assert.ok(result.message.includes('3'))
+})
+
+test('formatEvents turns handeye level/source names into English', () => {
+  const text = formatEvents([
+    { time: '2026-11-13 20:57:34.817', level: 4, levelName: '信息', source: '会话', eventId: 8001, category: '会话', desc: '会话结束', detail: 'rc=0 ms=531' },
+    { time: '2026-11-13 20:57:34.817', level: 2, levelName: '错误', source: '感知', eventId: 3003, category: '感知', desc: '筛子完成', detail: 'blocks=39' },
+  ])
+  assert.match(text, /Information  Session  #8001  Session/)
+  assert.match(text, /Error  Perception  #3003  Perception/)
+  assert.match(text, /rc=0 ms=531/)
+})
+
+test('formatEvents handles an empty list', () => {
+  assert.equal(formatEvents([]), '(no matching log entries)')
 })
