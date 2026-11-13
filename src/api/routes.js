@@ -30,6 +30,7 @@ async function writeOverride({ episodeId, reason, goalId, stepId }) {
 }
 
 function runtimeDataDir() {
+  if (process.env.DSH_HANDEYE_DATA_DIR) return path.resolve(process.env.DSH_HANDEYE_DATA_DIR)
   const base = process.env.LOCALAPPDATA || process.env.TMPDIR || '.'
   return path.join(base, 'dsh-handeye-plus')
 }

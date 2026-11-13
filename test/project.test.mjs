@@ -94,3 +94,37 @@ test('truncateLines：报警行比预算还长时也不丢', () => {
   assert.ok(out.includes(alarm), '报警行永远不丢')
   assert.ok(out.some((l) => l.includes('truncated by budget')))
 })
+
+// ---------------------------------------------------------------- 独立可用性
+
+test('the core stays standalone: no DSH imports under src/', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs')
+  const path = await import('node:path')
+  const root = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\//, '')), '..', 'src')
+  const bad = []
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const full = path.join(dir, name)
+      if (name.endsWith('.js')) {
+        const text = readFileSync(full, 'utf8')
+        if (/from '@deepseek-ai\/|require\('@deepseek-ai\//.test(text)) bad.push(full)
+      } else if (!name.includes('.')) walk(full)
+    }
+  }
+  walk(root)
+  assert.deepEqual(bad, [], '核心不能依赖 DSH 包，否则 MCP/CLI 就装不进别人的机器')
+})
+
+test('the MCP entry is runnable and has a bin name', async () => {
+  const { readFileSync } = await import('node:fs')
+  const mcp = readFileSync(new URL('../src/mcp/server.js', import.meta.url), 'utf8')
+  assert.match(mcp.slice(0, 40), /^#!\/usr\/bin\/env node/)
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  assert.equal(pkg.bin['handeye-mcp'], 'src/mcp/server.js')
+})
+
+test('the data directory can be overridden for standalone use', async () => {
+  const { readFileSync } = await import('node:fs')
+  const index = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8')
+  assert.match(index, /DSH_HANDEYE_DATA_DIR/)
+})

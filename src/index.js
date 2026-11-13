@@ -264,7 +264,10 @@ export function apply(ctx) {
   //
   // 状态机、episode 存储、能力仓库、确认令牌、执行器。数据放在本地应用目录，
   // 不进 profile：卸载插件不该顺手删掉用户的操作记忆。
-  const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  // 不依赖 DSH 的人（MCP / CLI）可以用环境变量把数据放到别处
+  const dataDir = process.env.DSH_HANDEYE_DATA_DIR
+    ? path.resolve(process.env.DSH_HANDEYE_DATA_DIR)
+    : path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
   GRANT_FILE = path.join(dataDir, 'grant-once.json')
   // 门卫/记账逻辑集中在一个与宿主无关的地方；这里只把它的依赖注入进去。
   toolServer = createToolServer({

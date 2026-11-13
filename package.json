@@ -1,6 +1,6 @@
 {
   "name": "dsh-handeye",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "description": "手眼合一（DSH 插件）：handeye 的手 + 屏幕投影 + UIA 后台控件 + 浏览器 CDP，加操作记忆、任务卡与安全门卫。",
   "type": "module",
   "main": "src/index.js",
@@ -17,7 +17,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "he-server": "bin/he-server.js"
+    "he-server": "bin/he-server.js",
+    "handeye-mcp": "src/mcp/server.js"
   },
   "files": [
     "src",
@@ -38,7 +39,11 @@
     "dsh-plugin",
     "handeye",
     "uia",
-    "screen"
+    "screen",
+    "mcp",
+    "mcp-server",
+    "computer-use",
+    "windows-automation"
   ],
   "license": "MIT",
   "repository": {

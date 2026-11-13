@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // MCP server（stdio 传输）。
 //
 //   node src/mcp/server.js

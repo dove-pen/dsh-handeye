@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.36.0 — 2026-11-13
+
+**不装 DSH 也能用：MCP 独立入口 + CLI 路径写清楚。**
+
+### 发现
+
+核心（`src/`）**本来就没有 DSH 依赖** —— 只用了 `node:child_process / fs / os / path / readline`。
+所以"必须装 DSH"从来不是技术限制，是**入口没暴露**。
+
+### 改了什么
+
+| 项 | 内容 |
+|---|---|
+| `package.json` | `bin` 增加 **`handeye-mcp`** → `src/mcp/server.js`（安装后可直接当命令用） |
+| `src/mcp/server.js` | 加 shebang，`node src/mcp/server.js` 或 `handeye-mcp` 都能起 |
+| `DSH_HANDEYE_DATA_DIR` | **真实现了**（之前 PRIVACY.md 写了、代码里没有）：index.js 与 routes.js 都认 |
+| `README.md` | 新增 **"Use it without DSH (MCP or CLI)"**：Claude Desktop 的 JSON 配置、CLI 示例、数据目录覆盖 |
+| 关键词 | 补 `mcp` / `mcp-server` / `computer-use` / `windows-automation` |
+
+### 实测
+
+```
+$ node src/mcp/server.js
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05",...,"serverInfo":{"name":"handeye","version":"0.35.0"}}}
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"eye_see",...}]}}
+```
+
+MCP 的 `initialize` 与 `tools/list` 都能返回，**不需要 DSH 在场**。
+
+### 测试
+377 → 380（新增：核心不许 import DSH 包、MCP 入口有 shebang 与 bin 名、数据目录可覆盖）
+
 ## v0.35.0 — 2026-11-13
 
 **发布件：英文 README + 三份法律/信任文档 + CI 收紧。**
