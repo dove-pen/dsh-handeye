@@ -111,27 +111,39 @@ test('the client is a DSH module with the right id', () => {
   assert.equal(typeof exports.apply, 'function')
 })
 
-test('it registers on the main slot like dsh-context, with a key', () => {
+test('the module declares inject slots (otherwise ctx.slots is undefined)', () => {
+  const { exports } = loadClient()
+  assert.equal(JSON.stringify(exports.inject), JSON.stringify(['slots']), '缺 inject 就是之前"注册永远抛错"的根因')
+})
+
+test('it registers a conversation tab AND the main view', () => {
   const { injected, registrations } = loadClient()
-  assert.deepEqual(injected, ['main'], '挂 main 槽（上下文/编队同一个位置）')
-  assert.equal(registrations.length, 1)
-  const { meta } = registrations[0]
-  assert.equal(meta.name, 'main')
-  assert.equal(meta.key, 'dsh-handeye')
-  assert.equal(typeof meta.locale, 'object')
+  assert.equal(JSON.stringify(injected), JSON.stringify(['conversation.view', 'main']))
+  assert.equal(registrations.length, 2)
+
+  const tab = registrations[0].meta
+  assert.equal(tab.name, 'conversation.view')
+  assert.equal(tab.id, 'handeye')
+  assert.equal(typeof tab.order, 'number')
+  assert.equal(tab.label(), 'HandEye')
+
+  const main = registrations[1].meta
+  assert.equal(main.name, 'main')
+  assert.equal(main.key, 'dsh-handeye')
 })
 
-test('the registered view is the dashboard iframe', () => {
+test('both views render the dashboard iframe', () => {
   const { registrations } = loadClient()
-  const element = registrations[0].component()
-  const frame = element.props.children
-  assert.equal(frame.type, 'iframe')
-  assert.match(frame.props.src, /^\/dsh-handeye-plus\/dashboard/)
+  for (const reg of registrations) {
+    const frame = reg.component().props.children
+    assert.equal(frame.type, 'iframe')
+    assert.match(frame.props.src, /^\/dsh-handeye-plus\/dashboard/)
+  }
 })
 
-test('no floating button when the slot registration works', () => {
+test('no floating button when slot registration works', () => {
   const { nodes } = loadClient()
-  assert.equal(nodes.get('dsh-handeye-btn'), undefined, '只占会话区，不该再多一个浮动按钮')
+  assert.equal(nodes.get('dsh-handeye-btn'), undefined, '页签能用时不该再多一个浮动按钮')
 })
 
 test('without slots it falls back to a floating button with a working overlay', () => {
@@ -144,8 +156,9 @@ test('without slots it falls back to a floating button with a working overlay', 
   // 关闭按钮：独立的 ×，fixed 定位
   const close = nodes.get('dsh-handeye-close')
   assert.ok(close)
-  assert.equal(close.textContent, '×')
+  assert.equal(close.textContent, 'Close')
   assert.match(close.style.cssText, /position:fixed/)
+  assert.match(close.style.cssText, /min-width:96px/)
   close.onclick()
   assert.ok(!nodes.get('dsh-handeye-overlay'))
 })
@@ -155,9 +168,11 @@ test('without react it degrades to the button instead of throwing', () => {
   assert.ok(nodes.get('dsh-handeye-btn'), '没有 react 也要有入口')
 })
 
-test('the old tab registration shape is gone', () => {
-  assert.doesNotMatch(source, /conversation\.view/)
-  assert.doesNotMatch(source, /label: \(\) => 'HandEye'/)
+test('the tab registration uses the documented shape', () => {
+  assert.match(source, /name: 'conversation\.view'/)
+  assert.match(source, /id: 'handeye'/)
+  assert.match(source, /order: 25/)
+  assert.match(source, /label: \(\) => 'HandEye'/)
 })
 
 test('a broken or empty host never throws', () => {

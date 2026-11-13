@@ -2,13 +2,16 @@
 //
 // 铁律：客户端插件绝不能把宿主搞挂。所有东西包在 try/catch 里。
 //
-// 注册方式照抄 dsh-context（"上下文"页签）：它用的是
-//   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'dsh-context', locale }, Component))
-// v0.32.x 猜的那个页签槽（带 id/label/order）形状不对，按钮点了不切换。
-// v0.33.0 改成 'main' + key：和"上下文"并列，**只占会话区**，不是全屏浮层。
+// 2026-11-13 找到根因（DSH 插件文档就在 app.asar 里）：
+//   return { inject: ['slots'], apply(ctx) { ctx.slots.inject(slot, () => ctx.slots.register(meta, C)) } }
+// **少了 inject: ['slots']，ctx.slots 就是 undefined** —— 注册永远抛错，
+// 用户看到的"HandEye 按钮"其实是兜底按钮，不是页签。之前 v0.22~v0.33 全部症状由此而来。
 //
-// 兜底：万一 slots 不可用（宿主变版本 / 没给 react），退到右下角按钮 + 浮层，
-//       保证"至少有一个入口"，但绝不抛错。
+// v0.34.0：
+//   1. 模块导出 { inject: ['slots'], apply }
+//   2. 注册 conversation.view（页签，和 对话/轨迹/上下文/编队 并列）→ 只占会话区
+//   3. 同时注册 main 槽（dsh-context 的"上下文"用的就是它）
+//   4. 兜底按钮只在注册失败时出现；浮层带一个**大号 Close 按钮**（不再是隐蔽的小 ×）
 
 function loadEntry(definition) {
   try {
@@ -30,18 +33,13 @@ loadEntry({
     const OVERLAY_ID = 'dsh-handeye-overlay'
     const CLOSE_ID = 'dsh-handeye-close'
 
-    let React = null
     let jsx = null
     try {
-      // 只在 try 里 require：拿不到就退兜底，绝不让宿主判成 entry failed
-      React = require('react')
       jsx = require('react/jsx-runtime').jsx
     } catch {
-      React = null
       jsx = null
     }
 
-    /** 面板内容：填满宿主的视图区域，高度交给宿主。 */
     function Panel() {
       if (!jsx) return null
       return jsx('div', {
@@ -54,20 +52,32 @@ loadEntry({
       })
     }
 
-    /** 和"上下文"一样挂在 main 槽上：只占会话区。 */
-    function registerView(ctx) {
+    /** 注册两个位置：页签（会话区）+ main（上下文那种大视图）。 */
+    function registerSlots(ctx) {
       const slots = ctx && ctx.slots
       if (!slots || typeof slots.inject !== 'function' || typeof slots.register !== 'function') {
         throw new Error('slots API is unavailable')
       }
       if (!jsx) throw new Error('react is unavailable')
       const locale = (ctx && ctx.locale) || {}
-      const register = () =>
-        slots.inject('main', () =>
-          slots.register({ name: 'main', key: 'dsh-handeye', locale }, Panel),
+
+      const registerTab = () =>
+        slots.inject('conversation.view', () =>
+          slots.register(
+            { name: 'conversation.view', id: 'handeye', order: 25, label: () => 'HandEye', locale },
+            Panel,
+          ),
         )
-      if (typeof ctx.effect === 'function') ctx.effect(register, 'dsh-handeye: main view')
-      else register()
+      const registerMain = () =>
+        slots.inject('main', () => slots.register({ name: 'main', key: 'dsh-handeye', locale }, Panel))
+
+      if (typeof ctx.effect === 'function') {
+        ctx.effect(registerTab, 'dsh-handeye: conversation tab')
+        ctx.effect(registerMain, 'dsh-handeye: main view')
+      } else {
+        registerTab()
+        registerMain()
+      }
     }
 
     function animateIfPossible(element, frames, options) {
@@ -114,34 +124,34 @@ loadEntry({
 
       const bar = document.createElement('div')
       bar.style.cssText =
-        'display:flex;align-items:center;gap:10px;padding:6px 56px 6px 12px;background:#14181f;' +
+        'display:flex;align-items:center;gap:12px;padding:8px 12px;background:#14181f;' +
         'border-bottom:1px solid #262c36;font:12px/1.4 "Segoe UI",system-ui,sans-serif;color:#fff;' +
         'flex:0 0 auto;width:100%;box-sizing:border-box'
       const title = document.createElement('strong')
       title.textContent = 'HandEye'
       title.style.cssText = 'font-weight:600;letter-spacing:.2px'
       const hint = document.createElement('span')
-      hint.textContent = 'Click × or press Esc to return'
-      hint.style.cssText = 'color:#e9edf3;opacity:.85'
-      bar.append(title, hint)
+      hint.textContent = 'Press Esc or click Close'
+      hint.style.cssText = 'color:#e9edf3;opacity:.85;flex:1'
 
+      // 大号 Close：120x32，白字深底，放在顶栏最右，肉眼可见
       const close = document.createElement('button')
       close.id = CLOSE_ID
       close.type = 'button'
       close.title = 'Close panel (Esc)'
       close.setAttribute('aria-label', 'Close panel')
-      close.textContent = '×'
+      close.textContent = 'Close'
       close.style.cssText =
-        'position:fixed;top:10px;right:14px;z-index:2147483003;width:30px;height:30px;line-height:1;' +
-        'font:400 20px/1 "Segoe UI",system-ui,sans-serif;color:#fff;background:#1c2129;border:1px solid #3a4250;' +
-        'border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;' +
+        'position:fixed;top:8px;right:12px;z-index:2147483003;height:32px;min-width:96px;padding:0 16px;' +
+        'font:600 13px/1 "Segoe UI",system-ui,sans-serif;color:#fff;background:#2b3542;border:1px solid #4a5566;' +
+        'border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;' +
         'transition:background .15s ease,transform .15s ease,box-shadow .15s ease;box-shadow:0 2px 10px rgba(0,0,0,.45)'
       close.onmouseenter = () => {
-        close.style.background = '#2b3542'
-        close.style.transform = 'scale(1.06)'
+        close.style.background = '#3a4757'
+        close.style.transform = 'scale(1.03)'
       }
       close.onmouseleave = () => {
-        close.style.background = '#1c2129'
+        close.style.background = '#2b3542'
         close.style.transform = 'scale(1)'
       }
       close.onclick = closeOverlay
@@ -168,7 +178,6 @@ loadEntry({
       overlay.addEventListener('keydown', onKey)
     }
 
-    /** 兜底入口：只在 main 槽注册失败时挂出来。 */
     function mountButton() {
       if (typeof document === 'undefined' || !document.body) return
       if (document.getElementById(BTN_ID)) return
@@ -204,7 +213,7 @@ loadEntry({
     function apply(ctx) {
       let registered = false
       try {
-        registerView(ctx)
+        registerSlots(ctx)
         registered = true
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -220,6 +229,7 @@ loadEntry({
       }
     }
 
-    return { apply }
+    // inject 必须声明：宿主据此把 slots 服务交给 ctx（缺了就是 undefined）
+    return { inject: ['slots'], apply }
   },
 })

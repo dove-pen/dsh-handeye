@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.34.0 — 2026-11-13
+
+**找到客户端一直没生效的真正原因（两个）。**
+
+### 根因 1：少了 `inject: ['slots']`
+
+DSH 的插件文档就在 `app.asar` 里，写得很清楚：
+
+```js
+return { inject: ['slots'], apply(ctx) {
+  ctx.slots.inject('conversation.view', () => ctx.slots.register(
+    { name: 'conversation.view', id: 'chat', order: 0, label: () => t('view.chat') }, Component))
+}}
+```
+
+我们的模块只返回 `{ apply }`，**`ctx.slots` 一直是 undefined**，
+注册每次都抛错、退到兜底按钮。用户看到的"HandEye 按钮"从头到尾都是兜底，不是页签。
+
+而且 v0.32.0 我还把 `dsh.client.inject` 里的 `@deepseek-ai/dsh-client-ui-slots` 删了——
+那是提供 `slots` 服务的包。两处都补回来了。
+
+### 根因 2：客户端 bundle 是**启动时**打包的，刷新无效
+
+我用探针证明的：把兜底按钮文字改成 `HandEye*`，同步后按 Ctrl+R，
+按钮**仍然显示 `HandEye`**。=> 刷新不会重新打包客户端，**必须完全退出 DSH 再打开**。
+
+这也解释了为什么之前每一版"我改了、你没看到"。
+
+### 本次改动
+
+| 项 | 内容 |
+|---|---|
+| 模块导出 | `{ inject: ['slots'], apply }` |
+| 注册 | `conversation.view`（页签，id=handeye，order=25）+ `main`（上下文那种大视图） |
+| `dsh.client.inject` | 恢复 `ui-slots` 与 `ui-conversation` |
+| 关闭按钮 | 兜底浮层里的 Close 从 30×30 的 × 改成 **96×32 的大按钮**，白字深底，固定在右上角 |
+| 测试 | 377 全过（inject 声明、两个槽、大号 Close、无 slots 退兜底） |
+
+### 没能自己验证的部分
+
+我不能重启 DSH——它正是跑这个会话的进程，重启会掐断本次对话。
+所以这一版**必须由你重启一次**才能看到效果。重启后请看一眼顶部页签行：
+有 `HandEye` 就说明对；没有就说明 `main`/`conversation.view` 之外还得补
+`sidebar.panellist` 那三件套。
+
 ## v0.33.0 — 2026-11-13
 
 **改成"和上下文一样"：注册在 main 槽，只占会话区，不再全屏。**
