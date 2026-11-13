@@ -31,12 +31,6 @@ test('the panel defaults to English with bright white text', () => {
   assert.equal(visible.length, 0, '还有中文：' + visible.slice(0, 3).join(' | '))
 })
 
-test('there is a Chinese mode the user can switch to', () => {
-  assert.match(dashboard, /id="lang"/)
-  assert.match(dashboard, /value="zh">中文/)
-  assert.match(dashboard, /const ZH = \{/)
-  assert.match(dashboard, /localStorage.setItem\('he.lang'/)
-})
 
 test('the user can change font size', () => {
   assert.match(dashboard, /id="fontsize"/)
@@ -100,4 +94,10 @@ test('confirm dialog serializes object args instead of [object Object]', () => {
 
 test('timing counts every action, not only ones with an ms field', () => {
   assert.match(dashboard, /e\.eventId === 4001 \|\| e\.eventId === 4002/)
+})
+
+test('the panel is English only — no language switcher', () => {
+  assert.doesNotMatch(dashboard, /id="lang"/, '不该再有语言选择器')
+  assert.doesNotMatch(dashboard, /const ZH = \{/, '不该再有中文词表')
+  assert.doesNotMatch(dashboard, /he\.lang/)
 })
