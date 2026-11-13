@@ -148,3 +148,40 @@ test('the client dependency list includes the slots package', () => {
   assert.ok(inject.includes('@deepseek-ai/dsh-client-ui-conversation'), 'tab 槽来自会话 UI 包')
   assert.ok(!inject.includes('@deepseek-ai/dsh-api-remotes'), '不该带无关包')
 })
+
+test('a broken host never takes our plugin (or DSH) down', () => {
+  // 2026-11-13：重启后出故障，用户不得不禁用全部第三方插件。
+  // 这里的契约是：apply 永不抛，失败只影响本插件入口。
+  const { exports } = loadClient()
+  const broken = [
+    { slots: { inject: () => { throw new Error('inject failed') }, register: () => {} }, effect: () => {} },
+    { slots: null, effect: () => {} },
+    {},
+  ]
+  for (const ctx of broken) assert.doesNotThrow(() => exports.apply(ctx))
+})
+
+test('a missing react does not throw at load time', () => {
+  const sandbox = {
+    window: {
+      __ModuleLoader__: {
+        load: (def) => {
+          // require 一律失败：模拟宿主没提供 react
+          const exports = def.factory(() => {
+            throw new Error('no module')
+          })
+          sandbox.__exports = exports
+        },
+      },
+      open: () => {},
+    },
+    document: { body: null, querySelector: () => null, createElement: () => ({ style: {}, dataset: {} }), addEventListener: () => {} },
+    setInterval: () => 0,
+    clearInterval: () => {},
+    console,
+  }
+  vm.createContext(sandbox)
+  assert.doesNotThrow(() => vm.runInContext(source, sandbox, { filename: 'client.js' }))
+  assert.equal(typeof sandbox.__exports.apply, 'function')
+  assert.doesNotThrow(() => sandbox.__exports.apply({}))
+})
