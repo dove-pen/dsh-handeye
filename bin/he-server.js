@@ -20,6 +20,8 @@ function usage() {
   console.log('  node bin/he-server.js list                 列出可用工具')
   console.log('  node bin/he-server.js call <工具> [JSON]   调用一个工具')
   console.log('  node bin/he-server.js skills [--min N]      从历史里编译技能草案')
+  console.log('  node bin/he-server.js export <文件> [--include-logs]  打包技能/目标/卡片')
+  console.log('  node bin/he-server.js import <文件> [--dry-run] [--force]  恢复打包')
   console.log('  node bin/he-server.js skill export <id> --to <目录>  导出成 SKILL.md')
   console.log('  node bin/he-server.js skill import <目录>           从 SKILL.md 导入')
   console.log('  node bin/he-server.js pack validate <目录>  校验一个领域包')
@@ -38,6 +40,61 @@ if (cmd === 'list') {
     console.log(`${t.name.padEnd(18)} ${first}`)
   }
   console.log(`\n共 ${core.tools.length} 个工具`)
+  process.exit(0)
+}
+
+if (cmd === 'export') {
+  const { exportBundle } = await import('../src/data/bundle.js')
+  const { writeFileSync: writeF } = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  if (!arg) { console.error('用法：node bin/he-server.js export <文件> [--include-logs]'); process.exit(2) }
+  const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  const { bundle, counts, warnings } = exportBundle({ dataDir, includeLogs: process.argv.includes('--include-logs') })
+  writeF(arg, JSON.stringify(bundle, null, 2), 'utf8')
+  console.log(`已打包 -> ${arg}`)
+  console.log(`  技能 ${counts.skills} · 目标 ${counts.goals} · 卡片 ${counts.cards}${counts.logs ? ` · 日志 ${counts.logs}` : ''}`)
+  for (const w of warnings) console.log('  ⚠ ' + w)
+  process.exit(0)
+}
+
+if (cmd === 'import') {
+  const { importBundle } = await import('../src/data/bundle.js')
+  const { readFileSync: readF } = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  if (!arg) { console.error('用法：node bin/he-server.js import <文件> [--dry-run] [--force]'); process.exit(2) }
+  let bundle
+  try {
+    bundle = JSON.parse(readF(arg, 'utf8'))
+  } catch (e) {
+    console.error('失败：不是合法 JSON —— ' + (e instanceof Error ? e.message : String(e)))
+    process.exit(2)
+  }
+  const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  const result = await importBundle({
+    dataDir,
+    bundle,
+    dryRun: process.argv.includes('--dry-run'),
+    force: process.argv.includes('--force'),
+  })
+  if (!result.ok) {
+    console.error('失败：这次导入没有改动任何数据')
+    for (const e of result.errors.slice(0, 8)) console.error('  - ' + e)
+    process.exit(1)
+  }
+  const label = process.argv.includes('--dry-run') ? '（预演，没有写盘）' : ''
+  const summarize = (list) => {
+    const counts = { add: 0, skip: 0, overwrite: 0 }
+    for (const item of list) counts[item.state] += 1
+    return `新增 ${counts.add} · 跳过 ${counts.skip} · 覆盖 ${counts.overwrite}`
+  }
+  console.log('导入计划' + label + '：')
+  console.log('  技能 ' + summarize(result.plan.skills))
+  console.log('  目标 ' + summarize(result.plan.goals))
+  console.log('  卡片 ' + summarize(result.plan.cards))
+  if (result.applied) console.log(`已写入：技能 ${result.applied.skills} · 目标 ${result.applied.goals} · 卡片 ${result.applied.cards}`)
+  for (const w of result.warnings ?? []) console.log('  ⚠ ' + w)
   process.exit(0)
 }
 

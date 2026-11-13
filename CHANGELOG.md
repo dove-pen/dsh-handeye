@@ -1,5 +1,53 @@
 # Changelog
 
+## v0.19.1 — 2026-11-13
+
+**S3 · 打包与恢复。** 把"归你"变成能点的按钮。
+
+### 新增
+
+- **`src/data/bundle.js`**
+  - `exportBundle({ dataDir, includeLogs })`：技能 / 目标 / 卡片打成一个 JSON（可选带 episode 日志）
+    - 打包前**逐个校验**：坏数据不进 bundle，只给警告
+  - `importBundle({ dataDir, bundle, dryRun, force })`：
+    - **先全部校验，再落盘**：坏文件一个都不写
+    - 默认**不覆盖**：已存在的标记 `skip` 并报告；`--force` 才覆盖
+    - `--dry-run` **零副作用**（连目录都不建 —— 这是修过的一个 bug：最初实现会顺手建空目录）
+    - 日志文件名做白名单校验（`[\w.-]+\.jsonl`），挡掉 `../evil.jsonl`
+- **CLI**
+  ```bash
+  node bin/he-server.js export <文件> [--include-logs]
+  node bin/he-server.js import <文件> [--dry-run] [--force]
+  ```
+
+### 实测（真实数据）
+
+```
+$ node bin/he-server.js export %TEMP%\handeye-bundle.json
+已打包 -> ...\handeye-bundle.json
+  技能 1 · 目标 1 · 卡片 19
+文件大小: 28 KB
+
+$ node bin/he-server.js import %TEMP%\handeye-bundle.json --dry-run
+导入计划（预演，没有写盘）：
+  技能 新增 0 · 跳过 1 · 覆盖 0
+  目标 新增 0 · 跳过 1 · 覆盖 0
+  卡片 新增 0 · 跳过 19 · 覆盖 0
+
+$ node bin/he-server.js import bad-bundle.json
+失败：这次导入没有改动任何数据
+  - 技能 broken：schemaVersion is required；title is required；…
+exit=1
+```
+
+### 说明
+
+- `preferences` 字段留了但现在是空的：偏好还没有独立存储，等有了再填，不假装有
+- 恢复的卡片 `origin` 会变成 `imported`（存储层的行为），内容不改
+
+### 测试
+297 → **307**（空目录、三类数据、坏文件跳过、日志可选、版本校验、整目录往返、坏包不动盘、跳过/覆盖、dry-run 零副作用、日志文件名安全）
+
 ## v0.19.0 — 2026-11-13
 
 **S2 · SKILL.md 互操作。** 我们的技能现在能变成行业标准格式，也能读别人的。

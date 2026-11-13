@@ -1,3 +1,20 @@
+## 打包与恢复
+
+技能、目标、卡片随时能打成一个文件带走，也能恢复回来。
+
+```bash
+node bin/he-server.js export handeye-backup.json          # 技能/目标/卡片
+node bin/he-server.js export handeye-backup.json --include-logs   # 连 episode 日志
+node bin/he-server.js import handeye-backup.json --dry-run        # 只看计划，不写盘
+node bin/he-server.js import handeye-backup.json --force          # 覆盖已存在的
+```
+
+- **先校验再落盘**：文件里有一个坏条目，整次导入都不写
+- **默认不覆盖**：已存在的跳过并报告
+- **dry-run 零副作用**：连目录都不建
+
+---
+
 ## 技能与 SKILL.md 互操作
 
 技能是我们内部的 JSON，**对外能读写行业标准** [Agent Skills](https://agentskills.io/specification)
