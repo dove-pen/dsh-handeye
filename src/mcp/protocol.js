@@ -25,8 +25,10 @@ function okResponse(id, result) {
  * @param {{listTools: Function, callTool: Function, info: {name:string, version:string}}} deps
  * @returns {(msg: object) => Promise<object|null>} 返回 null 表示无需回包（通知）
  */
-export function createMcpHandler({ listTools, callTool, info }) {
+export function createMcpHandler({ listTools, callTool, info, request, grant }) {
   const serverInfo = { name: info?.name ?? 'handeye', version: info?.version ?? '0.0.0' }
+  // 客户端在 initialize 里声明了 elicitation，才能弹确认；否则退回"直接拒绝"
+  let clientElicitation = false
 
   return async function handle(msg) {
     if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
@@ -51,6 +53,7 @@ export function createMcpHandler({ listTools, callTool, info }) {
         case 'initialize': {
           // 回显客户端请求的版本：MCP 的版本协商由客户端主导
           const requested = params && typeof params.protocolVersion === 'string' ? params.protocolVersion : PROTOCOL_VERSION
+          clientElicitation = Boolean(params && params.capabilities && params.capabilities.elicitation)
           return okResponse(id, {
             protocolVersion: requested,
             capabilities: { tools: { listChanged: false } },
@@ -77,8 +80,39 @@ export function createMcpHandler({ listTools, callTool, info }) {
           const args = params && typeof params.arguments === 'object' && params.arguments ? params.arguments : {}
           if (!name) return errorResponse(id, ERROR.invalidParams, 'tools/call needs params.name')
 
-          const result = await callTool(name, args)
-          const text = String(result?.text ?? '')
+          let result = await callTool(name, args)
+          let text = String(result?.text ?? '')
+
+          // 破坏性动作：门卫会 Refused: CONFIRM_REQUIRED。
+          // 如果客户端支持 elicitation，就在这里请宿主弹一次确认；用户点允许才重试一次。
+          if (result?.ok === false && text.startsWith('Refused: CONFIRM_REQUIRED') && clientElicitation && typeof request === 'function' && typeof grant === 'function') {
+            let answer = null
+            try {
+              answer = await request('elicitation/create', {
+                message: `AI 想执行「${name}」，这看起来是破坏性操作。要允许这一次吗？`,
+                requestedSchema: {
+                  type: 'object',
+                  properties: { approve: { type: 'boolean', title: '允许一次', description: '只对这一个动作、只生效一次' } },
+                  required: ['approve'],
+                },
+              })
+            } catch (error) {
+              return okResponse(id, {
+                content: [{ type: 'text', text: `需要用户确认，但宿主没能弹窗（${error instanceof Error ? error.message : String(error)}）。请让用户在本机执行：node bin/he-server.js confirm ${name}` }],
+                isError: true,
+              })
+            }
+            if (answer && answer.action === 'accept') {
+              if (!grant(name)) {
+                return okResponse(id, { content: [{ type: 'text', text: '确认通道不可用：没能写入一次性授权。' }], isError: true })
+              }
+              result = await callTool(name, args)
+              text = String(result?.text ?? '')
+            } else {
+              return okResponse(id, { content: [{ type: 'text', text: '用户拒绝了这个动作。' }], isError: true })
+            }
+          }
+
           const isError = result?.ok === false
           return okResponse(id, {
             content: [{ type: 'text', text }],

@@ -3,7 +3,7 @@
 // CLI 和 MCP server 都从这里拿工具。刻意只有一条路径：
 // 谁想在没有宿主的环境里调这些工具，就得走这里，门卫也就在同一处。
 
-import { apply } from '../index.js'
+import { apply, getRuntime } from '../index.js'
 
 /**
  * 启动一个无宿主的运行实例。
@@ -32,6 +32,8 @@ export async function bootHeadless({ waitMs = 400 } = {}) {
 
   return {
     tools,
+    // 适配层要拿它做"允许一次"（破坏性动作的确认）；没有它 MCP 下只能拒绝
+    runtime: getRuntime(),
     listTools: () =>
       tools.map((t) => ({
         name: t.name,

@@ -20,6 +20,7 @@ function usage() {
   console.log('  node bin/he-server.js list                 列出可用工具')
   console.log('  node bin/he-server.js call <工具> [JSON]   调用一个工具')
   console.log('  node bin/he-server.js skills [--min N]      从历史里编译技能草案')
+  console.log('  node bin/he-server.js confirm <工具>  给破坏性动作一次性授权（等价面板按钮）')
   console.log('  node bin/he-server.js export <文件> [--include-logs]  打包技能/目标/卡片')
   console.log('  node bin/he-server.js import <文件> [--dry-run] [--force]  恢复打包')
   console.log('  node bin/he-server.js skill export <id> --to <目录>  导出成 SKILL.md')
@@ -40,6 +41,20 @@ if (cmd === 'list') {
     console.log(`${t.name.padEnd(18)} ${first}`)
   }
   console.log(`\n共 ${core.tools.length} 个工具`)
+  process.exit(0)
+}
+
+if (cmd === 'confirm') {
+  // 给 MCP / 无面板场景用：允许某一个工具的下一次调用
+  if (!arg) { console.error('用法：node bin/he-server.js confirm <工具名>'); process.exit(2) }
+  const rt = core.runtime
+  if (!rt || typeof rt.grantConfirm !== 'function') {
+    console.error('失败：这个运行时没有确认通道')
+    process.exit(1)
+  }
+  const granted = rt.grantConfirm(arg)
+  console.log(`已允许一次：${granted.tool}（有效期到 ${granted.expiresAt}）`)
+  console.log('下一次调用它会放行；之后再调用仍然会被拦。')
   process.exit(0)
 }
 

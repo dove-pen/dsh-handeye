@@ -98,3 +98,70 @@ test('empty resource/prompt lists keep picky clients happy', async () => {
   assert.deepEqual((await handle(req(11, 'prompts/list'))).result.prompts, [])
   assert.deepEqual((await handle(req(12, 'resources/templates/list'))).result.resourceTemplates, [])
 })
+
+// ---------------------------------------------------------------- 破坏性动作的确认
+
+function confirmHandler({ action = 'accept', grantOk = true, capability = true } = {}) {
+  const calls = []
+  const requests = []
+  let granted = false
+  const handle = createMcpHandler({
+    listTools: () => [{ name: 'hand_type', description: 'x', parameters: { type: 'object', properties: {} } }],
+    callTool: async (name, args) => {
+      calls.push({ name, args })
+      if (!granted) return { ok: false, text: 'Refused: CONFIRM_REQUIRED — destructive' }
+      return { ok: true, text: 'typed' }
+    },
+    info: { name: 'handeye', version: '1' },
+    request: async (method, params) => {
+      requests.push({ method, params })
+      return { action }
+    },
+    grant: (tool) => {
+      if (!grantOk) return false
+      granted = true
+      return true
+    },
+  })
+  return { handle, calls, requests, capability }
+}
+
+test('without client elicitation the refusal is passed straight through', async () => {
+  const { handle, calls, requests } = confirmHandler()
+  await handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } })
+  const res = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hand_type', arguments: { text: 'x' } } })
+  assert.equal(res.result.isError, true)
+  assert.match(res.result.content[0].text, /CONFIRM_REQUIRED/)
+  assert.equal(requests.length, 0, '客户端没声明 elicitation，不许弹窗')
+  assert.equal(calls.length, 1)
+})
+
+test('with elicitation accepted the tool is retried once and succeeds', async () => {
+  const { handle, calls, requests } = confirmHandler({ action: 'accept' })
+  await handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: {} } } })
+  const res = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hand_type', arguments: { text: 'x' } } })
+  assert.equal(res.result.isError, false)
+  assert.equal(res.result.content[0].text, 'typed')
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].method, 'elicitation/create')
+  assert.match(requests[0].params.message, /hand_type/)
+  assert.equal(calls.length, 2, '第一次被拒、确认后重试一次')
+})
+
+test('with elicitation declined the action does not happen', async () => {
+  const { handle, calls } = confirmHandler({ action: 'decline' })
+  await handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: {} } } })
+  const res = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hand_type', arguments: { text: 'x' } } })
+  assert.equal(res.result.isError, true)
+  assert.match(res.result.content[0].text, /拒绝/)
+  assert.equal(calls.length, 1, '拒绝了就不许重试')
+})
+
+test('if the grant cannot be written the action is still refused', async () => {
+  const { handle, calls } = confirmHandler({ action: 'accept', grantOk: false })
+  await handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: {} } } })
+  const res = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hand_type', arguments: { text: 'x' } } })
+  assert.equal(res.result.isError, true)
+  assert.match(res.result.content[0].text, /没能写入一次性授权/)
+  assert.equal(calls.length, 1)
+})

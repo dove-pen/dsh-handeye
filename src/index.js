@@ -6,7 +6,7 @@
 //   3. dsh-computer-use-win 的路数（UIA 后台按控件、批量动作、截图只给路径）
 //
 // 设计原则：能用后台控件就不用鼠标；能按名字就不用坐标；能投影就不喂原文。
-import { readFileSync, readdirSync, existsSync, statSync, unlinkSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, statSync, unlinkSync, writeFileSync, rmSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import os from 'node:os'
@@ -155,20 +155,65 @@ function notePendingConfirm(tool, args) {
   PENDING_CONFIRM = { tool: String(tool), args: redactDeep(args && typeof args === 'object' ? args : {}), at: new Date().toISOString() }
 }
 
+let GRANT_FILE = null
+
+function readGrantFile() {
+  if (!GRANT_FILE) return null
+  try {
+    const doc = JSON.parse(readFileSync(GRANT_FILE, 'utf8'))
+    if (!doc || typeof doc.tool !== 'string' || typeof doc.expiresAt !== 'number') return null
+    if (Date.now() > doc.expiresAt) {
+      try {
+        rmSync(GRANT_FILE, { force: true })
+      } catch {}
+      return null
+    }
+    return doc
+  } catch {
+    return null
+  }
+}
+
+function consumeGrantFile(tool) {
+  const doc = readGrantFile()
+  if (!doc || doc.tool !== String(tool)) return false
+  try {
+    rmSync(GRANT_FILE, { force: true })
+  } catch {}
+  return true
+}
+
 function grantConfirm(tool) {
   GRANTED = { tool: String(tool), expiresAt: Date.now() + GRANT_MS }
+  // 同时写盘：CLI 的 confirm 与真正调用可能在不同进程
+  if (GRANT_FILE) {
+    try {
+      writeFileSync(GRANT_FILE, JSON.stringify({ tool: GRANTED.tool, expiresAt: GRANTED.expiresAt }, null, 2), 'utf8')
+    } catch {}
+  }
   return { tool: GRANTED.tool, expiresAt: new Date(GRANTED.expiresAt).toISOString() }
 }
 
 function takeGrant(tool) {
-  if (!GRANTED || GRANTED.tool !== String(tool)) return false
-  if (Date.now() > GRANTED.expiresAt) {
+  if (GRANTED && GRANTED.tool === String(tool) && Date.now() <= GRANTED.expiresAt) {
     GRANTED = null
-    return false
+    PENDING_CONFIRM = null
+    // 内存里用掉了，盘上的那张票也必须一起作废 ——
+    // 否则会是"一次授权被用两次"：本进程放行一次，下一个进程又白捡一次（实测踩过）
+    if (GRANT_FILE) {
+      try {
+        rmSync(GRANT_FILE, { force: true })
+      } catch {}
+    }
+    return true
   }
-  GRANTED = null
-  PENDING_CONFIRM = null
-  return true
+  if (GRANTED && Date.now() > GRANTED.expiresAt) GRANTED = null
+  // 跨进程的一次性票
+  if (consumeGrantFile(tool)) {
+    PENDING_CONFIRM = null
+    return true
+  }
+  return false
 }
 // 当前正在记录的 episode（内存里攒，结束后写盘）。
 let ACTIVE = null
@@ -204,12 +249,21 @@ function fail(prefix, err) {
   return `${prefix}：${err instanceof Error ? err.message : String(err)}`
 }
 
+/**
+ * 适配层（MCP / CLI）用它拿运行时：确认通道需要 grantConfirm。
+ * 不导出更多东西 —— 运行时是内部状态，不是公开 API。
+ */
+export function getRuntime() {
+  return RUNTIME
+}
+
 export function apply(ctx) {
   // ------------------------------------------------------------ 运行时会话
   //
   // 状态机、episode 存储、能力仓库、确认令牌、执行器。数据放在本地应用目录，
   // 不进 profile：卸载插件不该顺手删掉用户的操作记忆。
   const dataDir = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'dsh-handeye-plus')
+  GRANT_FILE = path.join(dataDir, 'grant-once.json')
   // 门卫/记账逻辑集中在一个与宿主无关的地方；这里只把它的依赖注入进去。
   toolServer = createToolServer({
     ports: {
