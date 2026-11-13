@@ -788,8 +788,9 @@ document.addEventListener('keydown', (e) => {
 })
 
 loadAll()
+void loadTutorials()
 void loadConfirm()
-setInterval(() => { if (!document.hidden) { loadAll(); loadConfirm() } }, 10000)
+setInterval(() => { if (!document.hidden) { loadAll(); loadTutorials(); loadConfirm() } }, 10000)
 </script>
 </body>
 </html>
