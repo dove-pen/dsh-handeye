@@ -30,7 +30,7 @@ function makeDom() {
         textContent: '',
         title: '',
         append(...kids) {
-          this.children.push(...kids)
+          for (const kid of kids) this.appendChild(kid)
         },
         appendChild(kid) {
           this.children.push(kid)
@@ -41,7 +41,12 @@ function makeDom() {
           if (this.id) nodes.delete(this.id)
           doc.body.children = doc.body.children.filter((c) => c !== this)
         },
-        setAttribute() {},
+        setAttribute(name, value) {
+          this.attrs = { ...(this.attrs || {}), [name]: String(value) }
+        },
+        getAttribute(name) {
+          return this.attrs ? this.attrs[name] : undefined
+        },
       }
       return el
     },
@@ -119,9 +124,11 @@ test('the overlay can be closed by the button and by Esc', () => {
   nodes.get('dsh-handeye-btn').onclick()
   assert.ok(nodes.get('dsh-handeye-overlay'))
 
-  // Close 按钮
-  const overlay = nodes.get('dsh-handeye-overlay')
-  const close = overlay.children[0].children.find((c) => c.tagName === 'BUTTON')
+  // 关闭按钮现在是独立的 ×（fixed 定位，不受顶栏布局影响）
+  const close = nodes.get('dsh-handeye-close')
+  assert.ok(close, '必须有一个关闭按钮')
+  assert.equal(close.textContent, '×')
+  assert.match(close.style.cssText, /position:fixed/)
   close.onclick()
   assert.ok(!nodes.get('dsh-handeye-overlay'))
 
@@ -164,4 +171,17 @@ test('package.json no longer needs the client slot packages', () => {
   const pkg = JSON.parse(readFileSync(root + 'package.json', 'utf8'))
   const inject = pkg.dsh?.client?.inject ?? []
   assert.ok(!inject.includes('@deepseek-ai/dsh-client-ui-slots'), '不再需要 ui-slots')
+})
+
+test('the close button is explicit and reachable', () => {
+  const { exports, nodes } = loadClient()
+  exports.apply({})
+  nodes.get('dsh-handeye-btn').onclick()
+  const close = nodes.get('dsh-handeye-close')
+  assert.equal(close.getAttribute('aria-label'), 'Close panel')
+  assert.match(close.title, /Close panel/)
+  // 提示文字不再写死 "Close" 这个词
+  const overlay = nodes.get('dsh-handeye-overlay')
+  const bar = overlay.children[0]
+  assert.ok(bar.children.some((c) => /press Esc/.test(c.textContent)), '顶栏应提示 Esc')
 })

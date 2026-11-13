@@ -101,3 +101,9 @@ test('the panel is English only — no language switcher', () => {
   assert.doesNotMatch(dashboard, /const ZH = \{/, '不该再有中文词表')
   assert.doesNotMatch(dashboard, /he\.lang/)
 })
+
+test('adds a little motion but respects reduced motion', () => {
+  assert.match(dashboard, /@keyframes he-card-in/)
+  assert.match(dashboard, /prefers-reduced-motion: reduce/)
+  assert.match(dashboard, /.card \{ animation: he-card-in/)
+})
