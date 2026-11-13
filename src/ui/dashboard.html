@@ -437,6 +437,11 @@ sizeSel.addEventListener('change', () => {
   document.body.style.zoom = sizeSel.value
 })
 
+// 单复数：1 skill / 2 skills（以前一律加 s，会显示 "1 skills"）
+function plural(n, one, many) {
+  return Number(n) === 1 ? String(n) + ' ' + one : String(n) + ' ' + many
+}
+
 const state = { days: 7, events: [], logLevel: 'all', logSource: 'all', logQ: '', fullLevel: 'all', fullSource: 'all', fullQ: '' }
 
 async function get(path) {
@@ -540,7 +545,7 @@ function renderStats() {
     ['warn', refused, 'Gate refusals'],
     ['warn', warn, 'Warnings'],
   ].map(([cls, v, l]) => '<div class="tile ' + cls + '"><div class="n">' + v + '</div><div class="l">' + l + '</div></div>').join('')
-  $('stats-sub').textContent = 'Last ' + state.days + ' days · ' + list.length + ' events'
+  $('stats-sub').textContent = 'Last ' + state.days + ' days · ' + plural(list.length, 'event', 'events')
 
   const toolMap = new Map()
   for (const e of list) {
@@ -576,12 +581,16 @@ function renderLevels() {
   donut($('level-donut'), parts)
   legend($('level-legend'), parts)
   $('level-total').textContent = state.events.length
-  $('levels-sub').textContent = Math.max(0, ...[...state.events].map((e) => e.level)) && state.events.length ? state.events.length + ' events' : ''
+  $('levels-sub').textContent = Math.max(0, ...[...state.events].map((e) => e.level)) && state.events.length ? plural(state.events.length, 'event', 'events') : ''
 }
 
 function renderTiming() {
-  const withMs = state.events.filter((e) => /ms=\d+/.test(e.detail || '') && e.eventId !== 2001)
-  const parse = (e) => Number(/ms=(\d+)/.exec(e.detail)[1]) || 0
+  // 以前只统计 detail 带 ms= 的动作，缺这个字段的动作被整条漏掉（平均数会偏）。
+  const withMs = state.events.filter((e) => e.eventId === 4001 || e.eventId === 4002)
+  const parse = (e) => {
+    const m = /ms=(\d+)/.exec(e.detail || '')
+    return m ? Number(m[1]) || 0 : 0
+  }
   const okMs = withMs.filter((e) => e.eventId === 4001).reduce((a, e) => a + parse(e), 0)
   const failMs = withMs.filter((e) => e.eventId === 4002).reduce((a, e) => a + parse(e), 0)
   const total = okMs + failMs
@@ -597,7 +606,7 @@ function renderTiming() {
     { label: 'Calls', value: withMs.length + ' runs', color: 'var(--dim)' },
   ] : [{ label: 'No timing data', value: '—', color: 'var(--dim)' }])
   $('time-total').textContent = total ? secs(total) : '0s'
-  $('timing-sub').textContent = withMs.length ? withMs.length + ' actions' : ''
+  $('timing-sub').textContent = withMs.length ? plural(withMs.length, 'action', 'actions') : ''
 
   const recent = withMs.slice(0, 48)
   const max = Math.max(1, ...recent.map(parse))
@@ -634,7 +643,7 @@ function renderLogs() {
     return (e.message + ' ' + e.detail + ' ' + e.source).toLowerCase().includes(q)
   })
   state.currentLogs = list
-  $('log-sub').textContent = list.length + ' events'
+  $('log-sub').textContent = plural(list.length, 'event', 'events')
   $('logs').innerHTML = list.length
     ? list.slice(0, 200).map((e) => '<tr><td><span class="lv" data-l="' + e.level + '">' + esc(levelText(e.level)) +
         '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(sourceText(e.source)) + '</td><td>' + e.eventId +
@@ -643,7 +652,7 @@ function renderLogs() {
 }
 
 function renderSkills(skills) {
-  $('skills-sub').textContent = skills.length + ' skills'
+  $('skills-sub').textContent = plural(skills.length, 'skill', 'skills')
   $('skills').innerHTML = skills.length
     ? skills.slice(0, 8).map((s) => {
         const h = s.health || {}
@@ -657,7 +666,7 @@ function renderSkills(skills) {
 }
 
 function renderCaps(caps) {
-  $('caps-sub').textContent = caps.length + ' capabilities'
+  $('caps-sub').textContent = plural(caps.length, 'capability', 'capabilities')
   $('caps').innerHTML = caps.length
     ? caps.map((c) => {
         const runs = Number(c.stats && c.stats.runs) || 0
@@ -669,7 +678,7 @@ function renderCaps(caps) {
 }
 
 function renderCards(cards) {
-  $('cards-sub').textContent = cards.length + ' cards'
+  $('cards-sub').textContent = plural(cards.length, 'card', 'cards')
   $('cards').innerHTML = cards.length
     ? cards.slice(0, 30).map((c) => '<tr><td>' + esc(c.title) + '</td><td>' + esc(c.category || '—') + '</td><td>' + (c.path || []).length + '</td><td>' + esc(c.autonomy || '—') + '</td></tr>').join('')
     : '<tr><td colspan="4" class="empty">No cards</td></tr>'
@@ -685,7 +694,7 @@ async function loadConfirm() {
     $('confirm-body').innerHTML = ''
     const box = document.createElement('div')
     box.className = 'confirm-item'
-    box.innerHTML = '<b>' + esc(tool) + '</b><div style="color:var(--muted);margin:4px 0">' + esc(String(p.args || '').slice(0, 160)) + '</div>'
+    box.innerHTML = '<b>' + esc(tool) + '</b><div style="color:var(--muted);margin:4px 0">' + esc(((p) => { try { return typeof p === 'string' ? p : JSON.stringify(p ?? {}) } catch { return '(unserializable)' } })(p.args).slice(0, 200)) + '</div>'
     const ok = document.createElement('button')
     ok.className = 'primary'
     ok.textContent = 'Allow once'
@@ -706,7 +715,7 @@ async function loadTutorials() {
   try {
     const payload = await get('/tutorials')
     const list = Array.isArray(payload.value) ? payload.value : []
-    $('tut-sub').textContent = list.length + ' tutorials'
+    $('tut-sub').textContent = plural(list.length, 'tutorial', 'tutorials')
     $('tut-list-wrap').style.display = list.length ? '' : 'none'
     $('tut-empty').style.display = list.length ? 'none' : ''
     applyLang()

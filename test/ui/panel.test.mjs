@@ -86,3 +86,18 @@ test('the panel can write and run tutorials', () => {
   assert.match(dashboard, /id="tut-save"/)
   assert.match(dashboard, /tutorials\/run/)
 })
+
+test('counts use singular/plural correctly', () => {
+  assert.match(dashboard, /function plural\(/)
+  assert.doesNotMatch(dashboard, /length \+ ' skills'/, "不许再出现 \"1 skills\"")
+  assert.match(dashboard, /plural\(skills\.length, 'skill', 'skills'\)/)
+})
+
+test('confirm dialog serializes object args instead of [object Object]', () => {
+  assert.doesNotMatch(dashboard, /String\(p\.args \.\|\| ''\)/)
+  assert.match(dashboard, /JSON\.stringify\(p \?\? \{\}\)/)
+})
+
+test('timing counts every action, not only ones with an ms field', () => {
+  assert.match(dashboard, /e\.eventId === 4001 \|\| e\.eventId === 4002/)
+})
