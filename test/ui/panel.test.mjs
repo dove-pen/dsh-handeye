@@ -14,8 +14,12 @@ test('the panel is fully English with bright white text', () => {
   // 可见文字里不许再有中文（注释不算）
   const visible = dashboard.split('\n').filter((l) => {
     const t = l.trim()
+    // 注释、以及"中文数据 -> 英文"的映射表不算可见文字
     if (t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.startsWith('<!--')) return false
-    return /[\u4e00-\u9fa5]/.test(l)
+    if (/_EN\s*=|SOURCE_EN|CATEGORY_EN/.test(l)) return false
+    // 去掉 "'中文': 'English'" 这种映射对再看剩下的中文
+    const stripped = l.replace(/'[^']*'\s*:\s*'[^']*'/g, '')
+    return /[\u4e00-\u9fa5]/.test(stripped)
   })
   assert.equal(visible.length, 0, '还有中文：' + visible.slice(0, 3).join(' | '))
   assert.match(dashboard, /--text: #ffffff/)
