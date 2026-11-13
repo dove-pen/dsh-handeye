@@ -146,6 +146,7 @@ export function skillsToEvents(skills = []) {
   for (const skill of skills) {
     const health = skill.health ?? {}
     const created = Date.parse(skill.origin?.createdAt ?? '') || 0
+    const lastRun = Date.parse(skill.health?.lastRunAt ?? '') || 0
     out.push(
       event({
         time: created,
@@ -158,7 +159,7 @@ export function skillsToEvents(skills = []) {
     if (Number(health.ok) > 0) {
       out.push(
         event({
-          time: Date.parse(health.lastRunAt ?? '') || created,
+          time: lastRun || created,
           id: 5002,
           source: '技能',
           message: `技能跑通：${clip(skill.title, 60)}（累计 ok=${health.ok}）`,
@@ -169,7 +170,7 @@ export function skillsToEvents(skills = []) {
     if (Number(health.fail) > 0) {
       out.push(
         event({
-          time: Date.parse(health.lastRunAt ?? '') || created,
+          time: lastRun || created,
           id: 5003,
           source: '技能',
           message: `技能失败：${clip(skill.title, 60)} — ${clip(health.lastFailReason ?? '未记录原因', 100)}`,

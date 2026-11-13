@@ -298,10 +298,10 @@ window.__ModuleLoader__.load({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/>
             </svg>
-            手眼+
+            手嘴眼
             <span class="dsh-he-live"></span>
           </div>
-          <div class="dsh-he-sub">AI 最近用这套工具干了什么</div>
+          <div class="dsh-he-sub">看一眼最近干了什么 · 想细看就点顶部页签</div>
           <button class="dsh-he-close" aria-label="收起">×</button>
           <div class="dsh-he-tabs">
             <button data-tab="today" class="on">今天</button>
@@ -636,7 +636,7 @@ window.__ModuleLoader__.load({
 
         function renderMeta() {
           const m = data.meta || {}
-          meta.innerHTML = `<span>手眼+ <b>v${(m.version || '?')}</b></span><span>·</span>
+          meta.innerHTML = `<span>手嘴眼 <b>v${(m.version || '?')}</b></span><span>·</span>
             <span>handeye <b>${(m.exe || '').split('\\').pop() || '?'}</b></span><span class="grow"></span>
             <button class="dsh-he-btn" data-act="pause">暂停</button>`
           const btn = meta.querySelector('button')
@@ -722,8 +722,8 @@ window.__ModuleLoader__.load({
           btn.type = 'button'
           btn.dataset.dshHeEntry = '1'
           btn.className = 'dsh-he-entry'
-          btn.title = '手眼+：今天 / 能力 / 任务卡 / 目标 / 日志'
-          btn.setAttribute('aria-label', '手眼+')
+          btn.title = '手嘴眼：总览 / 系统日志 / 能力 / 任务卡 / 教程'
+          btn.setAttribute('aria-label', '手嘴眼')
           btn.innerHTML =
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>'
           found.bar.insertBefore(btn, found.send)
@@ -738,6 +738,63 @@ window.__ModuleLoader__.load({
             return
           }
           mountTopTab()
+        }
+
+        // 大面板：像「上下文」「编队」那样占满整个 DSH 窗口，不是一条竖抽屉。
+        // 用 iframe 装同一份 dashboard.html —— 一套界面，两处入口，不维护两遍。
+        function openBigView() {
+          if (!document.body) return
+          let box = document.getElementById('dsh-he-bigview')
+          if (!box) {
+            box = document.createElement('div')
+            box.id = 'dsh-he-bigview'
+            box.style.cssText =
+              'position:fixed;inset:0;z-index:2147482000;display:none;flex-direction:column;background:#0f1115;color:#e6e9ee'
+
+            const bar = document.createElement('div')
+            bar.style.cssText =
+              'display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid #262c36;background:#161a20;font-size:13px'
+
+            const title = document.createElement('b')
+            title.textContent = '手嘴眼'
+            bar.appendChild(title)
+
+            const hint = document.createElement('span')
+            hint.style.cssText = 'color:#8b94a3;font-size:12px'
+            hint.textContent = '总览 / 系统日志 / 能力 / 任务卡 / 教程'
+            bar.appendChild(hint)
+
+            const spacer = document.createElement('span')
+            spacer.style.cssText = 'flex:1'
+            bar.appendChild(spacer)
+
+            const close = document.createElement('button')
+            close.type = 'button'
+            close.textContent = '关闭（Esc）'
+            close.style.cssText =
+              'font:inherit;color:#e6e9ee;background:#1c2129;border:1px solid #262c36;border-radius:6px;padding:3px 10px;cursor:pointer'
+            close.addEventListener('click', () => closeBigView())
+            bar.appendChild(close)
+
+            const frame = document.createElement('iframe')
+            frame.id = 'dsh-he-bigview-frame'
+            frame.title = '手嘴眼控制面板'
+            frame.style.cssText = 'flex:1;width:100%;border:0;background:#0f1115'
+            frame.src = '/dsh-handeye-plus/dashboard'
+
+            box.appendChild(bar)
+            box.appendChild(frame)
+            document.body.appendChild(box)
+          }
+          box.style.display = 'flex'
+          const frame = document.getElementById('dsh-he-bigview-frame')
+          // 每次打开都刷新：面板显示的是"现在"
+          if (frame) frame.src = '/dsh-handeye-plus/dashboard?t=' + Date.now()
+        }
+
+        function closeBigView() {
+          const box = document.getElementById('dsh-he-bigview')
+          if (box) box.style.display = 'none'
         }
 
         // 兜底：宿主没有可识别的输入区时，退回顶部「对话 / 轨迹 / 上下文 / 编队」那一排。
@@ -757,7 +814,7 @@ window.__ModuleLoader__.load({
           tab.type = 'button'
           tab.dataset.dshHeTab = '1'
           tab.className = anchor.className
-          tab.textContent = '手眼+'
+          tab.textContent = '手嘴眼'
           tab.style.cssText =
             'background:transparent;border:0;font:inherit;cursor:pointer;padding:6px 10px;pointer-events:auto;position:relative;z-index:5'
           const openPanel = (event) => {
@@ -765,7 +822,7 @@ window.__ModuleLoader__.load({
               event.preventDefault()
               event.stopPropagation()
             }
-            toggle(true)
+            openBigView()
           }
           tab.addEventListener('pointerdown', openPanel, true)
           tab.addEventListener('click', openPanel, true)
@@ -781,9 +838,15 @@ window.__ModuleLoader__.load({
           if (!tab) return
           event.preventDefault()
           event.stopPropagation()
-          toggle(true)
+          openBigView()
         }
         document.addEventListener('click', onTopTabClick, true)
+
+        // Esc 关闭大面板（和大多数全屏视图一致）
+        const onBigViewKey = (event) => {
+          if (event.key === 'Escape') closeBigView()
+        }
+        document.addEventListener('keydown', onBigViewKey, true)
 
         function onEntryClick(event) {
           const target = event.target
@@ -1755,6 +1818,11 @@ window.__ModuleLoader__.load({
           clearInterval(topTabTimer)
           document.querySelectorAll('[data-dsh-he-tab]').forEach((node) => node.remove())
           document.removeEventListener('click', onTopTabClick, true)
+        document.removeEventListener('keydown', onBigViewKey, true)
+        try {
+          const big = document.getElementById('dsh-he-bigview')
+          if (big) big.remove()
+        } catch {}
           document.removeEventListener('keydown', onKey)
         document.removeEventListener('click', onEntryClick, true)
           root.remove()

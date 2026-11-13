@@ -3,98 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>手眼 · 控制面板</title>
+<title>手嘴眼 · 控制面板</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #161a20;
-    --panel-2: #1c2129;
-    --line: #262c36;
-    --text: #e6e9ee;
-    --muted: #8b94a3;
-    --accent: #4f8cff;
-    --ok: #3fb950;
-    --warn: #d8a233;
-    --err: #e5534b;
-    --severe: #b62324;
+    --bg: #0f1115; --panel: #161a20; --panel-2: #1c2129; --line: #262c36;
+    --text: #e6e9ee; --muted: #8b94a3; --accent: #4f8cff;
+    --ok: #3fb950; --warn: #d8a233; --err: #e5534b; --severe: #b62324;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 13px/1.55 "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
-  }
-  a { color: var(--accent); text-decoration: none; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.55 "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif; }
   header {
-    display: flex; align-items: center; gap: 14px;
-    padding: 10px 18px; border-bottom: 1px solid var(--line);
-    background: var(--panel); position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
   }
-  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .3px; }
+  header h1 { font-size: 14px; margin: 0 6px 0 0; font-weight: 600; letter-spacing: .3px; }
   header .spacer { flex: 1; }
   .pill { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .pill.live { color: var(--ok); border-color: #24452c; }
-  button, select {
+  button, select, input[type=search] {
     font: inherit; color: var(--text); background: var(--panel-2);
-    border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px;
   }
+  button { cursor: pointer; }
   button:hover { border-color: #38414f; }
-  main { padding: 16px 18px 40px; display: grid; gap: 14px; }
-  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-  .kpi .n { font-size: 22px; font-weight: 600; letter-spacing: .5px; }
-  .kpi .l { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  input[type=search] { background: #12161c; min-width: 180px; }
+  nav { display: flex; gap: 4px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  nav button {
+    background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    color: var(--muted); padding: 8px 12px;
+  }
+  nav button.on { color: var(--text); border-bottom-color: var(--accent); }
+  main { padding: 14px 16px 40px; display: grid; gap: 12px; }
+  .view { display: none; }
+  .view.on { display: grid; gap: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+  .kpi .n { font-size: 21px; font-weight: 600; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
   .kpi.bad .n { color: var(--err); }
   .kpi.warn .n { color: var(--warn); }
   .kpi.ok .n { color: var(--ok); }
-  .cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   section > h2 {
-    margin: 0; padding: 9px 13px; font-size: 13px; font-weight: 600;
+    margin: 0; padding: 8px 12px; font-size: 13px; font-weight: 600;
     border-bottom: 1px solid var(--line); background: var(--panel-2);
     display: flex; align-items: center; gap: 8px;
   }
   section > h2 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
-  .body { padding: 10px 13px; }
-  .empty { color: var(--muted); padding: 14px 0; text-align: center; }
-
-  /* 目标 */
-  .goal { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-bottom: 9px; background: var(--panel-2); }
+  .body { padding: 10px 12px; }
+  .empty { color: var(--muted); padding: 12px 0; text-align: center; }
+  .goal { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--panel-2); }
   .goal .t { display: flex; gap: 8px; align-items: baseline; }
-  .goal .t b { font-weight: 600; }
   .goal .id { color: var(--muted); font-size: 11px; }
-  .bar { height: 5px; border-radius: 3px; background: #232935; margin: 7px 0 6px; overflow: hidden; }
+  .bar { height: 5px; border-radius: 3px; background: #232935; margin: 6px 0; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
-  .steps { display: grid; gap: 3px; }
+  .steps { display: grid; gap: 2px; }
   .step { display: flex; gap: 7px; align-items: baseline; font-size: 12px; color: #c6ccd6; }
   .step .st { width: 14px; text-align: center; }
   .step.done .st { color: var(--ok); }
   .step.doing .st { color: var(--accent); }
   .step.blocked .st { color: var(--err); }
   .step .why { color: var(--err); font-size: 11px; }
-
-  /* 技能表 */
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
-  th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); z-index: 2; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  th { color: var(--muted); font-weight: 500; background: var(--panel); position: sticky; top: 0; z-index: 2; }
   tbody tr:hover { background: #1a1f27; }
   .mini { height: 5px; border-radius: 3px; background: #232935; overflow: hidden; min-width: 44px; }
   .mini > i { display: block; height: 100%; }
   .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .tag.healthy { color: var(--ok); border-color: #24452c; }
+  .tag.healthy, .tag.readonly { color: var(--ok); border-color: #24452c; }
   .tag.needs-review { color: var(--warn); border-color: #4a3c1c; }
   .tag.broken { color: var(--err); border-color: #4a2323; }
-
-  /* 事件日志 */
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 9px 13px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
   .chips { display: flex; gap: 6px; }
-  .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); cursor: pointer; background: transparent; }
+  .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: transparent; }
   .chip.on { color: var(--text); border-color: var(--accent); background: #1b2738; }
-  input[type=search] {
-    font: inherit; color: var(--text); background: #12161c; border: 1px solid var(--line);
-    border-radius: 6px; padding: 4px 9px; min-width: 200px;
-  }
-  .logwrap { max-height: 460px; overflow: auto; }
-  .logwrap th { top: 0; }
+  .logwrap { max-height: 420px; overflow: auto; }
   tr.ev { cursor: pointer; }
   tr.ev.sel { background: #1e2836; }
   .lv { font-weight: 600; white-space: nowrap; }
@@ -104,24 +90,25 @@
   .lv[data-l="4"] { color: #9fb3c8; }
   .lv[data-l="5"] { color: var(--muted); }
   .when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .msg { color: #d7dce4; }
-  .detail { background: #12161c; border-top: 1px solid var(--line); padding: 9px 13px; color: var(--muted); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
-
-  /* 来源分布 */
+  .detail { background: #12161c; border-top: 1px solid var(--line); padding: 8px 12px; color: var(--muted); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
   .src { display: grid; gap: 6px; }
   .src .row { display: grid; grid-template-columns: 72px 1fr 40px; gap: 8px; align-items: center; font-size: 12px; }
   .src .track { height: 8px; background: #232935; border-radius: 4px; overflow: hidden; }
   .src .track > i { display: block; height: 100%; background: var(--accent); }
-  .src .num { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-  @media (max-width: 1100px) {
-    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .cols { grid-template-columns: 1fr; }
-  }
+  .src .num { color: var(--muted); text-align: right; }
+  .tut { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .tut .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .tut h3 { margin: 0 0 6px; font-size: 13px; }
+  .tut p, .tut li { color: #b9c0cb; font-size: 12px; margin: 4px 0; }
+  .tut code { background: #12161c; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+  .confirm { border: 1px solid #4a3c1c; background: #241d0e; border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; }
+  .confirm b { color: var(--warn); }
+  @media (max-width: 1000px) { .cols { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>手眼 · 控制面板</h1>
+  <h1>手嘴眼</h1>
   <span class="pill live" id="live">连接中</span>
   <span class="pill" id="range">最近 7 天</span>
   <span class="spacer"></span>
@@ -134,84 +121,187 @@
   <button id="refresh">刷新</button>
 </header>
 
+<nav id="nav">
+  <button class="on" data-view="overview">总览</button>
+  <button data-view="log">系统日志</button>
+  <button data-view="caps">能力</button>
+  <button data-view="cards">任务卡</button>
+  <button data-view="tutorial">教程</button>
+</nav>
+
 <main>
-  <div class="kpis">
-    <div class="kpi"><div class="n" id="k-actions">-</div><div class="l">动作</div></div>
-    <div class="kpi bad"><div class="n" id="k-failed">-</div><div class="l">动作失败</div></div>
-    <div class="kpi warn"><div class="n" id="k-refused">-</div><div class="l">门卫拒绝</div></div>
-    <div class="kpi warn"><div class="n" id="k-warn">-</div><div class="l">警告</div></div>
-    <div class="kpi ok"><div class="n" id="k-goals">-</div><div class="l">进行中目标</div></div>
-    <div class="kpi ok"><div class="n" id="k-skills">-</div><div class="l">技能</div></div>
+  <!-- ============ 总览 ============ -->
+  <div class="view on" id="v-overview">
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="k-actions">-</div><div class="l">动作</div></div>
+      <div class="kpi bad"><div class="n" id="k-failed">-</div><div class="l">动作失败</div></div>
+      <div class="kpi warn"><div class="n" id="k-refused">-</div><div class="l">门卫拒绝</div></div>
+      <div class="kpi warn"><div class="n" id="k-warn">-</div><div class="l">警告</div></div>
+      <div class="kpi ok"><div class="n" id="k-goals">-</div><div class="l">进行中目标</div></div>
+      <div class="kpi ok"><div class="n" id="k-skills">-</div><div class="l">技能</div></div>
+    </div>
+
+    <section id="confirm-box" style="display:none">
+      <h2>待确认（破坏性动作）</h2>
+      <div class="body" id="confirm-body"></div>
+    </section>
+
+    <div class="cols">
+      <section>
+        <h2>目标与步骤 <span class="count" id="goal-count"></span></h2>
+        <div class="body" id="goals"><div class="empty">读取中</div></div>
+      </section>
+      <section>
+        <h2>技能健康度 <span class="count" id="skill-count"></span></h2>
+        <div class="body" style="padding:0">
+          <table>
+            <thead><tr><th>技能</th><th>用了</th><th>成功</th><th>失败</th><th style="width:70px">成功率</th><th>状态</th></tr></thead>
+            <tbody id="skills"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="cols">
+      <section>
+        <h2>事件来源分布</h2>
+        <div class="body"><div class="src" id="sources"></div></div>
+      </section>
+      <section>
+        <h2>最近动作 <span class="count" id="recent-count"></span></h2>
+        <div class="body" id="recent" style="max-height:220px;overflow:auto"></div>
+      </section>
+    </div>
   </div>
 
-  <section>
-    <h2>系统日志 <span class="count" id="event-count"></span></h2>
-    <div class="toolbar">
-      <div class="chips" id="levels">
-        <button class="chip on" data-level="all">全部</button>
-        <button class="chip" data-level="1">严重</button>
-        <button class="chip" data-level="2">错误</button>
-        <button class="chip" data-level="3">警告</button>
-        <button class="chip" data-level="4">信息</button>
+  <!-- ============ 系统日志 ============ -->
+  <div class="view" id="v-log">
+    <section>
+      <h2>系统日志 <span class="count" id="event-count"></span></h2>
+      <div class="toolbar">
+        <div class="chips" id="levels">
+          <button class="chip on" data-level="all">全部</button>
+          <button class="chip" data-level="1">严重</button>
+          <button class="chip" data-level="2">错误</button>
+          <button class="chip" data-level="3">警告</button>
+          <button class="chip" data-level="4">信息</button>
+        </div>
+        <select id="source"><option value="all">全部来源</option></select>
+        <input type="search" id="q" placeholder="搜索描述 / 工具名">
+        <span class="spacer" style="flex:1"></span>
+        <button id="export">导出 CSV</button>
       </div>
-      <select id="source"><option value="all">全部来源</option></select>
-      <input type="search" id="q" placeholder="搜索描述 / 工具名">
-      <span class="spacer" style="flex:1"></span>
-      <button id="export">导出 CSV</button>
-    </div>
-    <div class="logwrap">
-      <table>
-        <thead>
-          <tr><th style="width:64px">级别</th><th style="width:150px">日期和时间</th><th style="width:90px">来源</th><th style="width:70px">事件 ID</th><th style="width:80px">任务类别</th><th>描述</th></tr>
-        </thead>
-        <tbody id="events"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
-      </table>
-    </div>
-    <div class="detail" id="detail" style="display:none"></div>
-  </section>
-
-  <div class="cols">
-    <section>
-      <h2>目标与步骤 <span class="count" id="goal-count"></span></h2>
-      <div class="body" id="goals"><div class="empty">读取中</div></div>
+      <div class="logwrap">
+        <table>
+          <thead>
+            <tr><th style="width:64px">级别</th><th style="width:150px">日期和时间</th><th style="width:90px">来源</th><th style="width:70px">事件 ID</th><th style="width:80px">任务类别</th><th>描述</th></tr>
+          </thead>
+          <tbody id="events"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
+        </table>
+      </div>
+      <div class="detail" id="detail" style="display:none"></div>
     </section>
+  </div>
+
+  <!-- ============ 能力 ============ -->
+  <div class="view" id="v-caps">
     <section>
-      <h2>技能健康度 <span class="count" id="skill-count"></span></h2>
+      <h2>能力 <span class="count" id="cap-count"></span></h2>
       <div class="body" style="padding:0">
         <table>
-          <thead><tr><th>技能</th><th>用了</th><th>成功</th><th>失败</th><th style="width:70px">成功率</th><th>状态</th></tr></thead>
-          <tbody id="skills"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
+          <thead><tr><th>能力</th><th>状态</th><th>风险</th><th>运行次数</th><th>成功率</th><th>说明</th></tr></thead>
+          <tbody id="caps"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
         </table>
       </div>
     </section>
   </div>
 
-  <div class="cols">
+  <!-- ============ 任务卡 ============ -->
+  <div class="view" id="v-cards">
     <section>
-      <h2>事件来源分布</h2>
-      <div class="body"><div class="src" id="sources"></div></div>
+      <h2>任务卡 <span class="count" id="card-count"></span></h2>
+      <div class="body" style="padding:0">
+        <table>
+          <thead><tr><th>卡片</th><th>类别</th><th>自主度</th><th>步骤</th><th>来源</th></tr></thead>
+          <tbody id="cards"><tr><td colspan="5" class="empty">读取中</td></tr></tbody>
+        </table>
+      </div>
     </section>
-    <section>
-      <h2>最近动作 <span class="count" id="recent-count"></span></h2>
-      <div class="body" id="recent" style="max-height:220px;overflow:auto"></div>
-    </section>
+  </div>
+
+  <!-- ============ 教程 ============ -->
+  <div class="view" id="v-tutorial">
+    <div class="tut">
+      <div class="card">
+        <h3>怎么加一份技能</h3>
+        <p>技能从真实操作里编译，不用手写。</p>
+        <ol>
+          <li>做同一件事 <b>3 次以上</b>（同一套工具、同一套步骤）。</li>
+          <li>跑 <code>node bin/he-server.js skills --min 3 --save</code>。</li>
+          <li>到"技能健康度"里确认它出现了。</li>
+          <li>以后用 <code>skill_use &lt;id&gt;</code>，跑完会自动记账。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>怎么加一张任务卡</h3>
+        <p>任务卡是"给 AI 的活"，带步骤和判据。</p>
+        <ol>
+          <li>复制一份 <code>src/cards/*.json</code> 改 <code>id</code>/<code>title</code>/<code>goal</code>/<code>path</code>。</li>
+          <li><code>verify</code> 里写验收判据（文件/文本/屏幕/退出码/画面变化）。</li>
+          <li>重启插件后出现在"任务卡"页。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>怎么装一个领域包</h3>
+        <p>领域包 = 一整个行业的判据 + 卡片。</p>
+        <ol>
+          <li><code>node bin/he-server.js pack validate &lt;目录&gt;</code></li>
+          <li><code>node bin/he-server.js pack install &lt;目录&gt;</code></li>
+          <li>卡片会出现在"任务卡"页。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>怎么把数据带走</h3>
+        <p>技能、目标、卡片都可以打包成一个文件。</p>
+        <ol>
+          <li><code>node bin/he-server.js export backup.json</code></li>
+          <li>换机器后 <code>import backup.json</code></li>
+          <li>技能还能导出成标准 <code>SKILL.md</code>：<code>skill export &lt;id&gt; --to &lt;目录&gt;</code></li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>门卫拦住了怎么办</h3>
+        <p>被拦是设计，不是故障。</p>
+        <ul>
+          <li><b>GOAL_STEP_REQUIRED</b>：先 <code>goal_step_enter</code>。</li>
+          <li><b>PATH_DEVIATION</b>：连做 3 个动作了，先 <code>episode_checkpoint</code>。</li>
+          <li><b>CONFIRM_REQUIRED</b>：破坏性动作，到"待确认"里点允许（只在这一次有效）。</li>
+          <li><b>STEP_BUDGET_EXCEEDED</b>：这一步动作太多，<code>goal_step_continue</code> 说明理由。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>日志怎么看</h3>
+        <p>"系统日志"页按 Windows 事件查看器的列排。</p>
+        <ul>
+          <li>级别：1 严重 / 2 错误 / 3 警告 / 4 信息 / 5 详细</li>
+          <li>事件 ID：2xxx 门卫、3xxx 目标、4xxx 动作、5xxx 技能</li>
+          <li>点任意一行看详细信息；可导出 CSV。</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </main>
 
 <script>
 const BASE = '/dsh-handeye-plus'
-const state = { days: 7, level: 'all', q: '', source: 'all', events: [], selected: null }
-
+const state = { days: 7, level: 'all', q: '', source: 'all', view: 'overview', events: [] }
 const $ = (id) => document.getElementById(id)
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const pad = (n) => String(n).padStart(2, '0')
-function when(ms) {
-  const d = new Date(ms)
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
+const when = (ms) => { const d = new Date(ms); return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) }
 
 async function get(path) {
-  const res = await fetch(BASE + path, { credentials: 'include' })
+  const res = await fetch(BASE + path, { credentials: 'same-origin' })
   if (!res.ok) throw new Error(path + ' → ' + res.status)
   return res.json()
 }
@@ -225,12 +315,10 @@ async function loadAll() {
       get('/skills'),
     ])
     state.events = Array.isArray(events.value) ? events.value : []
-    renderKpis()
-    renderEvents()
-    renderSources()
+    fillSources()
+    renderKpis(); renderEvents(); renderSources()
     renderGoals(Array.isArray(goals.value) ? goals.value : [])
     renderSkills(Array.isArray(skills.value) ? skills.value : [])
-    fillSources()
     $('live').textContent = '已连接'
     $('range').textContent = '最近 ' + state.days + ' 天'
   } catch (error) {
@@ -239,13 +327,60 @@ async function loadAll() {
   }
 }
 
+async function loadCaps() {
+  try {
+    const payload = await get('/capabilities')
+    const list = Array.isArray(payload.value) ? payload.value : []
+    $('cap-count').textContent = list.length + ' 项'
+    $('caps').innerHTML = list.length ? list.map((c) => {
+      const runs = Number(c.stats?.runs) || 0
+      const ok = Number(c.stats?.ok) || 0
+      const rate = runs ? Math.round((ok / runs) * 100) + '%' : '—'
+      return '<tr><td>' + esc(c.title || c.name) + '</td><td><span class="tag ' + esc(c.status) + '">' + esc(c.status) + '</span></td><td>' + esc(c.risk || 'read') +
+        '</td><td>' + runs + '</td><td>' + rate + '</td><td>' + esc((c.description || '').slice(0, 60)) + '</td></tr>'
+    }).join('') : '<tr><td colspan="6" class="empty">没有能力</td></tr>'
+  } catch {}
+}
+
+async function loadCards() {
+  try {
+    const payload = await get('/cards')
+    const list = Array.isArray(payload.value) ? payload.value : []
+    $('card-count').textContent = list.length + ' 张'
+    $('cards').innerHTML = list.length ? list.map((c) =>
+      '<tr><td>' + esc(c.title) + '</td><td>' + esc(c.category || '—') + '</td><td>' + esc(c.autonomy || '—') + '</td><td>' +
+      (c.path || []).length + '</td><td>' + esc(c.origin || '—') + '</td></tr>').join('')
+      : '<tr><td colspan="5" class="empty">没有任务卡</td></tr>'
+  } catch {}
+}
+
+async function loadConfirm() {
+  try {
+    const payload = await get('/confirm/pending')
+    const pending = payload.pending
+    if (!pending) { $('confirm-box').style.display = 'none'; return }
+    $('confirm-box').style.display = 'block'
+    $('confirm-body').innerHTML = ''
+    const box = document.createElement('div')
+    box.className = 'confirm'
+    box.innerHTML = '<b>' + esc(pending.tool || pending.name || '未知动作') + '</b>：' + esc((pending.args || '') + '').slice(0, 200)
+    const ok = document.createElement('button')
+    ok.textContent = '允许一次'
+    ok.style.marginLeft = '8px'
+    ok.onclick = async () => {
+      await fetch(BASE + '/confirm', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tool: pending.tool }) })
+      void loadConfirm()
+    }
+    box.appendChild(ok)
+    $('confirm-body').appendChild(box)
+  } catch {}
+}
+
 function fillSources() {
   const sel = $('source')
   const seen = [...new Set(state.events.map((e) => e.source))].sort()
-  const keep = state.source
-  sel.innerHTML = '<option value="all">全部来源</option>' +
-    seen.map((src) => '<option value="' + esc(src) + '">' + esc(src) + '</option>').join('')
-  sel.value = seen.includes(keep) ? keep : 'all'
+  sel.innerHTML = '<option value="all">全部来源</option>' + seen.map((s) => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('')
+  sel.value = seen.includes(state.source) ? state.source : 'all'
   state.source = sel.value
 }
 
@@ -259,23 +394,19 @@ function renderKpis() {
 }
 
 function renderGoals(goals) {
-  const active = goals.filter((g) => g.status === 'active')
-  $('k-goals').textContent = active.length
-  $('goal-count').textContent = active.length + ' 个进行中 / 共 ' + goals.length
+  $('k-goals').textContent = goals.filter((g) => g.status === 'active').length
+  $('goal-count').textContent = goals.filter((g) => g.status === 'active').length + ' 个进行中 / 共 ' + goals.length
   if (!goals.length) { $('goals').innerHTML = '<div class="empty">还没有目标</div>'; return }
   const mark = { done: '✓', doing: '●', blocked: '×', todo: '○', skipped: '–' }
   $('goals').innerHTML = goals.slice(0, 8).map((g) => {
     const steps = g.steps || []
     const done = steps.filter((s) => s.status === 'done' || s.status === 'skipped').length
     const pct = steps.length ? Math.round((done / steps.length) * 100) : 0
-    return '<div class="goal"><div class="t"><b>' + esc(g.title) + '</b><span class="id">' +
-      esc(g.id) + ' · ' + done + '/' + steps.length + ' 步 · ' + esc(g.status) + '</span></div>' +
-      '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
-      '<div class="steps">' + steps.map((s) =>
-        '<div class="step ' + esc(s.status) + '"><span class="st">' + (mark[s.status] || '·') + '</span>' +
-        '<span>' + esc(s.title) + '</span>' +
-        (s.status === 'blocked' ? '<span class="why">被锁：' + esc(s.blockReason || s.lastFailure || '连续验收失败') + '</span>' : '') +
-        '</div>').join('') + '</div></div>'
+    return '<div class="goal"><div class="t"><b>' + esc(g.title) + '</b><span class="id">' + esc(g.id) + ' · ' + done + '/' + steps.length + ' 步 · ' + esc(g.status) + '</span></div>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div><div class="steps">' +
+      steps.map((s) => '<div class="step ' + esc(s.status) + '"><span class="st">' + (mark[s.status] || '·') + '</span><span>' + esc(s.title) + '</span>' +
+        (s.status === 'blocked' ? '<span class="why">被锁：' + esc(s.blockReason || s.lastFailure || '连续验收失败') + '</span>' : '') + '</div>').join('') +
+      '</div></div>'
   }).join('')
 }
 
@@ -285,9 +416,7 @@ function renderSkills(skills) {
   if (!skills.length) { $('skills').innerHTML = '<tr><td colspan="6" class="empty">还没有技能</td></tr>'; return }
   $('skills').innerHTML = skills.map((s) => {
     const h = s.health || {}
-    const runs = Number(h.runs) || 0
-    const ok = Number(h.ok) || 0
-    const fail = Number(h.fail) || 0
+    const runs = Number(h.runs) || 0, ok = Number(h.ok) || 0, fail = Number(h.fail) || 0
     const rate = runs ? Math.round((ok / runs) * 100) : 0
     const color = rate >= 90 ? 'var(--ok)' : rate >= 60 ? 'var(--warn)' : 'var(--err)'
     return '<tr><td title="' + esc(s.id) + '">' + esc(s.title) + '</td><td>' + runs + '</td><td>' + ok + '</td><td>' + fail +
@@ -301,21 +430,18 @@ function renderSources() {
   for (const e of state.events) map.set(e.source, (map.get(e.source) || 0) + 1)
   const rows = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 7)
   const max = rows.length ? rows[0][1] : 1
-  $('sources').innerHTML = rows.length
-    ? rows.map(([src, n]) => '<div class="row"><span>' + esc(src) + '</span><div class="track"><i style="width:' +
-        Math.round((n / max) * 100) + '%"></i></div><span class="num">' + n + '</span></div>').join('')
+  $('sources').innerHTML = rows.length ? rows.map(([src, n]) => '<div class="row"><span>' + esc(src) +
+    '</span><div class="track"><i style="width:' + Math.round((n / max) * 100) + '%"></i></div><span class="num">' + n + '</span></div>').join('')
     : '<div class="empty">没有数据</div>'
 }
 
 function renderRecent() {
   const actions = state.events.filter((e) => e.eventId === 4001 || e.eventId === 4002 || e.eventId === 2001).slice(0, 20)
   $('recent-count').textContent = actions.length + ' 条'
-  $('recent').innerHTML = actions.length
-    ? actions.map((e) => '<div class="step"><span class="st" style="color:' +
-        (e.level === 3 ? 'var(--warn)' : e.level === 2 ? 'var(--err)' : 'var(--muted)') + '">' +
-        (e.level === 3 ? '!' : e.level === 2 ? '×' : '·') + '</span><span class="when">' + when(e.time) +
-        '</span><span>' + esc(e.message.slice(0, 90)) + '</span></div>').join('')
-    : '<div class="empty">没有动作</div>'
+  $('recent').innerHTML = actions.length ? actions.map((e) => '<div class="step"><span class="st" style="color:' +
+    (e.level === 3 ? 'var(--warn)' : e.level === 2 ? 'var(--err)' : 'var(--muted)') + '">' +
+    (e.level === 3 ? '!' : e.level === 2 ? '×' : '·') + '</span><span class="when">' + when(e.time) + '</span><span>' +
+    esc(e.message.slice(0, 90)) + '</span></div>').join('') : '<div class="empty">没有动作</div>'
 }
 
 function filtered() {
@@ -334,13 +460,10 @@ function renderEvents() {
   $('event-count').textContent = list.length + ' 条'
   renderRecent()
   if (!list.length) { $('events').innerHTML = '<tr><td colspan="6" class="empty">没有符合条件的事件</td></tr>'; return }
-  $('events').innerHTML = list.slice(0, 400).map((e, i) =>
-    '<tr class="ev" data-i="' + i + '"><td><span class="lv" data-l="' + e.level + '">' + esc(e.levelText) +
-    '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(e.source) + '</td><td>' + e.eventId +
+  $('events').innerHTML = list.slice(0, 400).map((e, i) => '<tr class="ev" data-i="' + i + '"><td><span class="lv" data-l="' + e.level + '">' +
+    esc(e.levelText) + '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(e.source) + '</td><td>' + e.eventId +
     '</td><td>' + esc(e.category) + '</td><td class="msg">' + esc(e.message) + '</td></tr>').join('')
-  for (const tr of $('events').querySelectorAll('tr.ev')) {
-    tr.onclick = () => selectEvent(Number(tr.dataset.i), tr)
-  }
+  for (const tr of $('events').querySelectorAll('tr.ev')) tr.onclick = () => selectEvent(Number(tr.dataset.i), tr)
 }
 
 function selectEvent(index, tr) {
@@ -349,15 +472,20 @@ function selectEvent(index, tr) {
   for (const row of $('events').querySelectorAll('tr.ev')) row.classList.remove('sel')
   tr.classList.add('sel')
   $('detail').style.display = 'block'
-  $('detail').textContent = [
-    '事件 ID：' + e.eventId + '（' + e.category + '）',
-    '级别：' + e.levelText + '（' + e.level + '）',
-    '时间：' + new Date(e.time).toLocaleString('zh-CN'),
-    '来源：' + e.source,
-    '描述：' + e.message,
-    '详细信息：' + (e.detail || '（无）'),
-  ].join('\n')
+  $('detail').textContent = ['事件 ID：' + e.eventId + '（' + e.category + '）', '级别：' + e.levelText + '（' + e.level + '）',
+    '时间：' + new Date(e.time).toLocaleString('zh-CN'), '来源：' + e.source, '描述：' + e.message,
+    '详细信息：' + (e.detail || '（无）')].join('\n')
 }
+
+document.getElementById('nav').addEventListener('click', (event) => {
+  const btn = event.target.closest('button[data-view]')
+  if (!btn) return
+  state.view = btn.dataset.view
+  for (const b of document.querySelectorAll('#nav button')) b.classList.toggle('on', b === btn)
+  for (const v of document.querySelectorAll('.view')) v.classList.toggle('on', v.id === 'v-' + state.view)
+  if (state.view === 'caps') void loadCaps()
+  if (state.view === 'cards') void loadCards()
+})
 
 $('levels').addEventListener('click', (event) => {
   const chip = event.target.closest('.chip')
@@ -366,9 +494,9 @@ $('levels').addEventListener('click', (event) => {
   for (const c of $('levels').querySelectorAll('.chip')) c.classList.toggle('on', c === chip)
   renderEvents()
 })
-$('source').addEventListener('change', (event) => { state.source = event.target.value; renderEvents() })
-$('q').addEventListener('input', (event) => { state.q = event.target.value; renderEvents() })
-$('days').addEventListener('change', (event) => { state.days = Number(event.target.value); loadAll() })
+$('source').addEventListener('change', (e) => { state.source = e.target.value; renderEvents() })
+$('q').addEventListener('input', (e) => { state.q = e.target.value; renderEvents() })
+$('days').addEventListener('change', (e) => { state.days = Number(e.target.value); loadAll() })
 $('refresh').addEventListener('click', loadAll)
 $('export').addEventListener('click', () => {
   const rows = [['级别', '日期和时间', '来源', '事件ID', '任务类别', '描述', '详细信息']]
@@ -376,14 +504,13 @@ $('export').addEventListener('click', () => {
   const csv = '\uFEFF' + rows.map((r) => r.map((c) => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
-  a.href = url
-  a.download = 'handeye-events-' + new Date().toISOString().slice(0, 10) + '.csv'
-  a.click()
+  a.href = url; a.download = 'shouzuian-events-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click()
   setTimeout(() => URL.revokeObjectURL(url), 2000)
 })
 
 loadAll()
-setInterval(() => { if (!document.hidden) loadAll() }, 10000)
+void loadConfirm()
+setInterval(() => { if (!document.hidden) { loadAll(); loadConfirm() } }, 10000)
 </script>
 </body>
 </html>
