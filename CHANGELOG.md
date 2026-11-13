@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.33.0 — 2026-11-13
+
+**改成"和上下文一样"：注册在 main 槽，只占会话区，不再全屏。**
+
+### 用户要什么
+
+> Next, it's the same as that context. 只占有这一部分
+
+也就是：HandEye 要像「上下文 / 编队」那样**是会话区里的一个视图**，
+不是盖住整个窗口的浮层。
+
+### 怎么做的
+
+照抄 dsh-context（"上下文"页签）的注册方式 —— 它是能用的活样板：
+
+```js
+ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'dsh-handeye', locale }, Panel))
+```
+
+- 槽：`main`（不是我们之前猜的 `conversation.view`）
+- 键：`key: 'dsh-handeye'`
+- 组件：一个填满区域的 iframe（`/dsh-handeye-plus/dashboard?embed=1`）
+- 外面包 `ctx.effect`，宿主卸载时能干净退场
+
+### 浮层降级为兜底
+
+只有 `slots` 不可用 / 拿不到 react 时才挂右下角按钮 + 浮层，
+并且会 `console.warn` 写明原因。正常情况**不出现**浮动按钮，避免挡视线。
+
+### 测试
+377 → **376**（断言改成：注册在 main 槽、key 正确、正常情况没有浮动按钮、
+无 slots 时退兜底、无 react 不抛）
+
 ## v0.32.2 — 2026-11-13
 
 **修：浮层"没有关闭按钮"；加少量动效。**

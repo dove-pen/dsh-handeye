@@ -1,12 +1,14 @@
 // dsh-handeye — client half（对外叫「HandEye / 手嘴眼」）。
 //
-// 铁律：客户端插件绝不能把宿主搞挂。所有东西包在 try/catch 里，
-// 任何异常只让本插件的浮层入口消失，不影响 DSH 本身。
+// 铁律：客户端插件绝不能把宿主搞挂。所有东西包在 try/catch 里。
 //
-// v0.32.x：页签契约没有文档（点了不切换），改成自带浮层。
-// v0.32.2：用户反馈"没有关闭按钮" —— 顶栏里的 Close 会被宿主标题栏吃掉，
-//          改成固定在右上角的圆形 ×，z-index 更高，不依赖顶栏布局。
-//          同时加入少量动效（淡入 + 轻微放大，按钮 hover 反馈），尊重 reduced-motion。
+// 注册方式照抄 dsh-context（"上下文"页签）：它用的是
+//   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'dsh-context', locale }, Component))
+// v0.32.x 猜的那个页签槽（带 id/label/order）形状不对，按钮点了不切换。
+// v0.33.0 改成 'main' + key：和"上下文"并列，**只占会话区**，不是全屏浮层。
+//
+// 兜底：万一 slots 不可用（宿主变版本 / 没给 react），退到右下角按钮 + 浮层，
+//       保证"至少有一个入口"，但绝不抛错。
 
 function loadEntry(definition) {
   try {
@@ -22,13 +24,52 @@ function loadEntry(definition) {
 
 loadEntry({
   id: 'dsh-handeye',
-  factory: () => {
+  factory: (require) => {
     const PANEL_URL = '/dsh-handeye-plus/dashboard'
     const BTN_ID = 'dsh-handeye-btn'
     const OVERLAY_ID = 'dsh-handeye-overlay'
     const CLOSE_ID = 'dsh-handeye-close'
 
-    /** 少量动效：能关就关（reduced-motion 或老浏览器）。 */
+    let React = null
+    let jsx = null
+    try {
+      // 只在 try 里 require：拿不到就退兜底，绝不让宿主判成 entry failed
+      React = require('react')
+      jsx = require('react/jsx-runtime').jsx
+    } catch {
+      React = null
+      jsx = null
+    }
+
+    /** 面板内容：填满宿主的视图区域，高度交给宿主。 */
+    function Panel() {
+      if (!jsx) return null
+      return jsx('div', {
+        style: { height: '100%', width: '100%', display: 'flex', minHeight: 0 },
+        children: jsx('iframe', {
+          src: PANEL_URL + '?embed=1',
+          title: 'HandEye Control Panel',
+          style: { flex: 1, width: '100%', border: 0, minHeight: 0, background: '#0b0d11' },
+        }),
+      })
+    }
+
+    /** 和"上下文"一样挂在 main 槽上：只占会话区。 */
+    function registerView(ctx) {
+      const slots = ctx && ctx.slots
+      if (!slots || typeof slots.inject !== 'function' || typeof slots.register !== 'function') {
+        throw new Error('slots API is unavailable')
+      }
+      if (!jsx) throw new Error('react is unavailable')
+      const locale = (ctx && ctx.locale) || {}
+      const register = () =>
+        slots.inject('main', () =>
+          slots.register({ name: 'main', key: 'dsh-handeye', locale }, Panel),
+        )
+      if (typeof ctx.effect === 'function') ctx.effect(register, 'dsh-handeye: main view')
+      else register()
+    }
+
     function animateIfPossible(element, frames, options) {
       try {
         if (typeof window === 'undefined') return
@@ -46,8 +87,10 @@ loadEntry({
       const overlay = document.getElementById(OVERLAY_ID)
       document.removeEventListener('keydown', onKey)
       if (!overlay) return
-      // 关闭也淡出，但不阻塞：立刻从 DOM 摘掉也行（用户点的是关闭）
-      const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const reduce =
+        typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
       if (reduce || typeof overlay.animate !== 'function') {
         overlay.remove()
         return
@@ -55,7 +98,6 @@ loadEntry({
       try {
         const anim = overlay.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: 'ease-in' })
         anim.onfinish = () => overlay.remove()
-        // 兜底：动画事件不触发时也删
         if (typeof setTimeout === 'function') setTimeout(() => overlay.remove(), 200)
       } catch {
         overlay.remove()
@@ -68,8 +110,7 @@ loadEntry({
       const overlay = document.createElement('div')
       overlay.id = OVERLAY_ID
       overlay.style.cssText =
-        'position:fixed;inset:0;z-index:2147483001;background:#0b0d11;display:flex;flex-direction:column;' +
-        'box-sizing:border-box'
+        'position:fixed;inset:0;z-index:2147483001;background:#0b0d11;display:flex;flex-direction:column;box-sizing:border-box'
 
       const bar = document.createElement('div')
       bar.style.cssText =
@@ -84,7 +125,6 @@ loadEntry({
       hint.style.cssText = 'color:#e9edf3;opacity:.85'
       bar.append(title, hint)
 
-      // 关闭按钮：fixed 定位、自己带 z-index，不依赖顶栏布局，不会被宿主标题栏盖住
       const close = document.createElement('button')
       close.id = CLOSE_ID
       close.type = 'button'
@@ -114,7 +154,6 @@ loadEntry({
       overlay.append(bar, close, frame)
       document.body.appendChild(overlay)
 
-      // 少量动效：浮层淡入 + 轻微放大，面板稍微晚一点
       animateIfPossible(overlay, [{ opacity: 0, transform: 'scale(.985)' }, { opacity: 1, transform: 'scale(1)' }], {
         duration: 160,
         easing: 'ease-out',
@@ -129,6 +168,7 @@ loadEntry({
       overlay.addEventListener('keydown', onKey)
     }
 
+    /** 兜底入口：只在 main 槽注册失败时挂出来。 */
     function mountButton() {
       if (typeof document === 'undefined' || !document.body) return
       if (document.getElementById(BTN_ID)) return
@@ -161,11 +201,22 @@ loadEntry({
       document.body.appendChild(btn)
     }
 
-    function apply() {
+    function apply(ctx) {
+      let registered = false
       try {
-        mountButton()
+        registerView(ctx)
+        registered = true
       } catch (error) {
-        console.warn('[handeye] could not mount the button: ' + (error instanceof Error ? error.message : String(error)))
+        const message = error instanceof Error ? error.message : String(error)
+        try {
+          ctx?.logger?.warn?.('handeye view registration skipped: ' + message)
+        } catch {}
+        console.warn('[handeye] view registration failed; falling back to the floating button: ' + message)
+      }
+      if (!registered) {
+        try {
+          mountButton()
+        } catch {}
       }
     }
 
