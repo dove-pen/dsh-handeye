@@ -17,16 +17,16 @@ export function exePath() {
 }
 
 const CODE_MEANING = {
-  0: '成功',
-  1: '参数错误或未找到目标',
-  2: '文件错误',
-  3: '执行失败',
-  4: '超时或被停止',
-  5: '动作做了但验证没通过',
+  0: 'success',
+  1: 'bad arguments or target not found',
+  2: 'file error',
+  3: 'execution failed',
+  4: 'timed out or stopped',
+  5: 'action ran but verification failed',
 }
 
 export function codeMeaning(code) {
-  return CODE_MEANING[code] || `未知退出码 ${code}`
+  return CODE_MEANING[code] || `unknown exit code ${code}`
 }
 
 /**
@@ -41,7 +41,7 @@ export function runHandeye(args, { timeoutMs = 30000 } = {}) {
         ok: false,
         code: -1,
         stdout: '',
-        stderr: `找不到 handeye.exe：${exe}（可用环境变量 HANDEYE_EXE 指定路径）`,
+        stderr: `handeye.exe not found: ${exe} (set HANDEYE_EXE to point at it)`,
       })
       return
     }
@@ -72,17 +72,17 @@ export async function runHandeyeJson(args, opts) {
   const r = await runHandeye(args, opts)
   const text = (r.stdout || '').trim()
   if (!r.ok && !text) {
-    throw new Error(`handeye ${args.join(' ')} 失败（${codeMeaning(r.code)}）${r.stderr ? '：' + r.stderr.trim() : ''}`)
+    throw new Error(`handeye ${args.join(' ')} failed (${codeMeaning(r.code)})${r.stderr ? ': ' + r.stderr.trim() : ''}`)
   }
-  if (!text) throw new Error(`handeye ${args.join(' ')} 没有输出`)
+  if (!text) throw new Error(`handeye ${args.join(' ')} produced no output`)
   let json
   try {
     json = JSON.parse(text)
   } catch {
-    throw new Error(`handeye 输出不是 JSON：${text.slice(0, 200)}`)
+    throw new Error(`handeye output is not JSON: ${text.slice(0, 200)}`)
   }
   if (json && json.ok === false) {
-    throw new Error(`handeye 报告失败：${json.error || JSON.stringify(json).slice(0, 200)}`)
+    throw new Error(`handeye reported failure: ${json.error || JSON.stringify(json).slice(0, 200)}`)
   }
   return json
 }

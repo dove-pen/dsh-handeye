@@ -44,11 +44,11 @@ export function resolveTarget(args = {}) {
 
 /** One-line description of a window record, for messages. */
 export function describeWindow(win) {
-  if (!win) return '（没有窗口）'
-  const title = win.title ? JSON.stringify(win.title) : '（无标题）'
+  if (!win) return '(no window)'
+  const title = win.title ? JSON.stringify(win.title) : '(untitled)'
   const bits = [title, `hwnd=${win.hwnd}`]
   if (win.className) bits.push(`class=${win.className}`)
-  if (win.minimized) bits.push('最小化')
+  if (win.minimized) bits.push('minimized')
   return bits.join(' ')
 }
 
@@ -82,26 +82,26 @@ export function pickWindowByTitle(windows, title) {
 
 /** Render the JSON that winui.ps1 returned for a click into agent-facing text. */
 export function formatClickResult(json) {
-  if (!json || json.ok !== true) return '点击没有执行。'
+  if (!json || json.ok !== true) return 'the click did not run.'
   const lines = []
   const dry = json.dryRun === true
   lines.push(
-    `${dry ? '预演通过（没有真的按下鼠标）' : '已点击'} (${json.x},${json.y})${json.button === 'right' ? ' 右键' : ''}${json.double ? ' 双击' : ''}`,
+    `${dry ? 'dry run ok (no mouse press)' : 'clicked'} (${json.x},${json.y})${json.button === 'right' ? ' right' : ''}${json.double ? ' double' : ''}`,
   )
-  if (json.hit) lines.push(`命中窗口：${describeWindow(json.hit)}`)
-  if (json.target) lines.push(`目标窗口：${describeWindow(json.target)}`)
-  if (json.foreground) lines.push(`操作后前台：${describeWindow(json.foreground)}`)
+  if (json.hit) lines.push(`hit window: ${describeWindow(json.hit)}`)
+  if (json.target) lines.push(`target window: ${describeWindow(json.target)}`)
+  if (json.foreground) lines.push(`foreground after: ${describeWindow(json.foreground)}`)
   if (Number.isFinite(json.attempts) && json.attempts > 1) {
-    lines.push(`（重新聚焦 ${json.attempts} 次才拿到目标窗口，说明有东西在抢前台）`)
+    lines.push(`(refocused ${json.attempts} times to get the target; something is stealing the foreground)`)
   }
   return lines.join('\n')
 }
 
 /** Render the JSON for a focus attempt. */
 export function formatFocusResult(json) {
-  if (!json || json.ok !== true) return '切换窗口没有成功。'
-  const lines = [`已切到 ${describeWindow(json.window)}`]
-  if (json.foreground) lines.push(`当前前台：${describeWindow(json.foreground)}`)
+  if (!json || json.ok !== true) return 'focus did not succeed.'
+  const lines = [`switched to ${describeWindow(json.window)}`]
+  if (json.foreground) lines.push(`foreground: ${describeWindow(json.foreground)}`)
   return lines.join('\n')
 }
 
@@ -159,14 +159,14 @@ function runWin(args, { timeoutMs = 30000 } = {}) {
       }
       rmSync(dir, { recursive: true, force: true })
       if (json === null) {
-        reject(new WinUiError('no-output', `窗口后端没有产出结果（exit ${code}）${stderr ? '：' + stderr.slice(0, 300) : ''}`))
+        reject(new WinUiError('no-output', `window backend returned nothing (exit ${code})${stderr ? ': ' + stderr.slice(0, 300) : ''}`))
         return
       }
       if (json.ok === true) {
         resolve(json)
         return
       }
-      reject(new WinUiError(json.code || 'failed', json.error || '未知原因', json.extra))
+      reject(new WinUiError(json.code || 'failed', json.error || 'unknown reason', json.extra))
     })
   })
 }
@@ -217,7 +217,7 @@ export async function focusWindowTarget(target, { timeoutMs = 20000, focusTimeou
   const args = { Mode: 'focus', FocusTimeoutMs: focusTimeoutMs }
   if (target?.hwnd) args.Hwnd = String(target.hwnd)
   else if (target?.title) args.Title = target.title
-  else throw new WinUiError('bad-args', 'focus 需要 hwnd 或 title')
+  else throw new WinUiError('bad-args', 'focus needs hwnd or title')
   return runWin(args, { timeoutMs })
 }
 
@@ -235,7 +235,7 @@ export async function grabRegion({
   outImage,
   timeoutMs = 25000,
 } = {}) {
-  if (!outImage) throw new WinUiError('bad-args', 'grab 需要输出路径')
+  if (!outImage) throw new WinUiError('bad-args', 'grab needs an output path')
   return runWin(
     {
       Mode: 'grab',
@@ -265,8 +265,8 @@ export async function cropRegion({
   outImage,
   timeoutMs = 25000,
 } = {}) {
-  if (!source) throw new WinUiError('bad-args', 'crop 需要 source 图片')
-  if (!outImage) throw new WinUiError('bad-args', 'crop 需要输出路径')
+  if (!source) throw new WinUiError('bad-args', 'crop needs a source image')
+  if (!outImage) throw new WinUiError('bad-args', 'crop needs an output path')
   return runWin(
     {
       Mode: 'crop',

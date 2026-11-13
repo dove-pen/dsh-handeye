@@ -28,15 +28,15 @@ test('L0：自绘界面报 0 个可点时必须解释原因', () => {
   const view = viewOf([block('content', ['页面正文一']), block('content', ['页面正文二'])])
   const [head] = projectL0(view, [])
   assert.match(head, /^\[L0\]/)
-  assert.match(head, /可点 0 项（界面自绘/)
+  assert.match(head, /0 clickable\(custom-drawn/)
   assert.match(head, /eye_find/)
 })
 
 test('L0：有真实按钮时不加自绘提示', () => {
   const view = viewOf([block('button', ['确定']), block('button', ['取消']), block('content', ['正文'])])
   const [head] = projectL0(view, [])
-  assert.match(head, /可点 2 项/)
-  assert.doesNotMatch(head, /界面自绘/)
+  assert.match(head, /2 clickable/)
+  assert.doesNotMatch(head, /custom-drawn/)
 })
 
 test('L0：对话框和错误词一定出现在报警行里', () => {
@@ -46,11 +46,11 @@ test('L0：对话框和错误词一定出现在报警行里', () => {
     block('content', ['普通正文不会报警']),
   ])
   const out = projectL0(view, findAlarms(view))
-  const alarms = out.filter((l) => l.startsWith('[报警]'))
+  const alarms = out.filter((l) => l.startsWith('[alarm]'))
   assert.ok(alarms.length >= 2, `至少 2 条报警，实际：\n${out.join('\n')}`)
   assert.ok(out.some((l) => l.includes('保存失败')))
   assert.ok(out.some((l) => l.includes('连接超时')))
-  assert.ok(!out.some((l) => l.includes('[报警] 错误词「普通正文')))
+  assert.ok(!out.some((l) => l.includes('[alarm] error word "普通正文')))
 })
 
 test('L1：超预算时头行和报警不丢，只砍尾部', () => {
@@ -63,8 +63,8 @@ test('L1：超预算时头行和报警不丢，只砍尾部', () => {
 
   assert.match(out[0], /^\[L1\]/, '头行必须在最前面')
   assert.ok(text.length <= MAX_L1_CHARS, `截断后长度 ${text.length} 应不超过预算 ${MAX_L1_CHARS}`)
-  assert.ok(out.some((l) => l.startsWith('[报警]') && l.includes('网络错误')), '报警行必须保留')
-  assert.match(text, /已按预算截断/)
+  assert.ok(out.some((l) => l.startsWith('[alarm]') && l.includes('网络错误')), '报警行必须保留')
+  assert.match(text, /truncated by budget/)
   assert.ok(out.some((l) => l.includes('按钮编号 0')), '靠前的行应保留')
   assert.ok(!out.some((l) => l.includes('按钮编号 299')), '靠后的行应被砍掉')
 })
@@ -82,15 +82,15 @@ test('L1：正文按面积从大到小取，主内容区优先于侧栏', () => 
 })
 
 test('truncateLines：预算够时原样返回，不动内容', () => {
-  const lines = ['[L1] 头', '[button] 确定 @(10,10)', '[报警] 错误词「失败」@(20,20)']
+  const lines = ['[L1] head', '[button] ok @(10,10)', '[alarm] error word "fail"@(20,20)']
   assert.deepEqual(truncateLines(lines, 4000), lines)
 })
 
 test('truncateLines：报警行比预算还长时也不丢', () => {
-  const alarm = '[报警] 错误词「' + '超长错误 '.repeat(600) + '」'
-  const lines = ['[L1] 头', alarm, '[button] 确定']
+  const alarm = '[alarm] error word "' + '超长错误 '.repeat(600) + '"'
+  const lines = ['[L1] head', alarm, '[button] ok']
   const out = truncateLines(lines, 200)
   assert.ok(out[0].startsWith('[L1]'))
   assert.ok(out.includes(alarm), '报警行永远不丢')
-  assert.ok(out.some((l) => l.includes('已按预算截断')))
+  assert.ok(out.some((l) => l.includes('truncated by budget')))
 })

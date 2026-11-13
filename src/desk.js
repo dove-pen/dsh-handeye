@@ -62,7 +62,7 @@ export function runUia(args, { timeoutMs = 25000 } = {}) {
       }
       rmSync(dir, { recursive: true, force: true })
       if (json === null) {
-        reject(new Error(`UIA 后端没有产出结果（exit ${code}）${stderr ? '：' + stderr.slice(0, 300) : ''}`))
+        reject(new Error(`UIA backend returned nothing (exit ${code})${stderr ? ': ' + stderr.slice(0, 300) : ''}`))
         return
       }
       resolve(json)
@@ -72,7 +72,7 @@ export function runUia(args, { timeoutMs = 25000 } = {}) {
 
 function assertOk(json, what) {
   if (!json || json.ok !== true) {
-    throw new Error(`${what} 失败：${json?.error || '未知原因'}`)
+    throw new Error(`${what} failed: ${json?.error || 'unknown reason'}`)
   }
   return json
 }
@@ -80,37 +80,37 @@ function assertOk(json, what) {
 // ---------------------------------------------------------------- 工具函数
 
 export async function listWindows() {
-  const j = assertOk(await runUia({ Mode: 'windows' }), '列窗口')
+  const j = assertOk(await runUia({ Mode: 'windows' }), 'list windows')
   return j.windows || []
 }
 
 export async function treeOf(hwnd, { depth = 3, max = 400 } = {}) {
-  const j = assertOk(await runUia({ Mode: 'tree', Hwnd: hwnd, Depth: depth, Max: max }), '读控件树')
+  const j = assertOk(await runUia({ Mode: 'tree', Hwnd: hwnd, Depth: depth, Max: max }), 'read control tree')
   return j.nodes || []
 }
 
 export async function textOf(hwnd, { depth = 8, max = 800 } = {}) {
-  const j = assertOk(await runUia({ Mode: 'text', Hwnd: hwnd, Depth: depth, Max: max }), '读窗口文字')
+  const j = assertOk(await runUia({ Mode: 'text', Hwnd: hwnd, Depth: depth, Max: max }), 'read window text')
   return j.lines || []
 }
 
 export async function invokeRef(ref) {
-  const j = assertOk(await runUia({ Mode: 'invoke', Ref: ref }), '按控件')
+  const j = assertOk(await runUia({ Mode: 'invoke', Ref: ref }), 'invoke control')
   return j
 }
 
 export async function setValueRef(ref, value) {
-  const j = assertOk(await runUia({ Mode: 'setvalue', Ref: ref, Value: value }), '写控件值')
+  const j = assertOk(await runUia({ Mode: 'setvalue', Ref: ref, Value: value }), 'set control value')
   return j
 }
 
 export async function focusRef(ref) {
-  const j = assertOk(await runUia({ Mode: 'focus', Ref: ref }), '聚焦控件')
+  const j = assertOk(await runUia({ Mode: 'focus', Ref: ref }), 'focus control')
   return j
 }
 
 export async function launchApp(target, targetArgs = '') {
-  const j = assertOk(await runUia({ Mode: 'launch', Target: target, TargetArgs: targetArgs }), '启动程序')
+  const j = assertOk(await runUia({ Mode: 'launch', Target: target, TargetArgs: targetArgs }), 'launch program')
   return j
 }
 
@@ -142,15 +142,15 @@ export function formatTree(nodes) {
     const pad = '  '.repeat(Math.max(0, depth - 1))
     const pos = n.w || n.h ? ` @(${n.x},${n.y} ${n.w}x${n.h})` : ''
     const pat = hasPattern ? ` [${n.patterns.join(',')}]` : ''
-    const label = named ? JSON.stringify(n.name) : '(无名)'
+    const label = named ? JSON.stringify(n.name) : '(unnamed)'
     out.push(`${pad}${n.type} ${label}${pat}${pos} ref=${n.ref}`)
     shown += 1
     if (shown >= 200) {
-      out.push(`… 还有 ${nodes.length - shown} 个节点没显示，加 max 或缩小 depth`)
+      out.push(`… ${nodes.length - shown} more nodes hidden; raise max or reduce depth`)
       break
     }
   }
-  if (out.length === 0) out.push('（这个窗口没有可读的控件；它大概是自绘界面，用 hand_click_text 或截图走 OCR）')
+  if (out.length === 0) out.push('(no readable controls in this window; it is probably custom-drawn - use hand_click_text or a screenshot with OCR)')
   return out.join('\n')
 }
 

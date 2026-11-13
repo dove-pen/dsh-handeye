@@ -56,16 +56,16 @@ export function parseSeeJson(stdout) {
 
 /** Turn a --wait result into the sentence the model should read. */
 export function formatWaitResult(wait, { text, mode = 'appear' } = {}) {
-  if (!wait) return `等「${text}」：手眼没有返回结果。`
+  if (!wait) return `waiting for "${text}": handeye returned nothing.`
   if (wait.found === true) {
     const pos = Number.isFinite(wait.x) ? ` @(${wait.x},${wait.y} ${wait.w}x${wait.h})` : ''
-    const took = Number.isFinite(wait.elapsedMs) ? `，等了 ${wait.elapsedMs}ms` : ''
-    return `「${text}」出现了${pos}${took}`
+    const took = Number.isFinite(wait.elapsedMs) ? `, waited ${wait.elapsedMs}ms` : ''
+    return `"${text}" appeared${pos}${took}`
   }
-  const took = Number.isFinite(wait.elapsedMs) ? `（等了 ${wait.elapsedMs}ms）` : ''
-  const why = wait.error === 'timeout' ? '超时' : wait.error || '没有找到'
-  if (mode === 'gone') return `「${text}」已经消失${took}`
-  return `等「${text}」失败：${why}${took}。可以先用 eye_see 看看现在是什么画面，再决定要不要继续等。`
+  const took = Number.isFinite(wait.elapsedMs) ? ` (waited ${wait.elapsedMs}ms)` : ''
+  const why = wait.error === 'timeout' ? 'timed out' : wait.error || 'not found'
+  if (mode === 'gone') return `"${text}" is gone${took}`
+  return `waiting for "${text}" failed: ${why}${took}. Use eye_see to look at the screen before waiting again.`
 }
 
 // ---------------------------------------------------------------- waiting
@@ -136,7 +136,7 @@ export async function readRegion({ region, scale = 3, fast = false }) {
   const r = await runHandeye(buildRegionArgs({ region, scale, fast }), { timeoutMs: 40000 })
   const j = parseSeeJson(r.stdout)
   if (!j) {
-    return { ok: false, error: r.stderr?.trim() || '没有读到结果', lines: [] }
+    return { ok: false, error: r.stderr?.trim() || 'no result', lines: [] }
   }
   const lines = []
   for (const block of j.blocks || []) {

@@ -7,6 +7,8 @@
 //   - 同输入必然同输出
 const ERROR_WORDS = [
   '错误', '失败', '警告', '无法', '拒绝', '异常', '超时', '不支持',
+  // 英文文档也要能认出来（2026-11-13 国际化）
+  'error', 'failed', 'warning', 'unable', 'refused', 'exception', 'timed out', 'unsupported',
   'error', 'failed', 'failure', 'denied', 'cannot', 'warning', 'timeout',
 ]
 
@@ -135,7 +137,7 @@ export function slimText(input, opts = {}) {
     }
     if (!insertedMarker) {
       const chars = omitted.reduce((s, l) => s + [...l].length + 1, 0)
-      outLines.push(`[省略 ${omitted.length} 行 / ${chars} 字符]`)
+      outLines.push(`[${omitted.length} lines / ${chars} chars omitted]`)
       insertedMarker = true
     }
   }

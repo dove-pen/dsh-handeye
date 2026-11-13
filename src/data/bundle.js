@@ -54,17 +54,17 @@ export function exportBundle({ dataDir, includeLogs = false, now = () => new Dat
   // 打包时也校验一遍：坏的不要装进 bundle 里冒充好的
   const goodSkills = skills.filter((s) => {
     const ok = validateSkill(s).ok
-    if (!ok) warnings.push(`技能 ${s?.id ?? '?'} 不符合格式，已跳过`)
+    if (!ok) warnings.push(`skill ${s?.id ?? '?'} does not match the format; skipped`)
     return ok
   })
   const goodGoals = goals.filter((g) => {
     const ok = validateGoal(g).ok
-    if (!ok) warnings.push(`目标 ${g?.id ?? '?'} 不符合格式，已跳过`)
+    if (!ok) warnings.push(`goal ${g?.id ?? '?'} does not match the format; skipped`)
     return ok
   })
   const goodCards = cards.filter((c) => {
     const ok = validateCard(c).ok
-    if (!ok) warnings.push(`卡片 ${c?.id ?? '?'} 不符合格式，已跳过`)
+    if (!ok) warnings.push(`card ${c?.id ?? '?'} does not match the format; skipped`)
     return ok
   })
 
@@ -92,26 +92,26 @@ export function exportBundle({ dataDir, includeLogs = false, now = () => new Dat
 /** 只校验，不落盘：导入前的"体检"。 */
 export function validateBundle(bundle) {
   const errors = []
-  if (!bundle || typeof bundle !== 'object') return { ok: false, errors: ['不是一个对象'] }
+  if (!bundle || typeof bundle !== 'object') return { ok: false, errors: ['not an object'] }
   if (bundle.bundleVersion !== BUNDLE_VERSION) {
-    errors.push(`bundleVersion 是 ${bundle.bundleVersion}，本版只认 ${BUNDLE_VERSION}`)
+    errors.push(`bundleVersion is ${bundle.bundleVersion}; this version accepts ${BUNDLE_VERSION}`)
   }
   for (const key of ['skills', 'goals', 'cards']) {
-    if (bundle[key] !== undefined && !Array.isArray(bundle[key])) errors.push(`${key} 必须是数组`)
+    if (bundle[key] !== undefined && !Array.isArray(bundle[key])) errors.push(`${key} must be an array`)
   }
   if (errors.length) return { ok: false, errors }
 
   for (const skill of bundle.skills ?? []) {
     const shape = validateSkill(skill)
-    if (!shape.ok) errors.push(`技能 ${skill?.id ?? '?'}：${shape.message}`)
+    if (!shape.ok) errors.push(`skill ${skill?.id ?? '?'}: ${shape.message}`)
   }
   for (const goal of bundle.goals ?? []) {
     const shape = validateGoal(goal)
-    if (!shape.ok) errors.push(`目标 ${goal?.id ?? '?'}：${(shape.errors ?? []).map((e) => `${e.path} ${e.message}`).join('；')}`)
+    if (!shape.ok) errors.push(`goal ${goal?.id ?? '?'}: ${(shape.errors ?? []).map((e) => `${e.path} ${e.message}`).join('; ')}`)
   }
   for (const card of bundle.cards ?? []) {
     const shape = validateCard(card)
-    if (!shape.ok) errors.push(`卡片 ${card?.id ?? '?'}：${(shape.errors ?? []).map((e) => `${e.path} ${e.message}`).join('；')}`)
+    if (!shape.ok) errors.push(`card ${card?.id ?? '?'}: ${(shape.errors ?? []).map((e) => `${e.path} ${e.message}`).join('; ')}`)
   }
   return { ok: errors.length === 0, errors }
 }
@@ -163,7 +163,7 @@ export async function importBundle({ dataDir, bundle, dryRun = false, force = fa
     const skill = bundle.skills.find((s) => s.id === entry.id)
     const saved = await skills.save(skill)
     if (saved.ok) applied.skills += 1
-    else warnings.push(`技能 ${entry.id} 保存失败：${saved.message}`)
+    else warnings.push(`skill ${entry.id} could not be saved: ${saved.message}`)
   }
 
   for (const entry of plan.goals) {
@@ -171,7 +171,7 @@ export async function importBundle({ dataDir, bundle, dryRun = false, force = fa
     const goal = bundle.goals.find((g) => g.id === entry.id)
     const saved = await goals.save({ ...goal })
     if (saved.ok) applied.goals += 1
-    else warnings.push(`目标 ${entry.id} 保存失败：${saved.message}`)
+    else warnings.push(`goal ${entry.id} could not be saved: ${saved.message}`)
   }
 
   for (const entry of plan.cards) {
@@ -180,7 +180,7 @@ export async function importBundle({ dataDir, bundle, dryRun = false, force = fa
     if (entry.state === 'overwrite') await cards.remove(entry.id)
     const saved = await cards.importCard({ ...card, origin: 'imported' })
     if (saved.ok) applied.cards += 1
-    else warnings.push(`卡片 ${entry.id} 导入失败：${saved.message}`)
+    else warnings.push(`card ${entry.id} could not be imported: ${saved.message}`)
   }
 
   // 日志：只写回文件，不做合并
@@ -190,7 +190,7 @@ export async function importBundle({ dataDir, bundle, dryRun = false, force = fa
     for (const log of bundle.logs) {
       if (!log || typeof log.file !== 'string' || typeof log.content !== 'string') continue
       if (!/^[\w.-]+\.jsonl$/.test(log.file)) {
-        warnings.push(`日志文件名不安全，已跳过：${log.file}`)
+        warnings.push(`unsafe log file name; skipped: ${log.file}`)
         continue
       }
       writeFileSync(path.join(dir, log.file), log.content, 'utf8')

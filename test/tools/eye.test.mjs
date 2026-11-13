@@ -59,22 +59,22 @@ test('parseSeeJson reads the first JSON line and ignores noise', () => {
 
 test('formatWaitResult reports a hit with coordinates and elapsed time', () => {
   const text = formatWaitResult({ found: true, x: 10, y: 20, w: 30, h: 40, elapsedMs: 120 }, { text: '确定' })
-  assert.match(text, /「确定」出现了/)
+  assert.match(text, /"确定" appeared/)
   assert.match(text, /@\(10,20 30x40\)/)
   assert.match(text, /120ms/)
 })
 
 test('formatWaitResult on timeout names the failure and suggests the next step', () => {
   const text = formatWaitResult({ found: false, error: 'timeout', elapsedMs: 8000 }, { text: '保存' })
-  assert.match(text, /等「保存」失败：超时/)
+  assert.match(text, /waiting for "保存" failed: timed out/)
   assert.match(text, /eye_see/)
 })
 
 test('formatWaitResult for mode=gone reports disappearance', () => {
   const text = formatWaitResult({ found: false, gone: true, elapsedMs: 300 }, { text: '加载中', mode: 'gone' })
-  assert.match(text, /已经消失/)
+  assert.match(text, /is gone/)
 })
 
 test('formatWaitResult survives a null payload', () => {
-  assert.match(formatWaitResult(null, { text: 'x' }), /没有返回结果/)
+  assert.match(formatWaitResult(null, { text: 'x' }), /returned nothing/)
 })

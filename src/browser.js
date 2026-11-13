@@ -201,14 +201,14 @@ export async function attachBrowser({ port } = {}) {
   let target = null
   if (Number.isFinite(wanted) && wanted > 0) {
     const status = await browserStatus({ port: wanted })
-    if (!status.running) throw new Error(`端口 ${wanted} 上没有调试通道`)
+    if (!status.running) throw new Error(`no debugging channel on port ${wanted}`)
     target = { port: Math.trunc(wanted), browser: status.browser || 'unknown', source: 'argument' }
   } else {
     const all = await discoverEndpoints()
     // 优先接管「不是我们自己那个」的实例
     target = all.find((e) => e.port !== DEFAULT_PORT && e.source !== 'scan') || all[0] || null
   }
-  if (!target) throw new Error('没找到带调试端口的浏览器')
+  if (!target) throw new Error('no browser with a debugging port found')
 
   MODE = 'attached'
   PORT = target.port
@@ -234,14 +234,14 @@ export async function ensureBrowser({ headless = false } = {}) {
   const now = await browserStatus()
   if (now.running) return now
   if (MODE === 'attached') {
-    throw new Error(`接管的浏览器（端口 ${PORT}）已经不在了；不会自动另起一个，请先重开它，或用 browser_attach 重新找`)
+    throw new Error(`the attached browser (port ${PORT}) is gone; it will not be restarted automatically - reopen it or use browser_attach`)
   }
   if (launching) return launching
 
   launching = (async () => {
     const exe = findBrowser()
     if (!exe) {
-      throw new Error('找不到 Edge 或 Chrome（可用环境变量 DSH_HANDEYE_BROWSER 指定路径）')
+      throw new Error('Edge or Chrome not found (set DSH_HANDEYE_BROWSER to a path)')
     }
     mkdirSync(PROFILE_DIR, { recursive: true })
     const logPath = path.join(PROFILE_DIR, 'browser.log')
@@ -284,7 +284,7 @@ export async function ensureBrowser({ headless = false } = {}) {
         return s
       }
       if (Date.now() > deadline) {
-        throw new Error(`浏览器在 20 秒内没有打开调试端口 ${PORT}（日志：${logPath}）`)
+        throw new Error(`the browser did not open debugging port ${PORT} within 20s (log: ${logPath})`)
       }
     }
   })()
@@ -385,7 +385,7 @@ class Cdp {
       const ws = new WebSocket(this.wsUrl)
       const timer = setTimeout(() => {
         try { ws.close() } catch { }
-        reject(new Error(`连不上调试通道 ${this.wsUrl}`))
+        reject(new Error(`cannot connect to the debugging channel ${this.wsUrl}`))
       }, timeoutMs)
       ws.addEventListener('open', () => {
         clearTimeout(timer)
@@ -396,13 +396,13 @@ class Cdp {
       ws.addEventListener('error', () => {
         clearTimeout(timer)
         this.dead = true
-        reject(new Error('调试通道出错'))
+        reject(new Error('debugging channel error'))
       })
       // 页面被关掉、渲染进程崩溃、浏览器退出，都会走这里。
       // 之前没处理，缓存里留着一条死连接，之后每个动作都只会说「调试通道已断开」。
       ws.addEventListener('close', () => {
         this.dead = true
-        this.closedReason = '调试通道已断开（页面或浏览器关闭了）'
+        this.closedReason = 'debugging channel closed (page or browser closed)'
         for (const [, entry] of this.pending) {
           entry.reject(new Error(this.closedReason))
         }
@@ -426,7 +426,7 @@ class Cdp {
     const id = ++this.seq
     return new Promise((resolve, reject) => {
       if (this.dead || !this.ws || this.ws.readyState !== 1) {
-        reject(new Error(this.closedReason || '调试通道已断开'))
+        reject(new Error(this.closedReason || 'debugging channel closed'))
         return
       }
       this.pending.set(id, { resolve, reject })
@@ -434,7 +434,7 @@ class Cdp {
       setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id)
-          reject(new Error(`CDP ${method} 超时`))
+          reject(new Error(`CDP ${method} timed out`))
         }
       }, 30000)
     })
@@ -454,7 +454,7 @@ async function withPage(fn) {
     return await fn()
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
-    if (!/调试通道|websocket|ECONNRESET|没有了/.test(message)) throw e
+    if (!/debugging channel|websocket|ECONNRESET|gone/.test(message)) throw e
     // 缓存作废，重新从 /json/list 解析一次再试
     for (const entry of tabs.values()) {
       try { entry.cdp?.close() } catch { }
@@ -466,19 +466,19 @@ async function withPage(fn) {
 
 async function listPages() {
   const list = await httpJson(endpoint('/json/list'))
-  if (!Array.isArray(list)) throw new Error('读不到标签页列表（浏览器可能在关闭）')
+  if (!Array.isArray(list)) throw new Error('cannot read the tab list (the browser may be closing)')
   return list.filter((t) => t.type === 'page')
 }
 
 async function pageCdp(tabId) {
   if (!tabId && lastTabId) tabId = lastTabId
   const pages = await listPages()
-  if (pages.length === 0) throw new Error('没有打开的标签页，先 browser_open')
+  if (pages.length === 0) throw new Error('no open tabs; call browser_open first')
   let target = null
   if (tabId) {
     target = pages.find((p) => p.id === tabId) || null
     if (!target) {
-      throw new Error(`标签页 ${tabId} 已经不在了（可能被关掉）。先 browser_tabs 看看现在有哪些。`)
+      throw new Error(`tab ${tabId} is gone (maybe closed). Use browser_tabs to see what is open.`)
     }
   } else {
     target = pages[pages.length - 1]
@@ -504,7 +504,7 @@ async function evaluate(tabId, expression) {
       userGesture: true,
     })
     if (r.exceptionDetails) {
-      throw new Error(r.exceptionDetails.exception?.description || '页面脚本报错')
+      throw new Error(r.exceptionDetails.exception?.description || 'page script error')
     }
     return r.result?.value
   }
@@ -522,7 +522,7 @@ export async function openUrl(url) {
   const target = url && url.trim() ? url.trim() : 'about:blank'
   const created = await httpJson(endpoint(`/json/new?${encodeURIComponent(target)}`), { method: 'PUT' })
   const tab = created && created.id ? created : await httpJson(endpoint(`/json/new?${encodeURIComponent(target)}`))
-  if (!tab || !tab.id) throw new Error('新建标签页失败')
+  if (!tab || !tab.id) throw new Error('failed to open a new tab')
   tabs.set(tab.id, { wsUrl: tab.webSocketDebuggerUrl, cdp: null })
   lastTabId = tab.id
   return { tabId: tab.id, url: tab.url || target }
@@ -572,13 +572,13 @@ export async function snapshot(tabId) {
 
 export async function clickIndex(index, tabId) {
   const n = Number(index)
-  if (!Number.isFinite(n)) throw new Error('click 需要数字 index')
+  if (!Number.isFinite(n)) throw new Error('click needs a numeric index')
   return evaluate(
     tabId,
     `(() => {
       const el = document.querySelector('[data-dsh-eye="${n}"]');
-      if (!el) return { ok: false, error: '这个序号已经失效，先重新 snapshot' };
-      if (el.disabled) return { ok: false, error: '控件是 disabled 状态' };
+      if (!el) return { ok: false, error: 'this index is stale; run snapshot again' };
+      if (el.disabled) return { ok: false, error: 'the control is disabled' };
       el.scrollIntoView({ block: 'center' });
       const r = el.getBoundingClientRect();
       const opts = { bubbles: true, cancelable: true, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, view: window };
@@ -594,14 +594,14 @@ export async function clickIndex(index, tabId) {
 
 export async function fillIndex(index, value, tabId) {
   const n = Number(index)
-  if (!Number.isFinite(n)) throw new Error('fill 需要数字 index')
+  if (!Number.isFinite(n)) throw new Error('fill needs a numeric index')
   const v = jsString(value)
   return evaluate(
     tabId,
     `(() => {
       const el = document.querySelector('[data-dsh-eye="${n}"]');
-      if (!el) return { ok: false, error: '这个序号已经失效，先重新 snapshot' };
-      if (el.disabled || el.readOnly) return { ok: false, error: '控件不可写' };
+      if (!el) return { ok: false, error: 'this index is stale; run snapshot again' };
+      if (el.disabled || el.readOnly) return { ok: false, error: 'the control is read-only' };
       el.focus();
       const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       const desc = Object.getOwnPropertyDescriptor(proto, 'value');
@@ -620,7 +620,7 @@ export async function pageText(tabId, maxChars = 6000) {
     `(() => ({ title: document.title, url: location.href, text: (document.body ? document.body.innerText : '').replace(/\\n{3,}/g, '\\n\\n') }))()`,
   )
   const text = String(r?.text || '')
-  const clipped = text.length > maxChars ? text.slice(0, maxChars) + `\n…（截断，原文 ${text.length} 字符）` : text
+  const clipped = text.length > maxChars ? text.slice(0, maxChars) + `\n…(truncated; original ${text.length} chars)` : text
   return { title: r?.title || '', url: r?.url || '', text: clipped }
 }
 

@@ -110,7 +110,7 @@ test('a malformed file is skipped with a warning, not packed as-is', async () =>
     await writeFile(path.join(dir, 'skills', 'bad.json'), JSON.stringify({ id: 'skill_20261108_99' }), 'utf8')
     const { counts, warnings } = exportBundle({ dataDir: dir })
     assert.equal(counts.skills, 0)
-    assert.match(warnings.join(' '), /不符合格式/)
+    assert.match(warnings.join(' '), /does not match the format/)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
@@ -137,7 +137,7 @@ test('validateBundle rejects a wrong version and bad items', () => {
   const withBadSkill = { bundleVersion: BUNDLE_VERSION, skills: [{ id: 'x' }], goals: [], cards: [] }
   const shape = validateBundle(withBadSkill)
   assert.equal(shape.ok, false)
-  assert.match(shape.errors.join(' '), /技能 x/)
+  assert.match(shape.errors.join(' '), /skill x/)
 })
 
 test('round trip: export from one dir, import into an empty one', async () => {
@@ -167,7 +167,7 @@ test('a bad bundle changes nothing on disk', async () => {
     const bad = { bundleVersion: BUNDLE_VERSION, skills: [{ id: 'nope' }], goals: [], cards: [] }
     const result = await importBundle({ dataDir: to, bundle: bad })
     assert.equal(result.ok, false)
-    assert.match(result.errors.join(' '), /技能 nope/)
+    assert.match(result.errors.join(' '), /skill nope/)
     const after = await readdir(path.join(to, 'skills'))
     assert.deepEqual(after, before, '校验失败不许动任何文件')
   } finally {
@@ -222,7 +222,7 @@ test('logs travel with the bundle and unsafe names are refused', async () => {
     assert.equal(result.ok, true)
     const written = await readFile(path.join(to, 'episodes', '2026-11-08.jsonl'), 'utf8')
     assert.match(written, /ep_1/)
-    assert.match(result.warnings.join(' '), /不安全/)
+    assert.match(result.warnings.join(' '), /unsafe log file name/)
   } finally {
     for (const d of [from, to]) await rm(d, { recursive: true, force: true })
   }

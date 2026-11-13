@@ -13,6 +13,7 @@ export const LEVELS = ['auto', 'L0', 'L1', 'L2']
 
 const ERROR_WORDS = [
   '错误', '失败', '警告', '无法', '拒绝', '异常', '超时', '不支持',
+  'error', 'failed', 'warning', 'unable', 'refused', 'exception', 'timed out', 'unsupported',
   'error', 'failed', 'failure', 'denied', 'cannot', 'warning', 'timeout', 'refused',
 ]
 
@@ -44,12 +45,12 @@ export function findAlarms(view) {
   for (const b of view.blocks || []) {
     if (b.kind === 'dialog') {
       const text = (b.items || []).map((i) => i.text).join(' / ')
-      alarms.push(`[报警] 对话框「${firstLine(b.window || text, 40)}」${text ? '：' + firstLine(text, 80) + ' ' + at(b.items?.[0] || b.box) : ''}`)
+      alarms.push(`[alarm] dialog "${firstLine(b.window || text, 40)}"${text ? '：' + firstLine(text, 80) + ' ' + at(b.items?.[0] || b.box) : ''}`)
       continue
     }
     for (const it of b.items || []) {
       if (hasErrorWord(it.text)) {
-        alarms.push(`[报警] 错误词「${firstLine(it.text, 70)}」${at(it)}`)
+        alarms.push(`[alarm] error word "${firstLine(it.text, 70)}"${at(it)}`)
       }
     }
   }
@@ -70,12 +71,12 @@ export function projectL0(view, alarms) {
   const blocks = view.blocks || []
   const clickable = blocks.filter((b) => CLICKABLE_KINDS.has(b.kind))
   const n = clickable.reduce((s, b) => s + (b.items || []).length, 0)
-  const focus = firstLine(view.focus || '(未知)', 50)
+  const focus = firstLine(view.focus || '(unknown)', 50)
   const kinds = summarizeKinds(blocks)
   // 自绘界面（Chrome、Electron、Qt）的按钮不会被判成 button，直接报"可点 0 项"
   // 会让模型以为没入口。带上解释和替代工具，别让数字说假话。
-  const hint = n === 0 && blocks.length > 0 ? '（界面自绘，控件不可枚举，改用 eye_find / hand_click_text）' : ''
-  const head = `[L0] 焦点「${focus}」| 界面 ${blocks.length} 块（${kinds || '无'}）| 可点 ${n} 项${hint} | 原始 ${view.rawLines ?? '?'} 行`
+  const hint = n === 0 && blocks.length > 0 ? '(custom-drawn UI; controls cannot be enumerated - use eye_find / hand_click_text)' : ''
+  const head = `[L0] focus "${focus}" | ${blocks.length} blocks (${kinds || 'none'}) | ${n} clickable${hint} | ${view.rawLines ?? '?'} raw lines`
   return [head, ...alarms]
 }
 
@@ -86,8 +87,8 @@ export function projectL0(view, alarms) {
 export function truncateLines(lines, max = MAX_L1_CHARS) {
   if (!lines.length) return lines
   if (lines.join('\n').length <= max) return lines
-  const isAlarm = (l) => l.startsWith('[报警]')
-  const marker = '[已按预算截断，完整内容用 eye_see level=L2]'
+  const isAlarm = (l) => l.startsWith('[alarm]')
+  const marker = '[truncated by budget; use eye_see level=L2 for the full view]'
   const keep = new Set([0])
   let used = lines[0].length + 1
   for (let i = 1; i < lines.length; i += 1) {
@@ -112,7 +113,7 @@ export function projectL1(view, alarms) {
   const blocks = view.blocks || []
   const lines = []
   lines.push(
-    `[L1] 焦点「${firstLine(view.focus || '(未知)', 50)}」| 屏幕 ${view.screen?.w}x${view.screen?.h} | 原始 ${view.rawLines ?? '?'} 行`,
+    `[L1] 焦点「${firstLine(view.focus || '(unknown)', 50)}」| 屏幕 ${view.screen?.w}x${view.screen?.h} | 原始 ${view.rawLines ?? '?'} 行`,
   )
   lines.push(...alarms)
 
@@ -140,7 +141,7 @@ export function projectL1(view, alarms) {
     }
   }
   if (content.length > shown) {
-    lines.push(`[其余 ${content.length - shown} 块正文已省略，需要就看 L2 或用 eye_find 定位]`)
+    lines.push(`[${content.length - shown} more blocks omitted; see L2 or use eye_find]`)
   }
 
   // 超预算就砍正文，但报警行和头行一条都不动。
@@ -162,6 +163,6 @@ export function project(view, level = 'auto', raw = false) {
 /** 人读的一行摘要，给工具结果头用。 */
 export function headline(view) {
   const d = view.delta || {}
-  const changed = d.changed ? `变动 +${d.added ?? 0}/-${d.removed ?? 0}` : '无变动'
-  return `屏幕 ${view.screen?.w}x${view.screen?.h}｜原始 ${view.rawLines ?? '?'} 行｜${changed}`
+  const changed = d.changed ? `changed +${d.added ?? 0}/-${d.removed ?? 0}` : 'no change'
+  return `screen ${view.screen?.w}x${view.screen?.h} | ${view.rawLines ?? '?'} raw lines | ${changed}`
 }

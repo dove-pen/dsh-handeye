@@ -30,9 +30,9 @@ test('describeWindow renders a stable one-liner', () => {
   assert.match(text, /"Outlook"/)
   assert.match(text, /hwnd=7/)
   assert.match(text, /Chrome_WidgetWin_1/)
-  assert.match(text, /最小化/)
-  assert.equal(describeWindow(null), '（没有窗口）')
-  assert.match(describeWindow({ hwnd: 1 }), /（无标题）/)
+  assert.match(text, /minimized/)
+  assert.equal(describeWindow(null), '(no window)')
+  assert.match(describeWindow({ hwnd: 1 }), /(untitled)/)
 })
 
 test('pickWindowByTitle prefers exact, then prefix, then substring', () => {
@@ -73,23 +73,23 @@ test('formatClickResult says whether the mouse was really pressed', () => {
     foreground: { title: 'Outlook', hwnd: 9 },
     attempts: 1,
   })
-  assert.match(real, /已点击 \(600,400\)/)
-  assert.match(real, /命中窗口/)
-  assert.doesNotMatch(real, /预演/)
+  assert.match(real, /clicked \(600,400\)/)
+  assert.match(real, /hit window/)
+  assert.doesNotMatch(real, /dry run/)
 
   const dry = formatClickResult({ ok: true, dryRun: true, x: 1, y: 2, hit: { title: 'X', hwnd: 1 } })
-  assert.match(dry, /预演通过/)
+  assert.match(dry, /dry run ok/)
 
   const retried = formatClickResult({ ok: true, x: 1, y: 2, attempts: 4, hit: { title: 'X', hwnd: 1 } })
-  assert.match(retried, /重新聚焦 4 次/)
+  assert.match(retried, /refocused 4 times/)
 
-  assert.equal(formatClickResult(null), '点击没有执行。')
+  assert.equal(formatClickResult(null), 'the click did not run.')
 })
 
 test('formatClickResult mentions right button and double click', () => {
   const text = formatClickResult({ ok: true, x: 5, y: 6, button: 'right', double: true, hit: { title: 'X', hwnd: 1 } })
-  assert.match(text, /右键/)
-  assert.match(text, /双击/)
+  assert.match(text, /right/)
+  assert.match(text, /double/)
 })
 
 test('clampScale keeps the crop inside 1..8 and survives junk', () => {
