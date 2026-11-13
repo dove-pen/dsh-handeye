@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.24.2 — 2026-11-13
+
+**事故修复：客户端入口抛错会让 DSH 起不来。**
+
+### 事故（有崩溃日志）
+
+```
+C:\Users\Administrator\AppData\Roaming\@deepseek-ai\dsh-desktop\logs\
+  crash-2026-11-13T12-39-31-308Z-web-boot.log
+  crash-2026-11-13T12-39-38-566Z-web-boot.log
+
+--- error ---
+Error: web boot: 1 entry did not activate
+dsh-handeye: failed
+```
+
+两次启动都是同一个原因。时间点（20:39:31/38）对应插件目录里的 **v0.23.1**。
+
+那个版本的客户端在 factory 顶层直接 `require('react')` / `require('react/jsx-runtime')`，
+任何一步失败都会让 factory 抛错 → 宿主把它算成 "web boot: 1 entry did not activate" →
+**这个错误是致命的**，DSH 整个起不来，用户只能把全部第三方插件禁掉。
+
+### 修法（三层，缺一不可）
+
+1. **模块加载层**：`window.__ModuleLoader__.load(...)` 包 try/catch；ModuleLoader 不在就跳过
+2. **factory 内**：require 包 try/catch（v0.24.1 已做）
+3. **apply**：整体 try/catch，失败只降级到兜底入口（v0.24.1 已做）
+
+失败时打 `console.warn('[handeye] ...')`，下一次崩溃日志里能直接看到原因。
+
+### 教训（已写进 AGENTS）
+
+DSH 的插件树里，**web entry 激活失败是致命错误**，不是"这个插件不显示"。
+客户端插件必须假设自己随时会失败，且**任何异常都不许冒泡到宿主**。
+
+### 测试
+353 → **354**（加载层不抛、ModuleLoader 缺失时整体跳过）
+
 ## v0.24.1 — 2026-11-13
 
 **客户端加固：任何异常都不许拖垮宿主。**

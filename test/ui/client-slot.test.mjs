@@ -185,3 +185,13 @@ test('a missing react does not throw at load time', () => {
   assert.equal(typeof sandbox.__exports.apply, 'function')
   assert.doesNotThrow(() => sandbox.__exports.apply({}))
 })
+
+test('the module-level load is guarded too', () => {
+  // 2026-11-13 事故：客户端入口抛错 -> 宿主 "web boot: 1 entry did not activate" -> 起不来。
+  // 所以连 window.__ModuleLoader__.load 这一层也不许抛。
+  assert.match(source, /function loadEntry\(/)
+  assert.match(source, /window\.__ModuleLoader__\.load\(definition\)/)
+  const sandbox = { window: {}, document: { body: null }, setInterval: () => 0, clearInterval: () => {}, console }
+  vm.createContext(sandbox)
+  assert.doesNotThrow(() => vm.runInContext(source, sandbox, { filename: 'client.js' }))
+})

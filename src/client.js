@@ -8,7 +8,21 @@
 // 入口走官方 slots（和 dsh-context 的"上下文"、编队的注册方式一致）：
 //   ctx.slots.inject('conversation.view', () => ctx.slots.register({...}, Panel))
 
-window.__ModuleLoader__.load({
+// 加载层包一层：插件入口一旦抛错，宿主会把它算成 "web boot: entry did not activate"，
+// 而**这个错误是致命的** —— 2026-11-13 实测：DSH 直接起不来，用户只能禁用所有第三方插件。
+function loadEntry(definition) {
+  try {
+    if (typeof window === 'undefined' || !window.__ModuleLoader__ || typeof window.__ModuleLoader__.load !== 'function') {
+      console.warn('[handeye] ModuleLoader 不可用，跳过客户端入口')
+      return
+    }
+    window.__ModuleLoader__.load(definition)
+  } catch (error) {
+    console.warn('[handeye] 客户端入口加载失败（已忽略）：' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+loadEntry({
   id: 'dsh-handeye',
   factory: (require) => {
     const PANEL_URL = '/dsh-handeye-plus/dashboard'
@@ -73,9 +87,11 @@ window.__ModuleLoader__.load({
         registerTab(ctx)
         registered = true
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
         try {
-          ctx?.logger?.warn?.('handeye tab registration skipped: ' + (error instanceof Error ? error.message : String(error)))
+          ctx?.logger?.warn?.('handeye tab registration skipped: ' + message)
         } catch {}
+        console.warn('[handeye] 页签注册失败，退到兜底入口：' + message)
       }
       if (!registered) {
         try {
