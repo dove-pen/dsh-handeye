@@ -1,3 +1,5 @@
+import { isFailure } from '../core/markers.js'
+
 // 主机无关的工具外壳。
 //
 // 这里是"层"的核心：工具怎么被调用、门卫怎么拦、记账怎么记，全在这里。
@@ -49,7 +51,7 @@ export function createToolServer({ ports = {} } = {}) {
           const out = await original(args, exec)
           // 工具自己把错误 catch 成字符串返回，所以不能只看有没有 throw；
           // 统一约定：fail() 产出的话里带"失败："，据此标记失败。
-          const failed = typeof out === 'string' && out.includes('失败：')
+          const failed = isFailure(out)
           need('recordActivity')(name, args, !failed, out, Date.now() - started)
 
           if (runtime && !meta) {

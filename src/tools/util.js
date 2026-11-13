@@ -6,8 +6,8 @@ export function text(value) {
   return String(value)
 }
 
-/** 统一失败前缀：工具层靠它标记失败（"失败：" 会被 isFailure 识别）。 */
-export const fail = (message) => `失败：${message}`
+// 统一失败前缀。判定在 core/markers.js（过渡期双读旧前缀），这里只负责输出英文。
+export { FAILURE_MARK as FAILURE_PREFIX } from '../core/markers.js'
 
-/** 输出里带这个前缀就算失败。 */
-export const FAILURE_PREFIX = '失败：'
+/** 工具失败文本：统一由 markers 生成，避免前缀散落在各处。 */
+export const fail = (message) => `${'Failed: '}${message}`

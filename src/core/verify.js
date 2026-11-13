@@ -151,11 +151,11 @@ export function normalizeChecks(raw) {
 // ---------------------------------------------------------------- execution
 
 function describeTarget(check) {
-  if (check.type === 'file') return `文件 ${check.path}`
-  if (check.type === 'exit') return `命令 ${check.command}`
-  if (check.type === 'changed') return '画面变化'
-  if (check.region) return `区域 ${check.region}`
-  return check.file ? `文件 ${check.file}` : '屏幕'
+  if (check.type === 'file') return `file ${check.path}`
+  if (check.type === 'exit') return `command ${check.command}`
+  if (check.type === 'changed') return 'screen changed'
+  if (check.region) return `region ${check.region}`
+  return check.file ? `file ${check.file}` : 'screen'
 }
 
 function elapsed(started) {
@@ -214,8 +214,8 @@ async function runOne(check, vars, deps) {
   }
   base.target = describeTarget(resolved)
   if (missing.length > 0) {
-    base.expected = `变量 ${missing.map((m) => `{{${m}}}`).join(', ')} 有值`
-    base.actual = '没拿到值（调用方没传这个参数）'
+    base.expected = `vars ${missing.map((m) => `{{${m}}}`).join(', ')} are set`
+    base.actual = 'value missing (the caller did not pass it)'
     base.ms = elapsed(started)
     return base
   }
@@ -224,21 +224,21 @@ async function runOne(check, vars, deps) {
   try {
     if ((resolved.type === 'file' || resolved.type === 'text') && isSensitivePath(resolved.path || resolved.file)) {
       base.ok = false
-      base.expected = '不是一个敏感的目录/文件'
-      base.actual = '路径落在敏感目录（系统目录、凭证目录或密钥文件），拒绝用作验收判据'
+      base.expected = 'not a sensitive path'
+      base.actual = 'path is sensitive (system dir, credential dir or key file); refusing to use it as a check target'
       base.ms = elapsed(started)
       return base
     }
     if (resolved.type === 'file') {
       const exists = await deps.exists(resolved.path)
       const size = exists ? await deps.size(resolved.path) : 0
-      base.expected = `存在且 ≥ ${resolved.minBytes} 字节`
-      base.actual = exists ? `${size} 字节` : '文件不存在'
+      base.expected = `exists and is >= ${resolved.minBytes} bytes`
+      base.actual = exists ? `${size} bytes` : 'file does not exist'
       base.ok = exists && size >= resolved.minBytes
     } else if (resolved.type === 'text') {
       const want = resolved.appear !== null && resolved.appear !== undefined ? resolved.appear : resolved.absent
       const needAppear = resolved.appear !== null && resolved.appear !== undefined
-      base.expected = needAppear ? `包含「${want}」` : `不包含「${want}」`
+      base.expected = needAppear ? `contains "${want}"` : `does not contain "${want}"`
       let haystack = ''
       if (resolved.file) {
         const exists = await deps.exists(resolved.file)
@@ -255,26 +255,26 @@ async function runOne(check, vars, deps) {
       }
       const found = haystack.includes(want)
       base.ok = needAppear ? found : !found
-      base.actual = found ? '找到了' : '没找到'
+      base.actual = found ? 'found' : 'not found'
     } else if (resolved.type === 'screen') {
-      base.expected = `屏幕上出现「${resolved.appear}」`
+      base.expected = `text "${resolved.appear}" appears on screen`
       const found = await deps.findOnScreen(resolved.appear, resolved.region)
       base.ok = Boolean(found)
-      base.actual = found ? '出现了' : '没出现'
+      base.actual = found ? 'appeared' : 'did not appear'
     } else if (resolved.type === 'exit') {
-      base.expected = '退出码 0'
+      base.expected = 'exit code 0'
       const result = await deps.runCommand(resolved.command, resolved.timeoutMs)
       base.ok = result.code === 0
-      base.actual = `退出码 ${result.code}${result.stderr ? `（${String(result.stderr).slice(0, 120)}）` : ''}`
+      base.actual = `exit code ${result.code}${result.stderr ? ` (${String(result.stderr).slice(0, 120)})` : ''}`
     } else if (resolved.type === 'changed') {
-      base.expected = '与上一次观察相比画面有变化'
+      base.expected = 'screen changed since the last observation'
       const changed = await deps.screenChanged(resolved.region)
       base.ok = Boolean(changed)
-      base.actual = changed ? '有变化' : '没有变化'
+      base.actual = changed ? 'changed' : 'unchanged'
     }
   } catch (error) {
     base.ok = false
-    base.actual = `检查时出错：${error instanceof Error ? error.message : String(error)}`
+    base.actual = `check threw: ${error instanceof Error ? error.message : String(error)}`
   }
 
   base.ms = elapsed(started)
@@ -304,16 +304,16 @@ export async function runChecks(checks, vars = {}, deps = {}) {
  * check: "verification failed" alone gives the model nothing to work with.
  */
 export function formatChecks(result) {
-  if (!result || !Array.isArray(result.checks)) return '（没有验收结果）'
+  if (!result || !Array.isArray(result.checks)) return '(no verification result)'
   const total = result.checks.length
   const passed = result.checks.filter((c) => c.ok).length
   const head = result.ok
-    ? `验收通过（${passed}/${total}）`
-    : `验收没过（${passed}/${total} 通过）`
+    ? `checks passed (${passed}/${total})`
+    : `checks failed (${passed}/${total} passed)`
   const lines = [head]
   for (const check of result.checks) {
-    const mark = check.ok ? '通过' : '失败'
-    lines.push(`  [${mark}] ${check.target}：期望 ${check.expected}；实际 ${check.actual}`)
+    const mark = check.ok ? 'pass' : 'fail'
+    lines.push(`  [${mark}] ${check.target}: expected ${check.expected}; actual ${check.actual}`)
   }
   return lines.join('\n')
 }

@@ -124,7 +124,7 @@ test('runChecks fails the whole run when one check fails', async () => {
   assert.equal(result.ok, false)
   assert.equal(result.checks[0].ok, true)
   assert.equal(result.checks[1].ok, false)
-  assert.match(result.checks[1].actual, /退出码 1/)
+  assert.match(result.checks[1].actual, /exit code 1/)
   assert.match(result.checks[1].actual, /boom/)
 })
 
@@ -132,15 +132,15 @@ test('runChecks treats a missing file as a failure, not a throw', async () => {
   const checks = normalizeChecks([{ type: 'file', path: '{{path}}' }]).checks
   const result = await runChecks(checks, { path: 'D:\\nope.md' }, fakeDeps({ exists: async () => false }))
   assert.equal(result.ok, false)
-  assert.equal(result.checks[0].actual, '文件不存在')
+  assert.equal(result.checks[0].actual, 'file does not exist')
 })
 
 test('runChecks fails when a template variable has no value', async () => {
   const checks = normalizeChecks([{ type: 'file', path: '{{path}}' }]).checks
   const result = await runChecks(checks, {}, fakeDeps())
   assert.equal(result.ok, false)
-  assert.match(result.checks[0].expected, /变量 \{\{path\}\}/)
-  assert.match(result.checks[0].actual, /没拿到值/)
+  assert.match(result.checks[0].expected, /vars \{\{path\}\}/)
+  assert.match(result.checks[0].actual, /value missing/)
 })
 
 test('runChecks supports absent and screen sources', async () => {
@@ -154,14 +154,14 @@ test('runChecks supports absent and screen sources', async () => {
 
   const missing = await runChecks(onScreen, {}, fakeDeps({ findOnScreen: async () => false }))
   assert.equal(missing.ok, false)
-  assert.equal(missing.checks[0].actual, '没出现')
+  assert.equal(missing.checks[0].actual, 'did not appear')
 })
 
 test('runChecks turns a throwing dependency into a readable failure', async () => {
   const checks = normalizeChecks([{ type: 'changed' }]).checks
   const result = await runChecks(checks, {}, fakeDeps({ screenChanged: async () => { throw new Error('没有屏幕') } }))
   assert.equal(result.ok, false)
-  assert.match(result.checks[0].actual, /检查时出错：没有屏幕/)
+  assert.match(result.checks[0].actual, /check threw: 没有屏幕/)
 })
 
 test('runChecks on an empty list is vacuously ok', async () => {
@@ -176,14 +176,14 @@ test('formatChecks always shows expected vs actual per check', () => {
   const text = formatChecks({
     ok: false,
     checks: [
-      { type: 'file', target: '文件 D:\\a.md', ok: false, expected: '存在且 ≥ 100 字节', actual: '文件不存在' },
-      { type: 'text', target: '文件 D:\\a.md', ok: true, expected: '包含「来源」', actual: '找到了' },
+      { type: 'file', target: '文件 D:\\a.md', ok: false, expected: '存在且 ≥ 100 字节', actual: 'file does not exist' },
+      { type: 'text', target: '文件 D:\\a.md', ok: true, expected: '包含「来源」', actual: 'found' },
     ],
   })
-  assert.match(text, /验收没过（1\/2 通过）/)
-  assert.match(text, /\[失败\] 文件 D:\\a\.md：期望 存在且 ≥ 100 字节；实际 文件不存在/)
-  assert.match(text, /\[通过\]/)
-  assert.equal(formatChecks(null), '（没有验收结果）')
+  assert.match(text, /checks failed \(1\/2 passed\)/)
+  assert.match(text, /\[fail\] 文件 D:\\a\.md: expected 存在且 ≥ 100 字节; actual file does not exist/)
+  assert.match(text, /\[pass\]/)
+  assert.equal(formatChecks(null), '(no verification result)')
 })
 
 test('countFailures counts the failed checks', () => {
@@ -210,7 +210,7 @@ test('acceptance checks refuse to read credential and system paths', async () =>
   for (const check of cases) {
     const out = await runChecks([check], {}, base)
     assert.equal(out.ok, false, '敏感路径必须判失败：' + JSON.stringify(check))
-    assert.match(out.checks[0].actual, /敏感/)
+    assert.match(out.checks[0].actual, /sensitive/)
   }
   // 正常路径不受影响
   const fine = await runChecks([{ type: 'file', path: 'D:\\proj\\out.md', minBytes: 1 }], {}, base)

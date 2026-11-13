@@ -52,7 +52,7 @@ export function createMetaTools({ state, episodes, onBegin, verifyStep }) {
         // 必须等它把卡片的验收/步骤挂完，否则紧接着的 checkpoint 会因为还没挂上而静默跳过验收
         if (typeof onBegin === 'function') await onBegin({ id, intent, cardId })
         return cardId
-          ? `Episode ${id} started: ${intent}（已挂上卡片 ${cardId} 的验收）`
+          ? `Episode ${id} started: ${intent} (checks from card ${cardId} applied)`
           : `Episode ${id} started: ${intent}`
       },
     },
@@ -144,9 +144,9 @@ export function createMetaTools({ state, episodes, onBegin, verifyStep }) {
               checks: [
                 {
                   type: 'verify',
-                  target: '验收引擎',
-                  expected: '能跑完',
-                  actual: `抛错：${error instanceof Error ? error.message : String(error)}`,
+                  target: 'verify engine',
+                  expected: 'should run',
+                  actual: `threw: ${error instanceof Error ? error.message : String(error)}`,
                   ok: false,
                 },
               ],
@@ -156,14 +156,14 @@ export function createMetaTools({ state, episodes, onBegin, verifyStep }) {
             state.verifyFailures = Number(state.verifyFailures || 0) + 1
             const hint =
               state.verifyFailures >= 2
-                ? '\n（这是第 ' +
+                ? '\n(this is attempt ' +
                   state.verifyFailures +
-                  ' 次没过。别再自己换办法硬刚：说明你打算怎么改，或者停下等我决定。）'
+                  ' failed. Stop trying random workarounds: explain how you will fix it, or stop and wait for a decision.)'
                 : ''
             return [
-              '失败：这一步的验收没过，路径没有推进。',
+              'Failed: this checkpoint did not pass, the path did not advance.',
               formatChecks(verdict),
-              '把上面"实际"那一栏对应的东西做出来，再调一次 episode_checkpoint。',
+              'Make the "actual" column match the expected value, then call episode_checkpoint again.',
             ].join('\n') + hint
           }
         }
@@ -171,7 +171,7 @@ export function createMetaTools({ state, episodes, onBegin, verifyStep }) {
         const result = checkpoint(state, summary)
         if (!result.ok) return `episode_checkpoint: ${result.message}`
         state.verifyFailures = 0
-        const note = verdict && verdict.overridden ? '\n（本次是人工放行，验收没有跑）' : ''
+        const note = verdict && verdict.overridden ? '\n(human override: verification was skipped)' : ''
         return (result.done
           ? `Path complete (${result.index} steps).`
           : `Step ${result.index} done. Next: ${result.next}`) + note

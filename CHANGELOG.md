@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.29.0 — 2026-11-13
+
+**P0-E1 开工：失败标记常量化 + 首批英文化 + 英文闸门 + CI。**
+
+### 做了什么
+
+| 代号 | 内容 |
+|---|---|
+| **E1-01** | 新建 `src/core/markers.js`：`FAILURE_MARK = 'Failed: '` + **旧前缀双读**，`toolServer` 改用 `isFailure()`。这样 535 条可以逐文件翻，漏一处也不会让门卫认不出失败 |
+| **E1-02（部分）** | `src/tools/util.js`（失败前缀切英文，全工具共享）、`src/tools/meta.js`（9 处） |
+| **E1-03** | `src/core/verify.js` 26 处：判据的"期望/实际"、通过/失败摘要全部英文 |
+| **P0-P1** | `.github/workflows/test.yml`：Windows + Node 22，`node --test`；英文闸门先只报告不拦截 |
+| 工具 | `tools/check-english.mjs`：扫字符串字面量里的中文（跳过注释与正则），给出**准确进度** |
+
+### 基线（可验证）
+
+```
+$ node tools/check-english.mjs
+合计 535 条（31 个文件）
+  index.js 144 · tools/goals 66 · core/events 50 · tools/tutorials 41 · skills/skillmd 32 …
+```
+
+这个数字会随着每批翻译下降，直到 0 —— 比"我觉得翻完了"可靠。
+
+### 测试
+374 全过（断言随文案同步改成英文）
+
 ## v0.28.0 — 2026-11-13
 
 **范围收敛：只做英文。**

@@ -112,7 +112,7 @@ test('voice_say refuses bad args before touching the voice engine', async () => 
   })
   const say = tools.find((t) => t.name === 'voice_say')
   const out = await say.execute({ text: '' })
-  assert.match(out, /失败/)
+  assert.match(out, /Failed/)
   assert.equal(touched, false)
 })
 

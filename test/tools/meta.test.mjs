@@ -108,13 +108,13 @@ test('episode_checkpoint advances when the acceptance check passes', async () =>
 test('episode_checkpoint refuses to advance when the check fails', async () => {
   const { state, tool } = setupWithVerify(async () => ({
     ok: false,
-    checks: [{ type: 'file', target: '文件 D:\\a.md', ok: false, expected: '存在', actual: '文件不存在' }],
+    checks: [{ type: 'file', target: '文件 D:\\a.md', ok: false, expected: 'exists', actual: 'file does not exist' }],
   }))
   state.path = ['第一步', '第二步']
   state.pathIndex = 0
   const out = await tool.execute({ summary: '做完了' })
-  assert.match(out, /失败：这一步的验收没过/)
-  assert.match(out, /文件不存在/)
+  assert.match(out, /Failed: this checkpoint did not pass/)
+  assert.match(out, /file does not exist/)
   assert.equal(state.pathIndex, 0, 'path must not move')
   assert.equal(state.verifyFailures, 1)
 })
@@ -127,7 +127,7 @@ test('episode_checkpoint escalates the hint after the second failure', async () 
   state.path = ['一步']
   await tool.execute({ summary: 'x' })
   const out = await tool.execute({ summary: 'x' })
-  assert.match(out, /第 2 次没过/)
+  assert.match(out, /attempt 2/)
   assert.equal(state.verifyFailures, 2)
 })
 
