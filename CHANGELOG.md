@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.23.1 — 2026-11-13
+
+**修：客户端插件的依赖清单写错了。**
+
+v0.23.0 里我照着 dsh-context 抄了 inject 列表，但抄错了包：
+
+| 写的是 | 实际需要 | 说明 |
+|---|---|---|
+| `@deepseek-ai/dsh-api-remotes` | — | 那是 dsh-context 自己用的远端 API |
+| `@deepseek-ai/dsh-client-connection` | — | 同上 |
+| — | **`@deepseek-ai/dsh-client-ui-slots`** | **slots 是独立包，漏了它就拿不到 ctx.slots** |
+| `@deepseek-ai/dsh-client-ui-conversation` | 同 | tab 槽在会话 UI 包里 |
+
+对照 `dsh-better-sidebar`（同样用 require react + slots）后修正为：
+
+```json
+"inject": [
+  "@deepseek-ai/dsh-client-locale",
+  "@deepseek-ai/dsh-client-ui-slots",
+  "@deepseek-ai/dsh-client-ui-conversation",
+  "@deepseek-ai/dsh-client-modules"
+]
+```
+
+### 测试
+349 → **351**（清单护栏：必须有 ui-slots，不许再出现 api-remotes）
+
 ## v0.23.0 — 2026-11-13
 
 **客户端重写：走官方 slots API 注册原生页签，旧抽屉整段删除。**

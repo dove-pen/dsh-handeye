@@ -140,3 +140,11 @@ test('a host without slots still gets a minimal entry, not a drawer', () => {
   // 兜底分支用 document.body；这里只验证不抛错（真实 DOM 行为在浏览器里）
   assert.doesNotThrow(() => exports.apply(ctxNoSlots))
 })
+
+test('the client dependency list includes the slots package', () => {
+  const pkg = JSON.parse(readFileSync(root + 'package.json', 'utf8'))
+  const inject = pkg.dsh.client.inject
+  assert.ok(inject.includes('@deepseek-ai/dsh-client-ui-slots'), 'ctx.slots 来自 ui-slots 包')
+  assert.ok(inject.includes('@deepseek-ai/dsh-client-ui-conversation'), 'tab 槽来自会话 UI 包')
+  assert.ok(!inject.includes('@deepseek-ai/dsh-api-remotes'), '不该带无关包')
+})
