@@ -28,7 +28,7 @@ function sendRequest(method, params) {
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id)
-        reject(new Error(`客户端没有回应 ${method}`))
+        reject(new Error(`client did not respond to ${method}`))
       }
     }, 120000)
   }).finally(() => pending.delete(id))

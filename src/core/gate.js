@@ -114,7 +114,7 @@ export function canAct(state, tool, args = {}, now = Date.now()) {
       code: ERR.CONFIRM_REQUIRED,
       risk,
       message:
-        'This looks destructive. Ask the user to approve it once in the panel ("允许一次"), then call it again.',
+        'This looks destructive. Ask the user to approve it once in the panel ("Allow once"), then call it again.',
     }
   }
   return { ok: true, code: 'WRITE', risk }

@@ -243,7 +243,7 @@ async function runOne(check, vars, deps) {
       if (resolved.file) {
         const exists = await deps.exists(resolved.file)
         if (!exists) {
-          base.actual = '文件不存在'
+          base.actual = 'file does not exist'
           base.ms = elapsed(started)
           return base
         }

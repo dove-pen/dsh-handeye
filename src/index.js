@@ -386,7 +386,7 @@ export function apply(ctx) {
       const head = raw.trim().split(/\s+/, 1)[0].toLowerCase().replace(/\.(exe|cmd|bat)$/, '')
       // 第二道锁：normalizeChecks 已经拦过一次，这里再拦一次，防止别处直接调用
       if (!COMMAND_ALLOWLIST.includes(head)) {
-        resolve({ code: -1, stdout: '', stderr: `命令「${head}」不在白名单里` })
+        resolve({ code: -1, stdout: '', stderr: `the command "${head}" is not whitelisted` })
         return
       }
       let out = ''
@@ -533,7 +533,7 @@ export function apply(ctx) {
         ok: true,
         overridden: true,
         checks: [
-          { type: 'override', target: '人工放行', ok: true, expected: '用户确认', actual: `用户放行：${override.reason || '未写原因'}`, ms: 0 },
+          { type: 'override', target: 'override', ok: true, expected: 'user approval', actual: `user override: ${override.reason || 'no reason given'}`, ms: 0 },
         ],
       }
     }
@@ -615,7 +615,7 @@ export function apply(ctx) {
         const lines = project(view, args?.level || 'auto')
         return `${headline(view)}\n${lines.join('\n')}`
       } catch (e) {
-        return fail('eye_see 失败', e)
+        return fail('eye_see failed', e)
       }
     },
   })
@@ -637,7 +637,7 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const q = String(args?.text ?? '').trim()
-        if (!q) return 'eye_find 需要一个非空的 text'
+        if (!q) return 'eye_find needs a non-empty text'
         const view = await runHandeyeJson(['see', '--json', '--best', '--scale', '2'], { timeoutMs: 55000 })
         const lower = q.toLowerCase()
         const hits = []
@@ -648,13 +648,13 @@ export function apply(ctx) {
             }
           }
         }
-        if (hits.length === 0) return `没找到「${q}」。可以换 eye_see level=L1 看看整屏，或者用 desk_find 查控件树。`
+        if (hits.length === 0) return `"${q}" not found. Try eye_see level=L1 for the whole screen, or desk_find for the control tree.`
         const max = Number.isFinite(args?.max) ? Math.max(1, Math.floor(args.max)) : 8
         const lines = hits.slice(0, max).map((h) => `[${h.kind}] ${JSON.stringify(h.text)} @(${h.x},${h.y} ${h.w}x${h.h})`)
-        const more = hits.length > max ? `\n（共 ${hits.length} 处，只列了前 ${max} 处）` : ''
+        const more = hits.length > max ? `\n(${hits.length} matches; showing the first ${max})` : ''
         return lines.join('\n') + more
       } catch (e) {
-        return fail('eye_find 失败', e)
+        return fail('eye_find failed', e)
       }
     },
   })
@@ -670,10 +670,10 @@ export function apply(ctx) {
       try {
         const view = await runHandeyeJson(['see', '--json', '--changed'], { timeoutMs: 25000 })
         const d = view.delta || {}
-        if (d.changed === false) return '屏幕没有变化。'
-        return `屏幕变了：新增 ${d.added ?? 0} 行、消失 ${d.removed ?? 0} 行。需要细节就用 eye_see。`
+        if (d.changed === false) return 'the screen did not change.'
+        return `screen changed: +${d.added ?? 0} / -${d.removed ?? 0} lines. Use eye_see for details.`
       } catch (e) {
-        return fail('eye_changed 失败', e)
+        return fail('eye_changed failed', e)
       }
     },
   })
@@ -698,10 +698,10 @@ export function apply(ctx) {
             ? args.path.trim()
             : `${process.env.TEMP || 'C:\\Windows\\Temp'}\\dsh-handeye-${stamp}.png`
         const r = await runHandeye(['see', '--save', target], { timeoutMs: 35000 })
-        if (!r.ok) return fail('eye_shot 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
-        return `截图已保存：${target}\n（图片本身没进对话；需要看图就把这个路径交给支持看图的模型或 modlens。）`
+        if (!r.ok) return fail('eye_shot failed', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+        return `screenshot saved: ${target}\n(the image is not in this conversation; pass the path to a vision-capable model or modlens)`
       } catch (e) {
-        return fail('eye_shot 失败', e)
+        return fail('eye_shot failed', e)
       }
     },
   })
@@ -731,23 +731,23 @@ export function apply(ctx) {
           const r = await waitForChange({ timeoutMs: budget })
           if (r.changed) {
             const d = r.delta || {}
-            return `屏幕变了（等了 ${r.elapsedMs}ms）：新增 ${d.added ?? 0} 行、消失 ${d.removed ?? 0} 行。需要细节就用 eye_see。`
+            return `screen changed after ${r.elapsedMs}ms: +${d.added ?? 0} / -${d.removed ?? 0} lines. Use eye_see for details.`
           }
-          return `屏幕在 ${budget}ms 内没有变化。` + (r.error === 'timeout' ? '（超时）' : '')
+          return `the screen did not change within ${budget}ms.` + (r.error === 'timeout' ? ' (timed out)' : '')
         }
         const text = String(args?.text ?? '').trim()
-        if (!text) return `eye_wait mode=${mode} 需要 text`
+        if (!text) return `eye_wait mode=${mode} needs text`
         if (mode === 'gone') {
           const r = await waitForGone({ text, timeoutMs: budget, fast: args?.fast !== false })
-          if (r.gone) return `「${text}」已经消失（等了 ${r.elapsedMs}ms）`
+          if (r.gone) return `"${text}" is gone (waited ${r.elapsedMs}ms)`
           const still = (r.hits || []).slice(0, 3).map((h) => `  ${JSON.stringify(h.text)} @(${h.x},${h.y})`).join('\n')
-          return `等到 ${budget}ms 超时，「${text}」还在屏幕上${still ? '：\n' + still : ''}`
+          return `timed out after ${budget}ms; "${text}" is still on screen${still ? ':\n' + still : ''}`
         }
         // appear 默认走慢档：它只跑一次，而快档读不出 9px 的小字
         const wait = await waitForText({ text, timeoutMs: budget, fast: args?.fast === true })
         return formatWaitResult(wait, { text, mode })
       } catch (e) {
-        return fail('eye_wait 失败', e)
+        return fail('eye_wait failed', e)
       }
     },
   })
@@ -770,7 +770,7 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const rect = parseRegion(args?.region)
-      if (!rect) return 'eye_region 需要 region="x,y,w,h"（宽高必须大于 0）'
+      if (!rect) return 'eye_region needs region="x,y,w,h" (width and height must be > 0)'
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       const temp = process.env.TEMP || 'C:\\Windows\\Temp'
       const outPath =
@@ -778,7 +778,7 @@ export function apply(ctx) {
       try {
         const scale = Number.isFinite(args?.scale) ? args.scale : 3
         let crop = null
-        let via = 'GDI+ 直接抓屏'
+        let via = 'GDI+ screen capture'
         try {
           crop = await grabRegion({ x: rect.x, y: rect.y, w: rect.w, h: rect.h, scale, outImage: outPath })
         } catch (grabError) {
@@ -786,28 +786,28 @@ export function apply(ctx) {
           const fullPath = `${temp}\\dsh-handeye-full-${stamp}.png`
           const shot = await runHandeye(['see', '--save', fullPath], { timeoutMs: 35000 })
           if (!shot.ok) {
-            return fail('eye_region 失败', new Error(`抓屏和截图都失败了：${grabError.message} / ${shot.stderr.trim()}`))
+            return fail('eye_region failed', new Error(`both screen capture and screenshot failed: ${grabError.message} / ${shot.stderr.trim()}`))
           }
           crop = await cropRegion({ source: fullPath, x: rect.x, y: rect.y, w: rect.w, h: rect.h, scale, outImage: outPath })
-          via = 'handeye 截图后裁切'
+          via = 'handeye screenshot + crop'
         }
         const lines = [
-          `区域截图已保存：${crop.image}（${via}）`,
-          `实际截取：(${crop.region.x},${crop.region.y}) ${crop.region.w}x${crop.region.h}，放大 ${crop.scale} 倍 → ${crop.outW}x${crop.outH}`,
-          '（需要看图就把这个路径交给支持看图的模型或 modlens。）',
+          `region image saved: ${crop.image} (${via})`,
+          `captured: (${crop.region.x},${crop.region.y}) ${crop.region.w}x${crop.region.h}, upscaled ${crop.scale}x -> ${crop.outW}x${crop.outH}`,
+          '(pass this path to a vision-capable model or modlens to view it)',
         ]
         if (args?.text) {
           const ocr = await readRegion({ region: `${rect.x},${rect.y},${rect.w},${rect.h}`, scale: 4 })
-          if (!ocr.ok) lines.push(`区域 OCR 失败：${ocr.error}`)
-          else if (ocr.lines.length === 0) lines.push('区域 OCR：没有识别到文字。')
+          if (!ocr.ok) lines.push(`region OCR failed: ${ocr.error}`)
+          else if (ocr.lines.length === 0) lines.push('region OCR: no text found.')
           else {
-            lines.push('区域 OCR：')
+            lines.push('region OCR:')
             for (const l of ocr.lines.slice(0, 30)) lines.push(`  ${JSON.stringify(l.text)}`)
           }
         }
         return lines.join('\n')
       } catch (e) {
-        return fail('eye_region 失败', e)
+        return fail('eye_region failed', e)
       }
     },
   })
@@ -842,7 +842,7 @@ export function apply(ctx) {
     async execute(args) {
       const x = Number(args?.x)
       const y = Number(args?.y)
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return 'hand_click 需要数字 x 和 y'
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 'hand_click needs numeric x and y'
       const target = resolveTarget(args)
       try {
         const json = await clickAt({
@@ -860,11 +860,11 @@ export function apply(ctx) {
             const wanted = e.extra?.wanted
             const actual = e.extra?.actual
             return [
-              `失败：点击被拦下（没有按下鼠标）——(${Math.round(x)},${Math.round(y)}) 这个像素不属于目标窗口。`,
-              wanted ? `目标：${describeWindow(wanted)}` : '',
-              actual ? `实际：${describeWindow(actual)}` : '',
-              '说明有别的东西压在目标上面（常见是 DSH 自己的窗口抢了前台）。',
-              '可以重试一次；还不行就先 hand_focus 那个窗口，或者改用 hand_click_text / desk_invoke。',
+              `Failed: click blocked (mouse not pressed) - (${Math.round(x)},${Math.round(y)}) does not belong to the target window.`,
+              wanted ? `target: ${describeWindow(wanted)}` : '',
+              actual ? `actual: ${describeWindow(actual)}` : '',
+              'something is covering the target (the DSH window often grabs the foreground).',
+              'retry once; if it still fails, hand_focus that window first, or use hand_click_text / desk_invoke.',
             ]
               .filter(Boolean)
               .join('\n')
@@ -874,13 +874,13 @@ export function apply(ctx) {
             try {
               const wins = await listTopWindows()
               const top = wins.slice(0, 8).map((w) => `  ${w.hwnd}  ${JSON.stringify(w.title || '')}`).join('\n')
-              if (top) hint = `\n当前可见窗口：\n${top}`
+              if (top) hint = `\ncurrently visible windows:\n${top}`
             } catch { }
-            return `失败：找不到目标窗口（${e.message}）${hint}`
+            return `Failed: target window not found (${e.message})${hint}`
           }
-          return `失败：${e.message}${e.extra ? `（${JSON.stringify(e.extra).slice(0, 300)}）` : ''}`
+          return `Failed: ${e.message}${e.extra ? ` (${JSON.stringify(e.extra).slice(0, 300)})` : ''}`
         }
-        return fail('hand_click 失败', e)
+        return fail('hand_click failed', e)
       }
     },
   })
@@ -903,14 +903,14 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const text = String(args?.text ?? '').trim()
-      if (!text) return 'hand_click_text 需要一个非空的 text'
+      if (!text) return 'hand_click_text needs a non-empty text'
       const argv = ['click-text', text]
       if (typeof args?.expect === 'string' && args.expect.trim()) argv.push('--expect', args.expect.trim())
       if (typeof args?.expectGone === 'string' && args.expectGone.trim()) argv.push('--expect-gone', args.expectGone.trim())
       if (args?.right) argv.push('--right')
       const r = await runHandeye(argv, { timeoutMs: 40000 })
-      if (r.ok) return `已点击「${text}」${r.stdout.trim() ? '\n' + r.stdout.trim() : ''}`
-      return fail('hand_click_text 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      if (r.ok) return `clicked "${text}"${r.stdout.trim() ? '\n' + r.stdout.trim() : ''}`
+      return fail('hand_click_text failed', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
     },
   })
 
@@ -931,19 +931,19 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const text = String(args?.text ?? '')
-      if (!text) return 'hand_type 需要一个非空的 text'
+      if (!text) return 'hand_type needs a non-empty text'
       const target = resolveTarget(args)
       let note = ''
       if (target) {
         try {
           const focused = await focusWindowTarget(target)
-          note = `\n（已先切到 ${describeWindow(focused.window)}）`
+          note = `\n(focused ${describeWindow(focused.window)} first)`
         } catch (e) {
-          return `失败：打字前切窗口没成功 — ${e.message}`
+          return `Failed: could not focus before typing - ${e.message}`
         }
       }
       const r = await runHandeye(['type', text], { timeoutMs: 25000 })
-      return r.ok ? `已输入 ${[...text].length} 个字符${note}` : fail('hand_type 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      return r.ok ? `typed ${[...text].length} chars${note}` : fail('hand_type failed', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
     },
   })
 
@@ -964,19 +964,19 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const key = String(args?.key ?? '').trim()
-      if (!key) return 'hand_key 需要一个非空的 key'
+      if (!key) return 'hand_key needs a non-empty key'
       const target = resolveTarget(args)
       let note = ''
       if (target) {
         try {
           const focused = await focusWindowTarget(target)
-          note = `\n（已先切到 ${describeWindow(focused.window)}）`
+          note = `\n(focused ${describeWindow(focused.window)} first)`
         } catch (e) {
-          return `失败：按键前切窗口没成功 — ${e.message}`
+          return `Failed: could not focus before the key press - ${e.message}`
         }
       }
       const r = await runHandeye(['key', key], { timeoutMs: 15000 })
-      return r.ok ? `已按键 ${key}${note}` : fail('hand_key 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      return r.ok ? `pressed ${key}${note}` : fail('hand_key failed', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
     },
   })
 
@@ -995,7 +995,7 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const target = resolveTarget(args)
-      if (!target) return 'hand_focus 需要 title 或 hwnd'
+      if (!target) return 'hand_focus needs title or hwnd'
       try {
         const json = await focusWindowTarget(target)
         return formatFocusResult(json)
@@ -1006,18 +1006,18 @@ export function apply(ctx) {
             const wins = await listTopWindows()
             const match = target.title ? pickWindowByTitle(wins, target.title) : null
             const top = wins.slice(0, 8).map((w) => `  ${w.hwnd}  ${JSON.stringify(w.title || '')}`).join('\n')
-            if (match) hint = `\n最接近的是：${describeWindow(match)}`
-            if (top) hint += `\n当前可见窗口：\n${top}`
+            if (match) hint = `\nclosest match: ${describeWindow(match)}`
+            if (top) hint += `\ncurrently visible windows:\n${top}`
           } catch { }
-          return `失败：${e.message}${hint}`
+          return `Failed: ${e.message}${hint}`
         }
         if (e instanceof WinUiError && e.code === 'focus-failed') {
-          return `失败：窗口存在但没能拿到前台（${e.message}）。可以再试一次；如果是 UWP/全屏应用，Windows 不允许后台程序切它。`
+          return `Failed: the window exists but could not be brought to the foreground (${e.message}). Retry once; Windows blocks background processes from switching to UWP/fullscreen apps.`
         }
         // 老路：winui 后端不可用时退回 handeye focus
         const title = target.title || ''
         const r = await runHandeye(['focus', title], { timeoutMs: 15000 })
-        return r.ok ? `已切到「${title}」（未做前台校验）` : fail('hand_focus 失败', e)
+        return r.ok ? `switched to "${title}" (foreground not verified)` : fail('hand_focus failed', e)
       }
     },
   })
@@ -1039,13 +1039,13 @@ export function apply(ctx) {
     async execute(args) {
       const x = Number(args?.x)
       const y = Number(args?.y)
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return 'hand_where 需要数字 x 和 y'
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 'hand_where needs numeric x and y'
       try {
         const win = await windowAt(x, y)
-        if (!win) return `(${Math.round(x)},${Math.round(y)}) 上没有窗口（桌面）。`
-        return `(${Math.round(x)},${Math.round(y)}) 属于：${describeWindow(win)}`
+        if (!win) return `no window at (${Math.round(x)},${Math.round(y)}) (desktop).`
+        return `(${Math.round(x)},${Math.round(y)}) belongs to: ${describeWindow(win)}`
       } catch (e) {
-        return fail('hand_where 失败', e)
+        return fail('hand_where failed', e)
       }
     },
   })
@@ -1062,14 +1062,14 @@ export function apply(ctx) {
     async execute() {
       try {
         const wins = await listWindows()
-        if (wins.length === 0) return '没有找到窗口。'
+        if (wins.length === 0) return 'no windows found.'
         const lines = wins.map(
           (w) =>
-            `hwnd=${w.hwnd} pid=${w.pid} ${JSON.stringify(w.name || '')} class=${w.class || '-'} @(${w.x},${w.y} ${w.w}x${w.h})${w.offscreen ? ' [最小化/不可见]' : ''}`,
+            `hwnd=${w.hwnd} pid=${w.pid} ${JSON.stringify(w.name || '')} class=${w.class || '-'} @(${w.x},${w.y} ${w.w}x${w.h})${w.offscreen ? ' [minimized/offscreen]' : ''}`,
         )
         return lines.join('\n')
       } catch (e) {
-        return fail('desk_windows 失败', e)
+        return fail('desk_windows failed', e)
       }
     },
   })
@@ -1092,24 +1092,24 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const hwnd = Number(args?.hwnd)
-        if (!Number.isFinite(hwnd)) return 'desk_tree 需要一个数字 hwnd'
+        if (!Number.isFinite(hwnd)) return 'desk_tree needs a numeric hwnd'
         const nodes = await treeOf(hwnd, {
           depth: Number.isFinite(args?.depth) ? args.depth : 3,
           max: Number.isFinite(args?.max) ? args.max : 400,
         })
-        const head = `窗口 ${hwnd} 共 ${nodes.length} 个节点（已过滤无名无动作的容器）：`
+        const head = `window ${hwnd} has ${nodes.length} nodes (nameless, actionless containers filtered):`
         const body = formatTree(nodes)
         // Chrome/Electron 默认不暴露页面无障碍树，只给窗口按钮。不说清楚的话，
         // 模型会以为"这个窗口没有控件"，然后白白换成截图乱猜。
         const chromiumHint =
           nodes.length <= 30
-            ? '\n（如果这是 Chrome/Edge/Electron 窗口：它默认不导出页面控件的无障碍树，' +
-              '所以看不到网页里的按钮和输入框。这种情况用 browser_attach 接管浏览器按 DOM 操作，' +
-              '或者 hand_click 带 hwnd 安全点击坐标。）'
+            ? '\n(if this is a Chrome/Edge/Electron window it does not expose the page accessibility tree by default,' +
+              ' so buttons and inputs inside the page are invisible here. Use browser_attach for DOM operations,' +
+              ' or hand_click with hwnd for a safe coordinate click.)'
             : ''
         return head + '\n' + body + chromiumHint
       } catch (e) {
-        return fail('desk_tree 失败', e)
+        return fail('desk_tree failed', e)
       }
     },
   })
@@ -1134,18 +1134,18 @@ export function apply(ctx) {
       try {
         const hwnd = Number(args?.hwnd)
         const q = String(args?.query ?? '').trim()
-        if (!Number.isFinite(hwnd) || !q) return 'desk_find 需要数字 hwnd 和非空 query'
+        if (!Number.isFinite(hwnd) || !q) return 'desk_find needs a numeric hwnd and a non-empty query'
         const nodes = await treeOf(hwnd, { depth: Number.isFinite(args?.depth) ? args.depth : 5, max: 1200 })
         const hits = findControls(nodes, q)
-        if (hits.length === 0) return `窗口 ${hwnd} 里没找到「${q}」。可以先用 desk_tree 看看有哪些控件。`
+        if (hits.length === 0) return `"${q}" not found in window ${hwnd}. Use desk_tree to see the controls.`
         const max = Number.isFinite(args?.max) ? Math.max(1, args.max) : 10
         const lines = hits.slice(0, max).map(
           (n) =>
             `${n.type} ${JSON.stringify(n.name || '')} ref=${n.ref} @(${n.x},${n.y} ${n.w}x${n.h})${n.patterns?.length ? ' [' + n.patterns.join(',') + ']' : ''}`,
         )
-        return lines.join('\n') + (hits.length > max ? `\n（共 ${hits.length} 个，只列前 ${max} 个）` : '')
+        return lines.join('\n') + (hits.length > max ? `\n(${hits.length} matches; showing the first ${max})` : '')
       } catch (e) {
-        return fail('desk_find 失败', e)
+        return fail('desk_find failed', e)
       }
     },
   })
@@ -1163,12 +1163,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const ref = String(args?.ref ?? '').trim()
-      if (!ref) return 'desk_invoke 需要一个非空 ref'
+      if (!ref) return 'desk_invoke needs a non-empty ref'
       try {
         const r = await invokeRef(ref)
-        return `已触发 ${ref}（方式 ${r.via}），鼠标没有移动。`
+        return `invoked ${ref} (${r.via}); the mouse did not move.`
       } catch (e) {
-        return fail('desk_invoke 失败', e)
+        return fail('desk_invoke failed', e)
       }
     },
   })
@@ -1189,12 +1189,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const ref = String(args?.ref ?? '').trim()
-      if (!ref) return 'desk_set_value 需要一个非空 ref'
+      if (!ref) return 'desk_set_value needs a non-empty ref'
       try {
         const r = await setValueRef(ref, String(args?.value ?? ''))
-        return `已写入 ${ref}（方式 ${r.via}），没有按键、没有占用剪贴板。`
+        return `wrote ${ref} (${r.via}); no keystrokes, no clipboard.`
       } catch (e) {
-        return fail('desk_set_value 失败', e)
+        return fail('desk_set_value failed', e)
       }
     },
   })
@@ -1211,12 +1211,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const ref = String(args?.ref ?? '').trim()
-      if (!ref) return 'desk_focus 需要一个非空 ref'
+      if (!ref) return 'desk_focus needs a non-empty ref'
       try {
         await focusRef(ref)
-        return `已聚焦 ${ref}`
+        return `focused ${ref}`
       } catch (e) {
-        return fail('desk_focus 失败', e)
+        return fail('desk_focus failed', e)
       }
     },
   })
@@ -1238,12 +1238,12 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const hwnd = Number(args?.hwnd)
-        if (!Number.isFinite(hwnd)) return 'desk_text 需要一个数字 hwnd'
+        if (!Number.isFinite(hwnd)) return 'desk_text needs a numeric hwnd'
         const lines = await textOf(hwnd, { max: Number.isFinite(args?.max) ? args.max : 200 })
-        if (lines.length === 0) return `窗口 ${hwnd} 没有可读文字（可能是自绘界面），改用 eye_see。`
+        if (lines.length === 0) return `window ${hwnd} has no readable text (maybe custom-drawn); use eye_see.`
         return lines.map((l) => `${JSON.stringify(l.text)}${l.ref ? ' ref=' + l.ref : ''}`).join('\n')
       } catch (e) {
-        return fail('desk_text 失败', e)
+        return fail('desk_text failed', e)
       }
     },
   })
@@ -1263,12 +1263,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => true,
     async execute(args) {
       const target = String(args?.target ?? '').trim()
-      if (!target) return 'desk_launch 需要一个非空 target'
+      if (!target) return 'desk_launch needs a non-empty target'
       try {
         const r = await launchApp(target, typeof args?.args === 'string' ? args.args : '')
-        return `已启动 ${target}（pid ${r.pid}）`
+        return `launched ${target} (pid ${r.pid})`
       } catch (e) {
-        return fail('desk_launch 失败', e)
+        return fail('desk_launch failed', e)
       }
     },
   })
@@ -1300,15 +1300,15 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const actions = Array.isArray(args?.actions) ? args.actions : []
-      if (actions.length === 0) return 'desk_batch 需要至少一个动作'
-      if (actions.length > 20) return 'desk_batch 一次最多 20 个动作'
+      if (actions.length === 0) return 'desk_batch needs at least one action'
+      if (actions.length > 20) return 'desk_batch accepts at most 20 actions per call'
       try {
         const r = await batchActions(actions)
         const done = (r.steps || []).map((s) => `  ${s.step}. ${s.op} ok (${s.via})`).join('\n')
-        if (r.ok) return `批量完成 ${actions.length} 步：\n${done}`
-        return `批量在第 ${r.failed?.step} 步失败：${r.failed?.error}\n已完成：\n${done}`
+        if (r.ok) return `batch finished ${actions.length} steps:\n${done}`
+        return `batch failed at step ${r.failed?.step}: ${r.failed?.error}\nfinished:\n${done}`
       } catch (e) {
-        return fail('desk_batch 失败', e)
+        return fail('desk_batch failed', e)
       }
     },
   })
@@ -1332,15 +1332,15 @@ export function apply(ctx) {
       try {
         if (args?.detach) {
           const r = detachBrowser()
-          return `已断开接管，回到独立调试实例（端口 ${r.port}）。用户自己的浏览器没有被动过。`
+          return `detached; back to the standalone debugging instance (port ${r.port}). The user browser was not touched.`
         }
         const r = await attachBrowser({ port: args?.port })
         const tabs = (r.tabs || []).slice(0, 10)
         const lines = [
-          `已接管用户的浏览器：端口 ${r.port}，${r.browser}（来源 ${r.source}）`,
-          `标签页 ${r.tabs?.length ?? 0} 个：`,
+          `attached to the user browser: port ${r.port}, ${r.browser} (source ${r.source})`,
+          `tabs: ${r.tabs?.length ?? 0}`,
           ...tabs.map((t) => `  ${t.id}  ${JSON.stringify(t.title)}  ${String(t.url || '').slice(0, 90)}`),
-          '注意：这个模式下 browser_stop 不会关掉用户的浏览器。',
+          'note: in this mode browser_stop will not close the user browser.',
         ]
         return lines.join('\n')
       } catch (e) {
@@ -1349,19 +1349,19 @@ export function apply(ctx) {
           found = await discoverEndpoints()
         } catch { }
         if (found.length > 0) {
-          const list = found.map((f) => `  端口 ${f.port}（${f.browser}，来源 ${f.source}）`).join('\n')
+          const list = found.map((f) => `  port ${f.port} (${f.browser}, source ${f.source})`).join('\n')
           return [
-            `接管失败：${e instanceof Error ? e.message : e}`,
-            '但下面这些端口上有调试通道，直接指定 port 再试：',
+            `attach failed: ${e instanceof Error ? e.message : e}`,
+            'but these ports have a debugging channel; pass one as port and retry:',
             list,
           ].join('\n')
         }
         return [
-          `没有找到带调试端口的浏览器：${e instanceof Error ? e.message : e}`,
-          '用户的 Chrome/Edge 默认不带调试端口，所以现在只能接管不了。两个办法：',
-          '1) 让用户彻底退出浏览器，再用下面这条命令重开（配置目录不变，登录态都还在）：',
+          `no browser with a debugging port found: ${e instanceof Error ? e.message : e}`,
+          'Chrome/Edge do not expose a debugging port by default, so attaching cannot work right now. Two options:',
+          '1) quit the browser completely, then reopen it with:',
           '   chrome.exe --remote-debugging-port=9222',
-          '2) 或者继续用 browser_open 的独立实例（没有登录态）。',
+          '2) or keep using the standalone instance from browser_open (no logins).',
         ].join('\n')
       }
     },
@@ -1384,9 +1384,9 @@ export function apply(ctx) {
       try {
         if (args?.headless) await ensureBrowser({ headless: true })
         const r = await openUrl(typeof args?.url === 'string' ? args.url : '')
-        return `已在${isAttached() ? '用户自己的浏览器' : '调试浏览器'}打开：${r.url}\ntabId=${r.tabId}（端口 ${browserPort()}${isAttached() ? '，接管模式' : ''}）`
+        return `opened in ${isAttached() ? 'the user browser' : 'the debugging browser'}: ${r.url}\ntabId=${r.tabId} (port ${browserPort()}${isAttached() ? ', attached mode' : ''})`
       } catch (e) {
-        return fail('browser_open 失败', e)
+        return fail('browser_open failed', e)
       }
     },
   })
@@ -1406,8 +1406,8 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const s = await snapshot(args?.tabId)
-        if (!s || !Array.isArray(s.items)) return '读不到页面结构'
-        const head = `「${s.title}」 ${s.url}\n可交互元素 ${s.total} 个，列出 ${s.shown} 个：`
+        if (!s || !Array.isArray(s.items)) return 'could not read the page structure'
+        const head = `"${s.title}" ${s.url}\n${s.total} interactive elements, showing ${s.shown}:`
         const lines = s.items.map((it) => {
           const bits = [`#${it.i}`, it.tag]
           if (it.type) bits.push(it.type)
@@ -1419,7 +1419,7 @@ export function apply(ctx) {
         })
         return head + '\n' + lines.join('\n')
       } catch (e) {
-        return fail('browser_snapshot 失败', e)
+        return fail('browser_snapshot failed', e)
       }
     },
   })
@@ -1441,10 +1441,10 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const r = await clickIndex(args?.index, args?.tabId)
-        if (!r?.ok) return `没点成：${r?.error || '未知原因'}`
-        return `已点击 #${args.index} ${r.tag} ${JSON.stringify(r.label || '')}。页面可能已跳转，重新 browser_snapshot 再继续。`
+        if (!r?.ok) return `click failed: ${r?.error || 'unknown reason'}`
+        return `clicked #${args.index} ${r.tag} ${JSON.stringify(r.label || '')}. The page may have navigated; run browser_snapshot again.`
       } catch (e) {
-        return fail('browser_click 失败', e)
+        return fail('browser_click failed', e)
       }
     },
   })
@@ -1467,10 +1467,10 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const r = await fillIndex(args?.index, String(args?.value ?? ''), args?.tabId)
-        if (!r?.ok) return `没写成：${r?.error || '未知原因'}`
-        return `已向 #${args.index} 写入 ${[...String(args.value ?? '')].length} 个字符（当前值 ${JSON.stringify(r.value)}）`
+        if (!r?.ok) return `fill failed: ${r?.error || 'unknown reason'}`
+        return `typed ${[...String(args.value ?? '')].length} chars into #${args.index} (current value ${JSON.stringify(r.value)})`
       } catch (e) {
-        return fail('browser_fill 失败', e)
+        return fail('browser_fill failed', e)
       }
     },
   })
@@ -1491,9 +1491,9 @@ export function apply(ctx) {
     async execute(args) {
       try {
         const r = await pageText(args?.tabId, Number.isFinite(args?.maxChars) ? args.maxChars : 6000)
-        return `「${r.title}」 ${r.url}\n${r.text || '（页面没有可见文字）'}`
+        return `"${r.title}" ${r.url}\n${r.text || '(no visible text)'}`
       } catch (e) {
-        return fail('browser_text 失败', e)
+        return fail('browser_text failed', e)
       }
     },
   })
@@ -1513,12 +1513,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args) {
       const url = String(args?.url ?? '').trim()
-      if (!url) return 'browser_navigate 需要一个非空 url'
+      if (!url) return 'browser_navigate needs a non-empty url'
       try {
         await navigate(url, args?.tabId)
-        return `已跳转到 ${url}`
+        return `navigated to ${url}`
       } catch (e) {
-        return fail('browser_navigate 失败', e)
+        return fail('browser_navigate failed', e)
       }
     },
   })
@@ -1532,11 +1532,11 @@ export function apply(ctx) {
     async execute() {
       try {
         const tabs = await listTabs()
-        const mode = isAttached() ? `接管模式（端口 ${browserPort()}，用的是用户自己的浏览器）` : `独立实例（端口 ${browserPort()}）`
-        if (tabs.length === 0) return `${mode}：没有标签页（先 browser_open）。`
+        const mode = isAttached() ? `attached mode (port ${browserPort()}, the user browser)` : `standalone instance (port ${browserPort()})`
+        if (tabs.length === 0) return `${mode}: no tabs (call browser_open first).`
         return `${mode}\n` + tabs.map((t) => `${t.id}  ${JSON.stringify(t.title)}  ${t.url.slice(0, 100)}`).join('\n')
       } catch (e) {
-        return fail('browser_tabs 失败', e)
+        return fail('browser_tabs failed', e)
       }
     },
   })
@@ -1553,12 +1553,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => true,
     async execute(args) {
       const id = String(args?.tabId ?? '').trim()
-      if (!id) return 'browser_close 需要一个非空 tabId'
+      if (!id) return 'browser_close needs a non-empty tabId'
       try {
         await closeTab(id)
-        return `已关闭 ${id}`
+        return `closed ${id}`
       } catch (e) {
-        return fail('browser_close 失败', e)
+        return fail('browser_close failed', e)
       }
     },
   })
@@ -1573,10 +1573,10 @@ export function apply(ctx) {
     async execute() {
       try {
         const r = await stopBrowser()
-        if (r.attached) return '当前是接管模式，不会关掉用户自己的浏览器。要断开接管用 browser_attach detach=true。'
-        return r.stopped ? '调试浏览器已关闭，端口已释放。' : '调试浏览器本来就没在跑。'
+        if (r.attached) return 'attached mode: the user browser will not be closed. Use browser_attach detach=true to detach.'
+        return r.stopped ? 'debugging browser closed; port released.' : 'the debugging browser was not running.'
       } catch (e) {
-        return fail('browser_stop 失败', e)
+        return fail('browser_stop failed', e)
       }
     },
   })
@@ -1603,12 +1603,12 @@ export function apply(ctx) {
           const { readFileSync } = await import('node:fs')
           input = readFileSync(args.path.trim(), 'utf8')
         }
-        if (!input) return 'eye_text 需要 text 或 path'
+        if (!input) return 'eye_text needs text or path'
         const r = slimText(input, { budget: Number.isFinite(args?.budget) ? args.budget : 4000 })
         const s = r.stats
-        return `${r.text}\n\n--- stats: ${s.lines_in}→${s.lines_out} 行, ${s.chars_in}→${s.chars_out} 字符, 去重 ${s.deduped}, 去噪 ${s.noise}, 省略 ${s.omitted_lines} 行, 保留报警 ${s.alarms_kept} ---`
+        return `${r.text}\n\n--- stats: ${s.lines_in}->${s.lines_out} lines, ${s.chars_in}->${s.chars_out} chars, deduped ${s.deduped}, noise ${s.noise}, omitted ${s.omitted_lines} lines, alarms kept ${s.alarms_kept} ---`
       } catch (e) {
-        return fail('eye_text 失败', e)
+        return fail('eye_text failed', e)
       }
     },
   })
@@ -1621,7 +1621,7 @@ export function apply(ctx) {
       type: 'object',
       properties: {
         tail: { type: 'number', description: 'How many recent events, default 30.' },
-        level: { type: 'string', description: 'Minimum level: 严重/错误/警告/信息/详细 (or error/warn/info).' },
+        level: { type: 'string', description: 'Minimum level: 1-5 or critical/error/warn/info/verbose.' },
         id: { type: 'number', description: 'Filter by event id.' },
         grep: { type: 'string', description: 'Substring filter.' },
       },
@@ -1635,8 +1635,8 @@ export function apply(ctx) {
       if (Number.isFinite(args?.id)) argv.push('--id', String(Math.floor(args.id)))
       if (typeof args?.grep === 'string' && args.grep.trim()) argv.push('--grep', args.grep.trim())
       const r = await runHandeye(argv, { timeoutMs: 25000 })
-      if (!r.ok) return fail('yl_log 失败', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
-      return r.stdout.trim() || '（没有匹配的日志）'
+      if (!r.ok) return fail('yl_log failed', new Error(`${codeMeaning(r.code)} ${r.stderr.trim()}`))
+      return r.stdout.trim() || '(no matching log entries)'
     },
   })
 
@@ -1739,6 +1739,6 @@ export function apply(ctx) {
 
   // 启动时打一行，便于确认插件真的挂上了。
   try {
-    ctx.logger?.info?.(`dsh-handeye 已加载，handeye = ${exePath()}`)
+    ctx.logger?.info?.(`dsh-handeye loaded, handeye = ${exePath()}`)
   } catch { }
 }

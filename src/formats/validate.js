@@ -95,6 +95,6 @@ export function validate(schema, value, path = '') {
 export function summarize(errors, limit = 5) {
   if (!errors.length) return ''
   const lines = errors.slice(0, limit).map((e) => (e.path ? `${e.path} ${e.message}` : e.message))
-  if (errors.length > limit) lines.push(`… 还有 ${errors.length - limit} 条`)
+  if (errors.length > limit) lines.push(`… ${errors.length - limit} more`)
   return lines.join('；')
 }

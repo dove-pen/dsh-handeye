@@ -31,7 +31,7 @@ export function createVoiceTools({ runHandeye }) {
 
         const result = await sayWithFallback(normalized.args, { runHandeye })
         if (!result.ok) return fail(`Could not speak (${result.via}): ${result.message}`)
-        return result.wav ? `${result.message} (via ${result.via})` : `${result.message}：「${text(normalized.args.text).slice(0, 40)}」（通道：${result.via}）`
+        return result.wav ? `${result.message} (via ${result.via})` : `${result.message}: "${text(normalized.args.text).slice(0, 40)}" (via ${result.via})`
       },
     },
 

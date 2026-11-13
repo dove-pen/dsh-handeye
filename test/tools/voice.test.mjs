@@ -126,7 +126,7 @@ test('voice_say reports which channel was used', async () => {
   try {
     const wav = path.join(dir, 'out.wav')
     const out = await say.execute({ text: '测试', wav })
-    assert.match(out, /通道：system-speech|失败/)
+    assert.match(out, /via system-speech|failed/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

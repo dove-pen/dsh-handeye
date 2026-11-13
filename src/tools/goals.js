@@ -242,7 +242,7 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         if (!summary) return fail('goal_step_done needs a summary describing what was actually done')
 
         const doc = await goalOf(goalId)
-        if (!doc) return fail(`找不到目标 ${goalId}`)
+        if (!doc) return fail(`Goal not found: ${goalId}`)
         const step = doc.steps.find((s) => s.id === stepId)
 
         // 只能给正在跑的那一步结账：否则可以在做 s1 的时候把 s3 标成完成，
@@ -323,7 +323,7 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         lines.push(`Progress: ${progressLine(summaryLine)}`)
         const next = after.steps.find((s) => s.status === 'todo')
         if (next) {
-          lines.push(`下一步：goal_step_enter ${goalId} ${next.id}`)
+          lines.push(`Next: goal_step_enter ${goalId} ${next.id}`)
         } else {
           // 全部做完必须放开目标焦点：否则 state.goalId 一直挂着，
           // 接下来任何写操作都会被 GOAL_STEP_REQUIRED 拒掉，模型会原地打转。
@@ -375,7 +375,7 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         const extra = Math.min(40, Math.max(1, Number.isInteger(args?.extra) ? args.extra : DEFAULT_STEP_BUDGET))
 
         const doc = await goalOf(goalId)
-        if (!doc) return fail(`找不到目标 ${goalId}`)
+        if (!doc) return fail(`Goal not found: ${goalId}`)
         const step = doc.steps.find((s) => s.id === stepId)
         if (!step) return fail(`Goal has no step ${stepId}`)
         if (step.status !== 'doing') return fail(`Step ${stepId} is ${step.status}, not doing`)
