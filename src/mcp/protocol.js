@@ -59,7 +59,7 @@ export function createMcpHandler({ listTools, callTool, info, request, grant }) 
             capabilities: { tools: { listChanged: false } },
             serverInfo,
             instructions:
-              '这台机器上的手眼工具。所有动作都过门卫：暂停/步骤/预算/破坏性确认被拒绝时，会以 isError 返回并说明原因。',
+              'HandEye tools on this machine. Every action goes through the gate: when paused, out of step, over budget or waiting for destructive-action confirmation, the call returns isError with the reason.',
           })
         }
 
@@ -89,27 +89,27 @@ export function createMcpHandler({ listTools, callTool, info, request, grant }) 
             let answer = null
             try {
               answer = await request('elicitation/create', {
-                message: `AI 想执行「${name}」，这看起来是破坏性操作。要允许这一次吗？`,
+                message: `The AI wants to run "${name}", which looks destructive. Allow it once?`,
                 requestedSchema: {
                   type: 'object',
-                  properties: { approve: { type: 'boolean', title: '允许一次', description: '只对这一个动作、只生效一次' } },
+                  properties: { approve: { type: 'boolean', title: 'Allow once', description: 'this action only, valid once' } },
                   required: ['approve'],
                 },
               })
             } catch (error) {
               return okResponse(id, {
-                content: [{ type: 'text', text: `需要用户确认，但宿主没能弹窗（${error instanceof Error ? error.message : String(error)}）。请让用户在本机执行：node bin/he-server.js confirm ${name}` }],
+                content: [{ type: 'text', text: `confirmation needed but the host could not prompt (${error instanceof Error ? error.message : String(error)}). Ask the user to run locally: node bin/he-server.js confirm ${name}` }],
                 isError: true,
               })
             }
             if (answer && answer.action === 'accept') {
               if (!grant(name)) {
-                return okResponse(id, { content: [{ type: 'text', text: '确认通道不可用：没能写入一次性授权。' }], isError: true })
+                return okResponse(id, { content: [{ type: 'text', text: 'confirmation channel unavailable: could not write a one-shot grant.' }], isError: true })
               }
               result = await callTool(name, args)
               text = String(result?.text ?? '')
             } else {
-              return okResponse(id, { content: [{ type: 'text', text: '用户拒绝了这个动作。' }], isError: true })
+              return okResponse(id, { content: [{ type: 'text', text: 'the user declined this action.' }], isError: true })
             }
           }
 

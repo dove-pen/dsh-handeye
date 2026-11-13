@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.29.4 — 2026-11-13
+
+**P0-E1 第五批：技能格式、面板路由、MCP、客户端、记忆与指标层英文化。**
+
+| 文件 | 之前 | 现在 |
+|---|---|---|
+| `src/skills/skillmd.js` | 32 | **0** |
+| `src/api/routes.js` | 8 | **0** |
+| `src/mcp/protocol.js` | 7 | **0** |
+| `src/client.js` | 7 | **0** |
+| `src/memory/anchor.js` | 5 | **0** |
+| `src/memory/skills.js` | 5 | **0** |
+| `src/runtime/logReader.js` | 5 | **0** |
+| `src/core/metrics.js` | 4 | **0** |
+| `src/packs/loader.js` | 3 | **0** |
+| `src/server/headless.js` | 3 | **0** |
+
+### 闸门数字
+
+```
+535 → 466 → 405 → 355 → 321 → 260 → 206 → 182
+```
+
+### 说明
+
+- `anchor.js` 解析窗口名用的正则跟着 winui 的输出改成了 `hit window:`；
+  测试样例输出同步改了（否则容器名解析为空）
+- 面板标题、页签标签彻底变成 `HandEye`
+
+### 测试
+374 全过
+
 ## v0.29.3 — 2026-11-13
 
 **P0-E1 第四批：屏幕投影 / 窗口 / 浏览器 / 打包层英文化。**

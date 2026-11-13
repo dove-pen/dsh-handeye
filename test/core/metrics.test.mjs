@@ -99,13 +99,13 @@ test('formatMetrics renders a readable three-line summary', () => {
     refusals: { GOAL_STEP_REQUIRED: 1 },
   })
   const text = formatMetrics(m)
-  assert.match(text, /目标 1（进行 1）· 步骤 1\/1/)
-  assert.match(text, /验收通过率 50%/)
-  assert.match(text, /拦下越界 1/)
+  assert.match(text, /goals 1 \(1 active\) · steps 1\/1/)
+  assert.match(text, /check pass rate 50%/)
+  assert.match(text, /blocked out-of-scope 1/)
 })
 
 test('formatMetrics says so when nothing has been judged yet', () => {
-  assert.match(formatMetrics(computeMetrics()), /还没验过/)
+  assert.match(formatMetrics(computeMetrics()), /not verified yet/)
 })
 
 test('path checkpoints count separately from step deviations', () => {
@@ -115,5 +115,5 @@ test('path checkpoints count separately from step deviations', () => {
   })
   assert.equal(m.pathRefused, 2)
   assert.equal(m.deviationRefused, 1)
-  assert.match(formatMetrics(m), /路径拦截 2/)
+  assert.match(formatMetrics(m), /path 2/)
 })

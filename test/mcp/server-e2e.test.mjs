@@ -86,7 +86,7 @@ test('a confirmed destructive action is retried and its real result is returned'
     // 只断言"门卫放行了"：这台机器可能真的开着浏览器（导航会成功），
     // 也可能没有（导航会失败）。断言具体结果就会变成依赖环境的脆弱测试。
     assert.doesNotMatch(text, /CONFIRM_REQUIRED/, '确认之后不能再是门卫拒绝')
-    assert.doesNotMatch(text, /需要用户确认/, '确认之后不该再要确认')
+    assert.doesNotMatch(text, /confirmation needed/, '确认之后不该再要确认')
     assert.ok(text.length > 0)
   } finally {
     host.close()
@@ -103,7 +103,7 @@ test('a declined destructive action never runs', async () => {
     const result = host.events.results.get(2)
     const text = String(result?.content?.[0]?.text ?? '')
     assert.equal(result.isError, true)
-    assert.match(text, /拒绝/)
+    assert.match(text, /declined/)
     assert.doesNotMatch(text, /fetch failed/, '拒绝了就不该真的去执行')
   } finally {
     host.close()

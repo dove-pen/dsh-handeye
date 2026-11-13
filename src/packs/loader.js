@@ -30,10 +30,10 @@ export function loadPack(dir) {
   try {
     raw = JSON.parse(readFileSync(packFile, 'utf8'))
   } catch (error) {
-    return failure(ERR.NOT_FOUND, `读不到 ${packFile}：${error instanceof Error ? error.message : String(error)}`)
+    return failure(ERR.NOT_FOUND, `could not read ${packFile}: ${error instanceof Error ? error.message : String(error)}`)
   }
   const shape = validateDomainPack(raw)
-  if (!shape.ok) return failure(ERR.INVALID, `领域包格式不对：${shape.message}`)
+  if (!shape.ok) return failure(ERR.INVALID, `invalid domain pack: ${shape.message}`)
   return success({ pack: raw, dir })
 }
 
@@ -52,7 +52,7 @@ export async function installPack(dir, { cards } = {}) {
 
   for (const card of pack.cards ?? []) {
     if (!cards || typeof cards.importCard !== 'function') {
-      failed.push({ id: card.id, message: '没有卡片仓库，无法安装' })
+      failed.push({ id: card.id, message: 'no card store; cannot install' })
       continue
     }
     // 把包内脚本路径填进去，再补上卡片 schema 的必填默认值

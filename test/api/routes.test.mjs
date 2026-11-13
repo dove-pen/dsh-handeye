@@ -179,6 +179,6 @@ test('writing a tutorial without steps is refused', async () => {
     handlers.get('/dsh-handeye-plus/tutorials/save')(req, res)
     await new Promise((r) => setTimeout(r, 50))
     assert.equal(res.status, 400)
-    assert.match(String(res.body), /至少要写一个步骤/)
+    assert.match(String(res.body), /at least one step is required/)
   })
 })

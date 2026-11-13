@@ -287,7 +287,7 @@ export function registerRoutes({ ctx, runtime, version }) {
           res.end(html)
         } catch (error) {
           res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
-          res.end('面板文件缺失：' + (error instanceof Error ? error.message : String(error)))
+          res.end('panel file missing: ' + (error instanceof Error ? error.message : String(error)))
         }
       })
 
@@ -374,10 +374,10 @@ export function registerRoutes({ ctx, runtime, version }) {
         const title = String(body.title || '').trim()
         const goal = String(body.goal || '').trim()
         const pathSteps = Array.isArray(body.path) ? body.path.map((x) => String(x).trim()).filter(Boolean) : []
-        if (!/^[a-z][a-z0-9_]{2,40}$/.test(id)) return sendJson(res, 400, { ok: false, error: 'id 只能用小写字母/数字/下划线，3-41 位' })
-        if (!title) return sendJson(res, 400, { ok: false, error: '标题不能为空' })
-        if (!goal) return sendJson(res, 400, { ok: false, error: '目标不能为空' })
-        if (!pathSteps.length) return sendJson(res, 400, { ok: false, error: '至少要写一个步骤' })
+        if (!/^[a-z][a-z0-9_]{2,40}$/.test(id)) return sendJson(res, 400, { ok: false, error: 'id must be lowercase letters/digits/underscore, 3-41 chars' })
+        if (!title) return sendJson(res, 400, { ok: false, error: 'title is required' })
+        if (!goal) return sendJson(res, 400, { ok: false, error: 'goal is required' })
+        if (!pathSteps.length) return sendJson(res, 400, { ok: false, error: 'at least one step is required' })
 
         const existing = await runtime.cards.get(id)
         const doc = {
@@ -391,8 +391,8 @@ export function registerRoutes({ ctx, runtime, version }) {
           category: body.category ? String(body.category) : 'tutorial',
           goal,
           constraints: Array.isArray(body.constraints) ? body.constraints.map((x) => String(x)).filter(Boolean) : [],
-          success: String(body.success || '').trim() || '按步骤做完，且最后一步的判据通过',
-          onFailure: String(body.onFailure || '').trim() || '停下来报告卡在哪一步',
+          success: String(body.success || '').trim() || 'follow the steps; the last step check must pass',
+          onFailure: String(body.onFailure || '').trim() || 'stop and report which step blocked',
           path: pathSteps,
           verify: Array.isArray(body.verify) ? body.verify : [],
           enabled: body.enabled !== false,
@@ -415,7 +415,7 @@ export function registerRoutes({ ctx, runtime, version }) {
           goalId: started.goalId,
           firstStep: started.firstStep,
           stepCount: started.stepCount,
-          hint: '教程已开始。对 AI 说一句「继续」它就会按步骤走。',
+          hint: 'Tutorial started. Tell the AI "continue" and it will follow the steps.',
         })
       })
 

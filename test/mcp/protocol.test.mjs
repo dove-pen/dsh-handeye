@@ -153,7 +153,7 @@ test('with elicitation declined the action does not happen', async () => {
   await handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: {} } } })
   const res = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hand_type', arguments: { text: 'x' } } })
   assert.equal(res.result.isError, true)
-  assert.match(res.result.content[0].text, /拒绝/)
+  assert.match(res.result.content[0].text, /declined/)
   assert.equal(calls.length, 1, '拒绝了就不许重试')
 })
 
@@ -162,6 +162,6 @@ test('if the grant cannot be written the action is still refused', async () => {
   await handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: {} } } })
   const res = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hand_type', arguments: { text: 'x' } } })
   assert.equal(res.result.isError, true)
-  assert.match(res.result.content[0].text, /没能写入一次性授权/)
+  assert.match(res.result.content[0].text, /could not write a one-shot grant/)
   assert.equal(calls.length, 1)
 })

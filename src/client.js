@@ -13,12 +13,12 @@
 function loadEntry(definition) {
   try {
     if (typeof window === 'undefined' || !window.__ModuleLoader__ || typeof window.__ModuleLoader__.load !== 'function') {
-      console.warn('[handeye] ModuleLoader 不可用，跳过客户端入口')
+      console.warn('[handeye] ModuleLoader is unavailable; skipping the client entry')
       return
     }
     window.__ModuleLoader__.load(definition)
   } catch (error) {
-    console.warn('[handeye] 客户端入口加载失败（已忽略）：' + (error instanceof Error ? error.message : String(error)))
+    console.warn('[handeye] client entry failed to load (ignored): ' + (error instanceof Error ? error.message : String(error)))
   }
 }
 
@@ -43,7 +43,7 @@ loadEntry({
         style: { height: '100%', width: '100%', display: 'flex', minHeight: 0 },
         children: jsx('iframe', {
           src: PANEL_URL,
-          title: '手嘴眼控制面板',
+          title: 'HandEye Control Panel',
           style: { flex: 1, width: '100%', border: 0, minHeight: 0, background: '#0f1115' },
         }),
       })
@@ -52,12 +52,12 @@ loadEntry({
     function registerTab(ctx) {
       const slots = ctx && ctx.slots
       if (!slots || typeof slots.inject !== 'function' || typeof slots.register !== 'function') {
-        throw new Error('slots API 不可用')
+        throw new Error('slots API is unavailable')
       }
       const register = () =>
         slots.inject('conversation.view', () =>
           slots.register(
-            { name: 'conversation.view', id: 'shouzuian', order: 25, label: () => '手嘴眼' },
+            { name: 'conversation.view', id: 'shouzuian', order: 25, label: () => 'HandEye' },
             Panel,
           ),
         )
@@ -73,7 +73,7 @@ loadEntry({
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.dataset.dshHeFallback = '1'
-      btn.textContent = '手嘴眼'
+      btn.textContent = 'HandEye'
       btn.style.cssText =
         'position:fixed;right:16px;top:52px;z-index:2147483000;font:inherit;font-size:12px;color:#e6e9ee;' +
         'background:#1c2129;border:1px solid #262c36;border-radius:6px;padding:4px 10px;cursor:pointer'
@@ -91,7 +91,7 @@ loadEntry({
         try {
           ctx?.logger?.warn?.('handeye tab registration skipped: ' + message)
         } catch {}
-        console.warn('[handeye] 页签注册失败，退到兜底入口：' + message)
+        console.warn('[handeye] tab registration failed; using the fallback entry: ' + message)
       }
       if (!registered) {
         try {

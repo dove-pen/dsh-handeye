@@ -59,7 +59,7 @@ test('a broken pack is rejected with a readable reason', async () => {
   try {
     const loaded = loadPack(dir)
     assert.equal(loaded.ok, false)
-    assert.match(loaded.message, /领域包格式不对/)
+    assert.match(loaded.message, /invalid domain pack/)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
@@ -70,7 +70,7 @@ test('a missing pack.json fails without throwing', async () => {
   try {
     const loaded = loadPack(dir)
     assert.equal(loaded.ok, false)
-    assert.match(loaded.message, /读不到/)
+    assert.match(loaded.message, /could not read/)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

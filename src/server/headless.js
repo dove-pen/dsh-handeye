@@ -42,13 +42,13 @@ export async function bootHeadless({ waitMs = 400 } = {}) {
       })),
     callTool: async (name, args) => {
       const tool = byName.get(String(name))
-      if (!tool) return { ok: false, text: `失败：没有这个工具 ${name}` }
+      if (!tool) return { ok: false, text: `Failed: no such tool ${name}` }
       try {
         const out = await tool.execute(args ?? {}, null)
         const text = typeof out === 'string' ? out : JSON.stringify(out, null, 2)
-        return { ok: !(text.startsWith('Refused:') || text.includes('失败：')), text }
+        return { ok: !(text.startsWith('Refused:') || text.includes('Failed: ') || text.includes('失败：')), text }
       } catch (error) {
-        return { ok: false, text: `失败：${error instanceof Error ? error.message : String(error)}` }
+        return { ok: false, text: `Failed: ${error instanceof Error ? error.message : String(error)}` }
       }
     },
   }

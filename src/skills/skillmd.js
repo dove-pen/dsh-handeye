@@ -31,9 +31,9 @@ function yamlValue(value) {
 function describeSkill(skill) {
   const stepCount = (skill.steps ?? []).length
   const params = (skill.params ?? []).map((p) => p.name).filter(Boolean)
-  const bits = [`${skill.title}（${stepCount} 步）`]
-  if (params.length) bits.push(`参数：${params.join('、')}`)
-  bits.push('由手眼插件的操作记录编译而来，按步骤执行即可。')
+  const bits = [`${skill.title} (${stepCount} steps)`]
+  if (params.length) bits.push(`Params: ${params.join(', ')}`)
+  bits.push('Compiled from HandEye run records; just follow the steps.')
   return bits.join('；').slice(0, MAX_DESCRIPTION)
 }
 
@@ -42,23 +42,23 @@ export function exportSkillMarkdown(skill) {
   const warnings = []
   const name = slugify(skill.title, skill.id)
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(name) || name.length > MAX_NAME) {
-    warnings.push(`name「${name}」不符合规范（小写字母/数字/连字符，最长 ${MAX_NAME}）`)
+    warnings.push(`name "${name}" is invalid (lowercase letters/digits/hyphens, max ${MAX_NAME})`)
   }
 
   const params = skill.params ?? []
   const steps = skill.steps ?? []
 
   const stepLines = steps.map((step, index) => {
-    const args = step.args && Object.keys(step.args).length ? `，参数 \`${JSON.stringify(step.args)}\`` : ''
+    const args = step.args && Object.keys(step.args).length ? `, args \`${JSON.stringify(step.args)}\`` : ''
     const expect = step.expect
-      ? `。完成判据：${describeCheck(step.expect)}`
-      : '。**这一步没有机器判据**，做完要自己确认'
-    return `${index + 1}. **${step.intent ?? step.tool ?? '未命名步骤'}** — 工具 \`${step.tool ?? '?'}\`${args}${expect}`
+      ? `. Check: ${describeCheck(step.expect)}`
+      : '. **No machine check on this step** - confirm it yourself'
+    return `${index + 1}. **${step.intent ?? step.tool ?? 'unnamed step'}** — tool \`${step.tool ?? '?'}\`${args}${expect}`
   })
 
   const paramLines = params.length
-    ? params.map((p) => `- \`{{${p.name}}}\`${p.required ? '（必填）' : '（可选）'}${p.example ? `，例如 \`${p.example}\`` : ''}`)
-    : ['（不需要参数）']
+    ? params.map((p) => `- \`{{${p.name}}}\`${p.required ? ' (required)' : ' (optional)'}${p.example ? `, e.g. \`${p.example}\`` : ''}`)
+    : ['(no params)']
 
   const machine = {
     schemaVersion: 1,
@@ -77,26 +77,26 @@ export function exportSkillMarkdown(skill) {
     '',
     describeSkill(skill),
     '',
-    '## 什么时候用',
+    '## When to use',
     '',
-    `当用户要做「${skill.title}」这类事时使用；照着下面的步骤走，不要自己改顺序。`,
+    `Use this when the user wants to do something like "${skill.title}"; follow the steps below in order.`,
     '',
-    '## 参数',
+    '## Params',
     '',
     ...paramLines,
     '',
-    '## 步骤',
+    '## Steps',
     '',
-    ...(stepLines.length ? stepLines : ['（没有步骤）']),
+    ...(stepLines.length ? stepLines : ['(no steps)']),
     '',
-    '## 注意',
+    '## Notes',
     '',
-    '- 每一步做完先确认判据再往下走；判据不过就停下来说明原因，不要换别的办法硬刚。',
-    '- 涉及删除/覆盖的动作，先问用户。',
+    '- After each step, verify the check before moving on; if it fails, stop and explain instead of trying random workarounds.',
+    '- Ask the user before deleting or overwriting anything.',
     '',
     '## Machine-readable steps',
     '',
-    '下面这段是给手眼插件回读用的，别的客户端可以忽略。',
+    'The block below is for the HandEye plugin to read back; other clients can ignore it.',
     '',
     '```json',
     JSON.stringify(machine, null, 2),
@@ -109,7 +109,7 @@ export function exportSkillMarkdown(skill) {
     `name: ${yamlValue(name)}`,
     `description: ${yamlValue(describeSkill(skill))}`,
     skill.origin?.author ? `license: ${yamlValue('MIT')}` : `license: ${yamlValue('MIT')}`,
-    `compatibility: ${yamlValue('Windows；需要 Node ≥ 20；桌面自动化需要前台窗口权限')}`,
+    `compatibility: ${yamlValue('Windows; Node >= 20; desktop automation needs foreground window access')}`,
     'metadata:',
     `  handeye.id: ${yamlValue(skill.id)}`,
     `  handeye.version: ${yamlValue(String(skill.version ?? 1))}`,
@@ -138,7 +138,7 @@ export function exportSkillMarkdown(skill) {
     files.push({ path: `scripts/${base}`, from: scripts.get(base) })
   }
   if (scripts.size) {
-    warnings.push('判据里的脚本已作为 scripts/ 附件带上；导入时需要确认这些脚本能在新环境跑')
+    warnings.push('scripts referenced by checks are bundled as scripts/; confirm they can run in the new environment when importing')
   }
 
   return { name, files, warnings }
@@ -146,21 +146,21 @@ export function exportSkillMarkdown(skill) {
 
 function describeCheck(expect) {
   const check = Array.isArray(expect) ? expect[0] : expect
-  if (!check) return '（无）'
-  if (check.type === 'file') return `文件 \`${check.path}\` 存在${check.minBytes ? `且 ≥ ${check.minBytes} 字节` : ''}`
-  if (check.type === 'text') return `${check.file ? `文件 \`${check.file}\`` : '屏幕上'}${check.appear ? `出现「${check.appear}」` : `不出现「${check.absent}」`}`
-  if (check.type === 'screen') return `屏幕上出现「${check.appear}」`
-  if (check.type === 'exit') return `命令 \`${check.command}\` 退出码为 0`
-  if (check.type === 'changed') return '画面有变化'
+  if (!check) return '(none)'
+  if (check.type === 'file') return `file \`${check.path}\` exists${check.minBytes ? ` and >= ${check.minBytes} bytes` : ''}`
+  if (check.type === 'text') return `${check.file ? `file \`${check.file}\`` : 'on screen'}${check.appear ? ` shows "${check.appear}"` : `不出现「${check.absent}」`}`
+  if (check.type === 'screen') return `text "${check.appear}" appears on screen`
+  if (check.type === 'exit') return `command \`${check.command}\` exits 0`
+  if (check.type === 'changed') return 'screen changed'
   return check.type
 }
 
 /** 极简 frontmatter 解析：只认 `key: value` 与一层缩进的 map。 */
 export function parseFrontmatter(text) {
   const source = String(text ?? '')
-  if (!source.startsWith('---')) return { ok: false, error: 'SKILL.md 必须以 YAML frontmatter（---）开头' }
+  if (!source.startsWith('---')) return { ok: false, error: 'SKILL.md must start with a YAML frontmatter block (---)' }
   const end = source.indexOf('\n---', 3)
-  if (end < 0) return { ok: false, error: 'frontmatter 没有结束的 ---' }
+  if (end < 0) return { ok: false, error: 'frontmatter has no closing ---' }
   const head = source.slice(3, end).replace(/^\r?\n/, '')
   const body = source.slice(source.indexOf('\n', end + 1) + 1)
 
@@ -171,7 +171,7 @@ export function parseFrontmatter(text) {
     const indented = /^\s+/.test(rawLine)
     const line = rawLine.trim()
     const sep = line.indexOf(':')
-    if (sep < 0) return { ok: false, error: `frontmatter 里这行看不懂：${line}` }
+    if (sep < 0) return { ok: false, error: `cannot parse this frontmatter line: ${line}` }
     const key = line.slice(0, sep).trim()
     let value = line.slice(sep + 1).trim()
     if (value.startsWith('"') && value.endsWith('"')) {
@@ -204,8 +204,8 @@ export function importSkillMarkdown(text, { id, now = new Date() } = {}) {
 
   const name = String(data.name ?? '').trim()
   const description = String(data.description ?? '').trim()
-  if (!name) return { ok: false, error: 'frontmatter 缺 name' }
-  if (!description) return { ok: false, error: 'frontmatter 缺 description' }
+  if (!name) return { ok: false, error: 'frontmatter is missing name' }
+  if (!description) return { ok: false, error: 'frontmatter is missing description' }
 
   const warnings = []
   const block = /```json\s*\n([\s\S]*?)\n```/.exec(body)
@@ -227,7 +227,7 @@ export function importSkillMarkdown(text, { id, now = new Date() } = {}) {
         }
       }
     } catch (error) {
-      warnings.push(`机器可读段解析失败（${error instanceof Error ? error.message : String(error)}），退化成手工技能`)
+      warnings.push(`machine-readable block failed to parse (${error instanceof Error ? error.message : String(error)}); falling back to a manual skill`)
     }
   }
 
@@ -244,7 +244,7 @@ export function importSkillMarkdown(text, { id, now = new Date() } = {}) {
       steps: [
         {
           id: 's1',
-          intent: `按 SKILL.md 的说明执行：${name}`,
+          intent: `Follow the SKILL.md instructions: ${name}`,
           tool: 'desk_windows',
           args: {},
           anchor: null,
@@ -255,7 +255,7 @@ export function importSkillMarkdown(text, { id, now = new Date() } = {}) {
       health: { runs: 0, ok: 0, fail: 0, failsInRow: 0, lastRunAt: null, lastFailReason: null, status: 'untested' },
       incomplete: { stepsWithoutChecks: 1, fragileSteps: 0 },
     }
-    warnings.push('这份 SKILL.md 没有机器可读段：已转成"照说明执行"的单步技能，判据为空')
+    warnings.push('this SKILL.md has no machine-readable block: converted to a single manual step with no checks')
   }
 
   return { ok: true, skill, warnings, name, description }

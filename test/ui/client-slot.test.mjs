@@ -99,7 +99,7 @@ test('it registers a real tab on conversation.view, next to 上下文 and 编队
   assert.equal(meta.name, 'conversation.view')
   assert.equal(meta.id, 'shouzuian')
   assert.equal(typeof meta.order, 'number')
-  assert.equal(meta.label(), '手嘴眼')
+  assert.equal(meta.label(), 'HandEye')
 })
 
 test('the tab renders the plugin dashboard in an iframe', () => {

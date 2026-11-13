@@ -63,7 +63,7 @@ export function buildAnchor(tool, args = {}, output = '') {
   }
   if (!anchor.container) {
     const text = String(output ?? '')
-    const hit = /命中窗口[：:]\s*(.+)/.exec(text) || /目标窗口[：:]\s*(.+)/.exec(text)
+    const hit = /hit window[:：]\s*(.+)/.exec(text) || /target window[:：]\s*(.+)/.exec(text)
     if (hit) anchor.container = hit[1].trim().slice(0, 60)
   }
   const hasSemanticText = anchor.source !== 'none'
@@ -86,12 +86,12 @@ export function buildAnchor(tool, args = {}, output = '') {
 
 /** 给人看的一句话（面板里显示的就是这个）。 */
 export function describeAnchor(anchor) {
-  if (!anchor) return '（无锚点）'
+  if (!anchor) return '(no anchor)'
   const bits = []
-  if (anchor.text) bits.push(`找「${anchor.text}」`)
-  if (anchor.container) bits.push(`在「${anchor.container}」里`)
-  if (!bits.length && anchor.point) bits.push(`按坐标 (${anchor.point.x},${anchor.point.y})`)
+  if (anchor.text) bits.push(`find "${anchor.text}"`)
+  if (anchor.container) bits.push(`inside "${anchor.container}"`)
+  if (!bits.length && anchor.point) bits.push(`at (${anchor.point.x},${anchor.point.y})`)
   if (!bits.length) bits.push(anchor.kind)
-  if (anchor.fragile) bits.push('（换屏幕/窗口可能失效）')
+  if (anchor.fragile) bits.push('(may break if the screen or window changes)')
   return bits.join(' ')
 }

@@ -82,7 +82,7 @@ function titleOf(group) {
   const text = String(group.episodes[0]?.intent?.text ?? '').trim()
   if (text) return text.slice(0, 60)
   const tools = group.shape.tools.slice(0, 3).join(' → ')
-  return `自动化：${tools}`
+  return `Automation: ${tools}`
 }
 
 /**
@@ -147,10 +147,10 @@ function describeStep(step, anchor) {
   const tool = String(step?.tool ?? '')
   const args = step?.args ?? {}
   if (anchor?.text) return `${tool}：${anchor.text}`
-  if (tool === 'hand_type' && args.text) return `输入「${String(args.text).slice(0, 40)}」`
-  if (tool === 'browser_navigate' && args.url) return `打开 ${args.url}`
-  if (tool === 'desk_launch' && args.target) return `启动 ${args.target}`
-  return tool || '未命名步骤'
+  if (tool === 'hand_type' && args.text) return `type "${String(args.text).slice(0, 40)}"`
+  if (tool === 'browser_navigate' && args.url) return `open ${args.url}`
+  if (tool === 'desk_launch' && args.target) return `launch ${args.target}`
+  return tool || 'unnamed step'
 }
 
 /** 从一堆 episode 里找出值得固化的技能草案。 */

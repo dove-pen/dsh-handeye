@@ -9,7 +9,7 @@ import { redactText } from '../memory/redact.js'
 const DEFAULT_TAIL = 200
 const MAX_TAIL = 2000
 
-const LEVEL_NAMES = { 1: '严重', 2: '错误', 3: '警告', 4: '信息', 5: '详细' }
+const LEVEL_NAMES = { 1: 'Critical', 2: 'Error', 3: 'Warning', 4: 'Information', 5: 'Verbose' }
 
 function clampInt(value, min, max, fallback) {
   const n = Number(value)

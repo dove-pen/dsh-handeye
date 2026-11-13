@@ -85,10 +85,10 @@ export function computeMetrics({ goals = [], refusals = {} } = {}) {
 
 /** One-line human summary, used in CLI output and the panel header. */
 export function formatMetrics(m) {
-  const rate = m.passRate === null ? '还没验过' : `${Math.round(m.passRate * 100)}%`
+  const rate = m.passRate === null ? 'not verified yet' : `${Math.round(m.passRate * 100)}%`
   return [
-    `目标 ${m.goals.total}（进行 ${m.goals.active}）· 步骤 ${m.steps.done}/${m.steps.total}`,
-    `验收通过率 ${rate}（过 ${m.verify.pass} / 挂 ${m.verify.fail}）`,
-    `拦下越界 ${m.deviationRefused} · 路径拦截 ${m.pathRefused} · 预算拦截 ${m.budgetRefused} · 人工放行 ${m.overrides} · 卡住 ${m.blockedSteps}`,
+    `goals ${m.goals.total} (${m.goals.active} active) · steps ${m.steps.done}/${m.steps.total}`,
+    `check pass rate ${rate} (${m.verify.pass} pass / ${m.verify.fail} fail)`,
+    `blocked out-of-scope ${m.deviationRefused} · path ${m.pathRefused} · budget ${m.budgetRefused} · overrides ${m.overrides} · blocked ${m.blockedSteps}`,
   ].join('\n')
 }

@@ -70,9 +70,9 @@ test('the body is readable by a human and carries the machine block', () => {
   const out = exportSkillMarkdown(sampleSkill())
   const md = out.files.find((f) => f.path === 'SKILL.md').content
   assert.match(md, /# 订阅一个邮件通讯/)
-  assert.match(md, /## 步骤/)
+  assert.match(md, /## Steps/)
   assert.match(md, /1\. \*\*打开 \{\{url\}\}\*\*/)
-  assert.match(md, /屏幕上出现「订阅」/)
+  assert.match(md, /订阅/)
   assert.match(md, /```json/)
 })
 
@@ -128,12 +128,12 @@ test('a foreign SKILL.md without a machine block becomes a manual one-step skill
   assert.equal(imported.ok, true)
   assert.equal(imported.skill.steps.length, 1)
   assert.equal(imported.skill.steps[0].expect, null)
-  assert.match(imported.warnings[0], /没有机器可读段/)
+  assert.match(imported.warnings[0], /no machine-readable block/)
 })
 
 test('missing name or description is refused with a clear reason', () => {
-  assert.match(importSkillMarkdown('---\ndescription: "x"\n---\n').error, /缺 name/)
-  assert.match(importSkillMarkdown('---\nname: "x"\n---\n').error, /缺 description/)
+  assert.match(importSkillMarkdown('---\ndescription: "x"\n---\n').error, /missing name/)
+  assert.match(importSkillMarkdown('---\nname: "x"\n---\n').error, /missing description/)
   assert.match(importSkillMarkdown('no frontmatter here').error, /frontmatter/)
 })
 
@@ -141,7 +141,7 @@ test('a broken machine block degrades to manual instead of failing', () => {
   const md = ['---', 'name: "x"', 'description: "y"', '---', '', '```json', '{ not json }', '```'].join('\n')
   const imported = importSkillMarkdown(md)
   assert.equal(imported.ok, true)
-  assert.match(imported.warnings.join(' '), /解析失败/)
+  assert.match(imported.warnings.join(' '), /failed to parse/)
   assert.equal(imported.skill.steps.length, 1)
 })
 

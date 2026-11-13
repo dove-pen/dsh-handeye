@@ -14,10 +14,10 @@ import {
 // ---------------------------------------------------------------- anchor
 
 test('anchor prefers the explicit text argument', () => {
-  const a = buildAnchor('hand_click_text', { text: '免费订阅' }, '命中窗口：Chrome（工作区）')
+  const a = buildAnchor('hand_click_text', { text: '免费订阅' }, 'hit window: "Chrome"')
   assert.equal(a.kind, 'click-by-text')
   assert.equal(a.text, '免费订阅')
-  assert.equal(a.container, 'Chrome（工作区）')
+  assert.equal(a.container, '"Chrome"')
   assert.equal(a.fragile, false)
   assert.equal(a.source, 'args.text')
 })
@@ -28,12 +28,12 @@ test('a pure coordinate click is marked fragile', () => {
   assert.equal(a.source, 'args.coords')
   assert.deepEqual(a.point, { x: 700, y: 400 })
   assert.equal(a.container, 'Chrome')
-  assert.match(describeAnchor(a), /换屏幕/)
+  assert.match(describeAnchor(a), /may break/)
 })
 
 test('knowing only the window name is not enough to be portable', () => {
-  const a = buildAnchor('desk_invoke', {}, '已触发 42（方式 uia），鼠标没有移动。\n命中窗口：记事本')
-  assert.equal(a.container, '记事本')
+  const a = buildAnchor('desk_invoke', {}, '已触发 42（方式 uia），鼠标没有移动。\nhit window: "Notepad"')
+  assert.equal(a.container, '"Notepad"')
   assert.equal(a.source, 'output.window')
   // 只知道"在记事本里"、不知道点的是哪个控件 -> 仍然脆弱
   assert.equal(a.fragile, true)
