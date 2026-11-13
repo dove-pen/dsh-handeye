@@ -114,6 +114,7 @@ test('the client is a DSH module with the right id', () => {
 test('the module declares inject slots (otherwise ctx.slots is undefined)', () => {
   const { exports } = loadClient()
   assert.equal(JSON.stringify(exports.inject), JSON.stringify(['slots']), '缺 inject 就是之前"注册永远抛错"的根因')
+  assert.doesNotMatch(source, /ctx\?\.locale|\.locale\)/, '不能读 locale 服务（需要额外 inject，一读就抛）')
 })
 
 test('it registers a conversation tab AND the main view', () => {

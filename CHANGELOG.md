@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.34.1 — 2026-11-13
+
+**用独立实例真机验证，找到了第三个根因：`ctx.locale`。**
+
+### 怎么验的（不再靠猜）
+
+起了一个**独立的 DSH web 实例**（复制 profile 到 `profiles/verify`，端口 46001+），
+用真浏览器打开，把失败原因直接显示在兜底按钮上：
+
+```
+HandEye: ERR cannot get property "locale" without inject | slots=object inject=true
+```
+
+- `slots=object` → `inject: ['slots']` 生效了
+- **`cannot get property "locale" without inject`** → 我在注册 meta 里读了 locale 服务，
+  而这个属性需要额外 `inject: ['locale']`，一读就抛
+
+### 修法
+
+`meta.locale` 要的是**命名空间字符串**（dsh-context 传的就是 `'dsh-context'`），
+不是 locale 服务对象：
+
+```js
+const locale = 'dsh-handeye'   // 之前：const locale = ctx.locale || {}
+```
+
+### 验证结果
+
+修完重启独立实例：**兜底按钮消失了**（说明 `apply` 里的注册没有再抛错），
+页面里也不再出现 `HandEye` 浮层按钮。剩下的"页签是否渲染"必须开一个会话才看得到，
+这一步留到用户重启桌面端确认。
+
+### 测试
+377 全过（新增护栏：不许出现 `ctx?.locale` / 读 locale 服务；
+`meta.locale` 必须是字符串）
+
 ## v0.34.0 — 2026-11-13
 
 **找到客户端一直没生效的真正原因（两个）。**

@@ -59,7 +59,9 @@ loadEntry({
         throw new Error('slots API is unavailable')
       }
       if (!jsx) throw new Error('react is unavailable')
-      const locale = (ctx && ctx.locale) || {}
+      // meta.locale 要的是**命名空间字符串**（dsh-context 传的是 'dsh-context'），
+      // 不是 locale 服务对象 —— 读服务还会要求额外 inject，一读就抛。
+      const locale = 'dsh-handeye'
 
       const registerTab = () =>
         slots.inject('conversation.view', () =>
