@@ -8,6 +8,8 @@
 // 走的是同一个 headless 启动 + 同一个 toolServer.callTool —— 门卫照样生效，
 // 也就是说 CLI、MCP、插件三处的拦截行为来自同一份代码。
 
+import { readFileSync } from 'node:fs'
+
 import { bootHeadless } from '../src/server/headless.js'
 
 const [cmd, arg, rawJson] = process.argv.slice(2)
@@ -133,9 +135,12 @@ if (cmd === 'call') {
   let args = {}
   if (rawJson) {
     try {
-      args = JSON.parse(rawJson)
+      // Windows 上 PowerShell 会吃掉内层双引号，所以支持 @文件 传参：
+      //   node bin/he-server.js call skill_use @args.json
+      const source = rawJson.startsWith('@') ? readFileSync(rawJson.slice(1), 'utf8') : rawJson
+      args = JSON.parse(source)
     } catch (e) {
-      console.error('失败：第二个参数必须是合法 JSON —— ' + (e instanceof Error ? e.message : String(e)))
+      console.error('失败：参数必须是合法 JSON（或 @文件）—— ' + (e instanceof Error ? e.message : String(e)))
       process.exit(2)
     }
   }

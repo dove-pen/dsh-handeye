@@ -20,6 +20,8 @@ import { createEpisodeStore, newEpisodeId } from './memory/episodes.js'
 import { createCapabilityStore } from './memory/capabilities.js'
 import { createCardStore } from './memory/cards.js'
 import { createGoalStore } from './memory/goals.js'
+import { createSkillStore } from './memory/skillStore.js'
+import { createSkillTools } from './tools/skills.js'
 import { createGoalTools } from './tools/goals.js'
 import { createConfirmStore } from './runtime/confirm.js'
 import { createExecutor } from './runtime/executor.js'
@@ -236,6 +238,7 @@ export function apply(ctx) {
   const capabilities = createCapabilityStore({ dir: dataDir })
   const cards = createCardStore({ dir: dataDir })
   const goals = createGoalStore({ dir: dataDir })
+  const skills = createSkillStore({ dir: dataDir })
   const confirmStore = createConfirmStore()
   const primitives = createPrimitives()
   const ops = createOps({ primitives })
@@ -1597,12 +1600,15 @@ export function apply(ctx) {
   const goalTools = createGoalTools({
     state: runtimeState,
     goals,
+    skills,
     verifyStep,
     prepareStepChecks,
     onStepEnter: handleStepEnter,
     onStepLeave: handleStepLeave,
   })
   for (const def of goalTools) reg(ctx, def)
+  // 技能工具：读技能 -> 编译成目标；目标层负责门卫与验收
+  for (const def of createSkillTools({ state: runtimeState, skills, goals })) reg(ctx, def)
 
   reg(
     ctx,

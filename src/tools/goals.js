@@ -26,7 +26,7 @@ function stepLine(step) {
   return `${mark} ${step.id} ${step.title}${prompt}`
 }
 
-export function createGoalTools({ state, goals, verifyStep, prepareStepChecks, onStepEnter, onStepLeave }) {
+export function createGoalTools({ state, goals, skills, verifyStep, prepareStepChecks, onStepEnter, onStepLeave }) {
   const fail = (message) => `失败：${message}`
 
   async function goalOf(id) {
@@ -272,6 +272,11 @@ export function createGoalTools({ state, goals, verifyStep, prepareStepChecks, o
             detail: firstFailure(verdict),
           })
           const blocked = Boolean(recorded.ok && recorded.value?.blocked)
+          // 技能来源挂在目标上（goal.meta），不在步骤上
+          const blockedSkillId = doc.meta && doc.meta.skillId
+          if (blocked && blockedSkillId && skills && typeof skills.recordRun === 'function') {
+            await skills.recordRun(blockedSkillId, { outcome: 'failure', reason: firstFailure(verdict) }).catch(() => {})
+          }
           // 只有真被 blocked 才离开这一步；只挂一次的话步骤还是 doing，
           // 否则模型会丢掉步骤绑定，接着动手就会被步骤门拒得莫名其妙。
           if (blocked && typeof onStepLeave === 'function') {
@@ -319,6 +324,12 @@ export function createGoalTools({ state, goals, verifyStep, prepareStepChecks, o
           // 全部做完必须放开目标焦点：否则 state.goalId 一直挂着，
           // 接下来任何写操作都会被 GOAL_STEP_REQUIRED 拒掉，模型会原地打转。
           if (state.goalId === goalId) state.goalId = ''
+          // 由技能编译来的目标：跑完 = 技能成功一次
+          const skillId = after.meta && after.meta.skillId
+          if (skillId && skills && typeof skills.recordRun === 'function') {
+            await skills.recordRun(skillId, { outcome: 'success' }).catch(() => {})
+            lines.push(`技能健康度 +1：${skillId}`)
+          }
           lines.push('所有步骤都做完了，已退出步骤模式（要归档就 goal_set_status ' + goalId + ' done）。')
         }
         return lines.join('\n')

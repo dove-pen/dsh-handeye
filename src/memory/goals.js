@@ -163,7 +163,7 @@ export function createGoalStore({ dir, now = () => Date.now() } = {}) {
     }
   }
 
-  async function create({ title, longTermGoal, steps = [] } = {}) {
+  async function create({ title, longTermGoal, steps = [], meta = null } = {}) {
     const id = newGoalId(new Date(now()))
     const stamp = nowIso(now)
     const doc = {
@@ -173,6 +173,8 @@ export function createGoalStore({ dir, now = () => Date.now() } = {}) {
       longTermGoal: String(longTermGoal ?? '').trim(),
       status: 'active',
       steps: normalizeSteps(steps),
+      // 来源信息（例如由哪份技能编译而来）。validateGoal 不禁止额外字段。
+      meta: isPlainObject(meta) ? meta : null,
       runs: [],
       createdAt: stamp,
       updatedAt: stamp,
