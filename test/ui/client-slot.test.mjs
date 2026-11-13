@@ -1,7 +1,9 @@
-// 客户端插件的验收：不靠"看屏幕"，而是把 client.js 放进假宿主里跑一遍。
+// 客户端插件的验收：不靠"看屏幕"，而是把 client.js 放进假 DOM 里跑一遍。
 //
-// 2026-11-13 教训：旧版靠在 DOM 里插按钮，宿主一重渲染就丢（页签反复消失）。
-// 现在走官方 slots API，这条测试直接检查"注册了哪个槽、什么 id、什么顺序"。
+// 2026-11-13 两次教训：
+//   1. 在宿主标签行里插按钮 → 宿主一重渲染就丢
+//   2. 走 conversation.view 页签 → 按钮出现但点了不切换（slots 契约没文档）
+// 现在改成：自己画一个浮层（按钮 + iframe），纯 DOM，一定能用。
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -12,72 +14,69 @@ import vm from 'node:vm'
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const source = readFileSync(root + 'src/client.js', 'utf8')
 
+/** 极简 DOM：够 client.js 用（createElement/append/remove/getElementById）。 */
+function makeDom() {
+  const nodes = new Map()
+  const doc = {
+    body: null,
+    listeners: [],
+    createElement(tag) {
+      const el = {
+        tagName: String(tag).toUpperCase(),
+        style: { cssText: '' },
+        children: [],
+        id: '',
+        type: '',
+        textContent: '',
+        title: '',
+        append(...kids) {
+          this.children.push(...kids)
+        },
+        appendChild(kid) {
+          this.children.push(kid)
+          if (kid.id) nodes.set(kid.id, kid)
+          return kid
+        },
+        remove() {
+          if (this.id) nodes.delete(this.id)
+          doc.body.children = doc.body.children.filter((c) => c !== this)
+        },
+        setAttribute() {},
+      }
+      return el
+    },
+    getElementById: (id) => nodes.get(id) || null,
+    querySelector: () => null,
+    addEventListener: (type, fn) => doc.listeners.push({ type, fn }),
+    removeEventListener: (type, fn) => {
+      doc.listeners = doc.listeners.filter((l) => !(l.type === type && l.fn === fn))
+    },
+  }
+  doc.body = doc.createElement('body')
+  doc.body.children = []
+  return { doc, nodes }
+}
+
 function loadClient() {
-  const registrations = []
-  const effects = []
-  const injected = []
-  const requests = []
-
-  const React = {
-    createElement: (type, props, ...children) => ({ type, props, children }),
-    useEffect: () => {},
-    useMemo: (fn) => fn(),
-    useState: (initial) => [initial, () => {}],
-  }
-  const jsx = (type, props) => ({ type, props })
-
-  const requireStub = (name) => {
-    requests.push(name)
-    if (name === 'react') return React
-    if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx }
-    throw new Error('unexpected require: ' + name)
-  }
-
+  const { doc, nodes } = makeDom()
   const sandbox = {
     window: {
       __ModuleLoader__: {
         load: (def) => {
           if (def.id !== 'dsh-handeye') throw new Error('wrong module id: ' + def.id)
-          sandbox.__exports = def.factory(requireStub)
+          sandbox.__exports = def.factory(() => {
+            throw new Error('client must not require anything')
+          })
         },
       },
       open: () => {},
     },
-    document: {
-      body: null,
-      querySelector: () => null,
-      createElement: () => ({ style: {}, dataset: {}, setAttribute() {}, appendChild() {} }),
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    },
-    setInterval: () => 0,
-    clearInterval: () => {},
+    document: doc,
     console,
   }
-
   vm.createContext(sandbox)
   vm.runInContext(source, sandbox, { filename: 'client.js' })
-
-  const ctx = {
-    slots: {
-      inject: (name, fn) => {
-        injected.push(name)
-        return fn()
-      },
-      register: (meta, component) => {
-        registrations.push({ meta, component })
-        return () => {}
-      },
-    },
-    effect: (fn) => {
-      const disposer = fn()
-      effects.push(disposer)
-      return () => {}
-    },
-  }
-
-  sandbox.__exports.apply(ctx)
-  return { registrations, injected, requests, effects, exports: sandbox.__exports }
+  return { exports: sandbox.__exports, doc, nodes }
 }
 
 test('the client is a DSH module with the right id', () => {
@@ -85,113 +84,84 @@ test('the client is a DSH module with the right id', () => {
   assert.equal(typeof exports.apply, 'function')
 })
 
-test('it requires react and the jsx runtime (no hand-rolled DOM injection)', () => {
-  const { requests } = loadClient()
-  assert.ok(requests.includes('react'), '应当 require react')
-  assert.ok(requests.includes('react/jsx-runtime'), '应当 require jsx-runtime')
+test('apply mounts a floating HandEye button', () => {
+  const { exports, nodes } = loadClient()
+  exports.apply({})
+  const btn = nodes.get('dsh-handeye-btn')
+  assert.ok(btn, '按钮应该挂到 body 上')
+  assert.equal(btn.textContent, 'HandEye')
+  assert.match(btn.style.cssText, /position:fixed/)
 })
 
-test('it registers a real tab on conversation.view, next to 上下文 and 编队', () => {
-  const { injected, registrations } = loadClient()
-  assert.deepEqual(injected, ['conversation.view'])
-  assert.equal(registrations.length, 1)
-  const { meta } = registrations[0]
-  assert.equal(meta.name, 'conversation.view')
-  assert.equal(meta.id, 'shouzuian')
-  assert.equal(typeof meta.order, 'number')
-  assert.equal(meta.label(), 'HandEye')
+test('clicking the button opens a full-screen overlay with the dashboard iframe', () => {
+  const { exports, nodes, doc } = loadClient()
+  exports.apply({})
+  const btn = nodes.get('dsh-handeye-btn')
+  btn.onclick()
+
+  const overlay = nodes.get('dsh-handeye-overlay')
+  assert.ok(overlay, '点一下应该出现浮层')
+  assert.match(overlay.style.cssText, /position:fixed/)
+  assert.match(overlay.style.cssText, /inset:0/)
+
+  const frame = overlay.children.find((c) => c.tagName === 'IFRAME')
+  assert.ok(frame, '浮层里应该有 iframe')
+  assert.match(frame.src, /^\/dsh-handeye-plus\/dashboard/)
+
+  // 同一个按钮再点一次不应该叠出第二层
+  btn.onclick()
+  assert.equal(doc.body.children.filter((c) => c.id === 'dsh-handeye-overlay').length, 1)
 })
 
-test('the tab renders the plugin dashboard in an iframe', () => {
-  const { registrations } = loadClient()
-  const element = registrations[0].component()
-  const frame = element.props.children
-  assert.equal(frame.type, 'iframe')
-  assert.equal(frame.props.src, '/dsh-handeye-plus/dashboard')
+test('the overlay can be closed by the button and by Esc', () => {
+  const { exports, nodes, doc } = loadClient()
+  exports.apply({})
+  nodes.get('dsh-handeye-btn').onclick()
+  assert.ok(nodes.get('dsh-handeye-overlay'))
+
+  // Close 按钮
+  const overlay = nodes.get('dsh-handeye-overlay')
+  const close = overlay.children[0].children.find((c) => c.tagName === 'BUTTON')
+  close.onclick()
+  assert.ok(!nodes.get('dsh-handeye-overlay'))
+
+  // Esc
+  nodes.get('dsh-handeye-btn').onclick()
+  const esc = doc.listeners.find((l) => l.type === 'keydown')
+  esc.fn({ key: 'Escape' })
+  assert.ok(!nodes.get('dsh-handeye-overlay'))
 })
 
-test('registration is wrapped in ctx.effect so it can be disposed', () => {
-  const { effects } = loadClient()
-  assert.equal(effects.length, 1)
-})
-
-test('the old drawer is gone', () => {
-  assert.doesNotMatch(source, /dsh-he-panel/, '旧的右侧抽屉应该删掉')
+test('the old slot registration and tab injection are gone', () => {
+  assert.doesNotMatch(source, /slots\.inject\(/, '不再赌未文档化的页签契约')
+  assert.doesNotMatch(source, /slots\.register/, '不再调用 slots')
+  assert.doesNotMatch(source, /dsh-he-panel/, '旧抽屉已删')
   assert.doesNotMatch(source, /mountTopTab/, '不再往宿主标签行塞按钮')
-  assert.doesNotMatch(source, /dsh-he-tab/, '不再操作宿主标签行')
 })
 
-test('a host without slots still gets a minimal entry, not a drawer', () => {
-  // 直接把 slots 去掉再跑一次 apply，确认走兜底而不是抛错
+test('a broken or empty host never throws', () => {
   const { exports } = loadClient()
-  const calls = []
-  const ctxNoSlots = {
-    effect: (fn) => {
-      fn()
-      return () => {}
-    },
-    slots: undefined,
-  }
-  const sandboxDoc = {
-    body: { appendChild: () => calls.push('append') },
-    querySelector: () => null,
-    createElement: () => ({ style: {}, dataset: {}, setAttribute() {}, appendChild() {} }),
-  }
-  // 兜底分支用 document.body；这里只验证不抛错（真实 DOM 行为在浏览器里）
-  assert.doesNotThrow(() => exports.apply(ctxNoSlots))
-})
-
-test('the client dependency list includes the slots package', () => {
-  const pkg = JSON.parse(readFileSync(root + 'package.json', 'utf8'))
-  const inject = pkg.dsh.client.inject
-  assert.ok(inject.includes('@deepseek-ai/dsh-client-ui-slots'), 'ctx.slots 来自 ui-slots 包')
-  assert.ok(inject.includes('@deepseek-ai/dsh-client-ui-conversation'), 'tab 槽来自会话 UI 包')
-  assert.ok(!inject.includes('@deepseek-ai/dsh-api-remotes'), '不该带无关包')
-})
-
-test('a broken host never takes our plugin (or DSH) down', () => {
-  // 2026-11-13：重启后出故障，用户不得不禁用全部第三方插件。
-  // 这里的契约是：apply 永不抛，失败只影响本插件入口。
-  const { exports } = loadClient()
-  const broken = [
-    { slots: { inject: () => { throw new Error('inject failed') }, register: () => {} }, effect: () => {} },
-    { slots: null, effect: () => {} },
-    {},
-  ]
+  const broken = [undefined, null, {}, { slots: null }, { body: null }]
   for (const ctx of broken) assert.doesNotThrow(() => exports.apply(ctx))
 })
 
-test('a missing react does not throw at load time', () => {
-  const sandbox = {
-    window: {
-      __ModuleLoader__: {
-        load: (def) => {
-          // require 一律失败：模拟宿主没提供 react
-          const exports = def.factory(() => {
-            throw new Error('no module')
-          })
-          sandbox.__exports = exports
-        },
-      },
-      open: () => {},
-    },
-    document: { body: null, querySelector: () => null, createElement: () => ({ style: {}, dataset: {} }), addEventListener: () => {} },
-    setInterval: () => 0,
-    clearInterval: () => {},
-    console,
-  }
-  vm.createContext(sandbox)
-  assert.doesNotThrow(() => vm.runInContext(source, sandbox, { filename: 'client.js' }))
-  assert.equal(typeof sandbox.__exports.apply, 'function')
-  assert.doesNotThrow(() => sandbox.__exports.apply({}))
-})
-
-test('the module-level load is guarded too', () => {
-  // 2026-11-13 事故：客户端入口抛错 -> 宿主 "web boot: 1 entry did not activate" -> 起不来。
-  // 所以连 window.__ModuleLoader__.load 这一层也不许抛。
+test('the module-level load is guarded', () => {
+  // 2026-11-13 事故：入口抛错 → "web boot: 1 entry did not activate" → 整个 DSH 起不来。
   assert.match(source, /function loadEntry\(/)
   assert.match(source, /window\.__ModuleLoader__\.load\(definition\)/)
-  const sandbox = { window: {}, document: { body: null }, setInterval: () => 0, clearInterval: () => {}, console }
+  const sandbox = { window: {}, document: { body: null }, console }
   vm.createContext(sandbox)
   assert.doesNotThrow(() => vm.runInContext(source, sandbox, { filename: 'client.js' }))
+})
+
+test('a host without __ModuleLoader__ is skipped quietly', () => {
+  const sandbox = { window: {}, document: { body: null }, console }
+  vm.createContext(sandbox)
+  assert.doesNotThrow(() => vm.runInContext(source, sandbox, { filename: 'client.js' }))
+})
+
+test('package.json no longer needs the client slot packages', () => {
+  const pkg = JSON.parse(readFileSync(root + 'package.json', 'utf8'))
+  const inject = pkg.dsh?.client?.inject ?? []
+  assert.ok(!inject.includes('@deepseek-ai/dsh-client-ui-slots'), '不再需要 ui-slots')
 })

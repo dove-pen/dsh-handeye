@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.32.0 — 2026-11-13
+
+**把那个没反应的按钮接上了：改成自带浮层，不再赌宿主的页签契约。**
+
+### 问题
+
+用户点右上角的 HandEye 按钮**没有任何反应**。查下来：客户端通过
+`ctx.slots.inject('conversation.view', ...)` 注册页签，按钮确实渲染出来了，
+但**点了不切换** —— 这个 slots 契约在宿主里没有文档，我们是在猜。
+
+### 改法
+
+放弃页签，改成纯 DOM 的浮层：
+
+- 右下角一个圆角按钮 `HandEye`（fixed 定位，宿主怎么重渲染都不会丢）
+- 点它 → 全屏浮层，顶栏 `HandEye | Click Close or press Esc to return | [Close]`
+- 浮层里是 `/dsh-handeye-plus/dashboard?embed=1` 的 iframe（还是同一个面板）
+- `Close` 按钮或 `Esc` 关闭；重复点击不会叠出第二层
+- 全部包 try/catch：拿不到 body、iframe 失败，都只影响按钮，不影响 DSH
+
+### 顺带
+
+- `package.json` 的 `dsh.client.inject` 去掉 `ui-slots` 与 `ui-conversation`（不再需要）
+- 客户端不再 `require('react')` —— 少一个可能让宿主起不来的依赖
+
+### 测试
+377 → 375（客户端测试重写成假 DOM：按钮存在、点击出浮层、Esc/Close 能关、不重复叠层、坏宿主不抛）
+
 ## v0.31.0 — 2026-11-13
 
 **找 bug 一轮：4 个真 bug + 2 处优化。**
