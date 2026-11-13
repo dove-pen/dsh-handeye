@@ -53,3 +53,13 @@ test('the overview shows a confirm section for destructive actions', () => {
   assert.match(dashboard, /待确认（破坏性动作）/)
   assert.match(dashboard, /允许一次/)
 })
+
+test('the top tab wins over the composer button', () => {
+  // 2026-11-13 实测踩过：composer 小圆眼挂成功后会把顶部页签删掉，
+  // 结果用户在会话里根本看不到入口。优先级必须是页签优先。
+  const entry = client.slice(client.indexOf('function mountEntry()'))
+  const body = entry.slice(0, entry.indexOf('function openBigView'))
+  assert.match(body, /if \(mountTopTab\(\)\)/)
+  assert.match(body, /document\.querySelectorAll\('\[data-dsh-he-entry\]'\)/, '页签在时应收掉小圆眼')
+  assert.doesNotMatch(body, /data-dsh-he-tab'\]\)\.forEach/, '不许再删顶部页签')
+})

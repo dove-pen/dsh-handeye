@@ -732,12 +732,13 @@ window.__ModuleLoader__.load({
         }
 
         function mountEntry() {
-          if (mountComposerEntry()) {
-            // 已经贴在输入框旁边了，顶部那一排的多余入口收掉（老版本可能留过）
-            document.querySelectorAll('[data-dsh-he-tab]').forEach((n) => n.remove())
+          // 顶部页签优先：用户要的是「和上下文、编队同一排」的一等入口。
+          // 挂不上（宿主的标签行还没渲染出来）才退回输入框旁边那颗小圆眼。
+          if (mountTopTab()) {
+            document.querySelectorAll('[data-dsh-he-entry]').forEach((n) => n.remove())
             return
           }
-          mountTopTab()
+          mountComposerEntry()
         }
 
         // 大面板：像「上下文」「编队」那样占满整个 DSH 窗口，不是一条竖抽屉。
@@ -799,17 +800,18 @@ window.__ModuleLoader__.load({
 
         // 兜底：宿主没有可识别的输入区时，退回顶部「对话 / 轨迹 / 上下文 / 编队」那一排。
         function mountTopTab() {
-          if (!document.body) return
+          if (!document.body) return false
           if (document.querySelector('[data-dsh-he-tab]')) {
             root.classList.add('has-tab')
-            return
+            // 宿主重渲染可能把旧按钮换掉，但只要我们那个还在就算成功
+            return true
           }
           const candidates = [...document.querySelectorAll('button, a, [role="tab"]')]
           const anchor = candidates.find((node) => {
             const text = String(node.textContent || '').trim()
             return (text === '编队' || text === '上下文' || text === '轨迹') && node.children.length <= 2
           })
-          if (!anchor || !anchor.parentElement) return
+          if (!anchor || !anchor.parentElement) return false
           const tab = document.createElement('button')
           tab.type = 'button'
           tab.dataset.dshHeTab = '1'
@@ -828,6 +830,7 @@ window.__ModuleLoader__.load({
           tab.addEventListener('click', openPanel, true)
           anchor.parentElement.insertBefore(tab, anchor.nextSibling)
           root.classList.add('has-tab')
+          return true
         }
 
         // Delegated in the capture phase: the host may re-render the tab row and
