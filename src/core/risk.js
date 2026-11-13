@@ -19,6 +19,7 @@ const READ_TOOLS = new Set([
   'hand_where',
   'goal_status',
   'yl_log',
+  'voice_list',
 ])
 
 const WRITE_TOOLS = new Set([
@@ -45,6 +46,7 @@ const WRITE_TOOLS = new Set([
   'goal_step_done',
   'goal_step_continue',
   'goal_skip_step',
+  'voice_say',
 ])
 
 // Conservative patterns: a false positive only costs one confirmation.

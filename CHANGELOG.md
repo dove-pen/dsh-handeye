@@ -1,5 +1,56 @@
 # Changelog
 
+## v0.19.2 — 2026-11-13
+
+**声音出口。** AI 现在能说话了（也能把话合成成 WAV）。
+
+### 新增
+
+- **`voice_say`**：`handeye say` 优先，不行自动退到 Windows `System.Speech`
+  - 参数：`text`（≤300 字）/ `voice` / `rate`(-10..10) / `volume`(0..100) / `wav`
+  - 文本走**临时文件**传递，中文、引号、换行都不会被命令行吃掉
+- **`voice_list`**：列可用语音（handeye 起不来就退到 PowerShell 清单）
+- 风险分类：`voice_say` 算写（会出声），`voice_list` 算读
+
+### 为什么要有两条通道
+
+这台机器上 `handeye say` 直接失败：
+
+```
+$ handeye say "语音通道测试"
+ERR 语音合成失败: Internal Speech Error.
+```
+
+而 `System.Speech` 能看到并使用 Huihui / Zira / Hazel。所以做成"优先原生、失败降级"，
+并且失败时**如实说走了哪条通道**，不假装是同一件事。
+
+### 实测
+
+```
+$ node bin/he-server.js call voice_list
+可用语音（System.Speech）：
+Microsoft Huihui Desktop / zh-CN
+Microsoft Zira Desktop / en-US
+Microsoft Hazel Desktop / en-GB
+
+$ node bin/he-server.js call voice_say @args.json      # text=语音通道已接入 volume=70
+已播报（System.Speech）：「语音通道已接入」（通道：system-speech）
+
+$ node bin/he-server.js call voice_say @wav.json       # 合成到 WAV
+已合成到 ...\he-voice-test.wav：「任务完成，报告已生成。」（通道：system-speech）
+WAV: 147.7 KB
+```
+
+### 摄像头与麦克风（这次没做，说明理由）
+
+- **摄像头**：`handeye.exe` 没有这个命令；当年是 PowerShell + WinRT `MediaCapture`
+  单独做的（要 IAsyncInfo COM 轮询、文件须预建、无独立照片流）。隐私成本高
+  （取景不可控，可能拍到人/证件），要做就必须配"每次调用都要人点一次允许"。
+- **麦克风**：模型听不了音频，录了没用；纯增风险，不做。
+
+### 测试
+307 → **317**（参数校验、通道选择、双通道失败如实报错、WAV 空文件识别、工具层短路）
+
 ## v0.19.1 — 2026-11-13
 
 **S3 · 打包与恢复。** 把"归你"变成能点的按钮。

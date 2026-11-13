@@ -1,3 +1,21 @@
+## 说话（voice_say）
+
+AI 能出声了：任务跑完播报一句、卡住了喊你一声。
+
+```bash
+node bin/he-server.js call voice_list
+node bin/he-server.js call voice_say @say.json    # {"text":"完成了","volume":70}
+node bin/he-server.js call voice_say @wav.json    # 加 "wav": "D:\\out.wav" 就只合成不播
+```
+
+**两条通道**：优先 `handeye say`（原生）；它起不来会自动退到 Windows `System.Speech`，
+并在回包里说明**实际走了哪条**（这台机器上用的是后者）。
+
+摄像头与麦克风**没有**接入：摄像头需要另写 WinRT 封装且隐私成本高，
+麦克风对模型没有用处。要做的话会先定"每次调用都要人确认"的规矩。
+
+---
+
 ## 打包与恢复
 
 技能、目标、卡片随时能打成一个文件带走，也能恢复回来。

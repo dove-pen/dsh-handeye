@@ -1,6 +1,6 @@
 {
   "name": "dsh-handeye",
-  "version": "0.19.1",
+  "version": "0.19.2",
   "description": "手眼合一（DSH 插件）：handeye 的手 + 屏幕投影 + UIA 后台控件 + 浏览器 CDP，加操作记忆、任务卡与安全门卫。",
   "type": "module",
   "main": "src/index.js",

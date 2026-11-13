@@ -22,6 +22,7 @@ import { createCardStore } from './memory/cards.js'
 import { createGoalStore } from './memory/goals.js'
 import { createSkillStore } from './memory/skillStore.js'
 import { createSkillTools } from './tools/skills.js'
+import { createVoiceTools } from './tools/voice.js'
 import { createGoalTools } from './tools/goals.js'
 import { createConfirmStore } from './runtime/confirm.js'
 import { createExecutor } from './runtime/executor.js'
@@ -1609,6 +1610,8 @@ export function apply(ctx) {
   for (const def of goalTools) reg(ctx, def)
   // 技能工具：读技能 -> 编译成目标；目标层负责门卫与验收
   for (const def of createSkillTools({ state: runtimeState, skills, goals })) reg(ctx, def)
+  // 声音出口：播报完成/提醒（handeye say 不行会退到 System.Speech）
+  for (const def of createVoiceTools({ runHandeye })) reg(ctx, def)
 
   reg(
     ctx,
