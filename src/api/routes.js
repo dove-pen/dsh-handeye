@@ -4,11 +4,13 @@
 // resuming and granting one user confirmation; capabilities and cards are
 // otherwise read-only from the UI.
 
+import { readFileSync } from 'node:fs'
 import { createLogReader } from '../runtime/logReader.js'
 import { compileEpisode } from '../runtime/compile.js'
 import { newEpisodeId } from '../memory/episodes.js'
 import { summarizeGoal } from '../memory/goals.js'
 import { computeMetrics } from '../core/metrics.js'
+import { buildEvents, filterEvents } from '../core/events.js'
 import { runHandeye } from '../handeye.js'
 import { pause, resumeByUser, satisfyReplan } from '../core/state.js'
 import { writeFile, mkdir } from 'node:fs/promises'
@@ -240,6 +242,47 @@ export function registerRoutes({ ctx, runtime, version }) {
           outcome: result.ok ? 'success' : 'failure',
         })
         return sendJson(res, 200, { ok: true, name, result, ms: Date.now() - started })
+      })
+
+      reg('/dsh-handeye-plus/events', async (req, res) => {
+        const url = new URL(req.url || '/', 'http://127.0.0.1')
+        const days = Math.max(1, Math.min(90, Number(url.searchParams.get('days') || 7)))
+        const level = url.searchParams.get('level') || 'all'
+        const q = url.searchParams.get('q') || ''
+        const since = Date.now() - days * 86400000
+
+        const episodes = await runtime.episodes.list()
+        const goals = await runtime.goals.list()
+        const skills = await runtime.skills.list()
+        const all = buildEvents({
+          episodes: episodes.ok ? episodes.value : [],
+          goals: goals.ok ? goals.value : [],
+          skills: skills.ok ? skills.value : [],
+        })
+        const value = filterEvents(all, { level, q, sinceMs: since })
+        return sendJson(res, 200, { ok: true, days, level, value })
+      })
+
+      reg('/dsh-handeye-plus/skills', async (req, res) => {
+        const listed = await runtime.skills.list()
+        return sendJson(res, listed.ok ? 200 : 500, listed)
+      })
+
+      reg('/dsh-handeye-plus/dashboard', (req, res) => {
+        // 一个整页的大面板：宽屏多栏，不再是竖着的抽屉
+        try {
+          const html = readFileSync(new URL('../ui/dashboard.html', import.meta.url), 'utf8')
+          res.writeHead(200, {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+            // 面板只读自己的数据，禁止被别的站嵌进去
+            'x-frame-options': 'SAMEORIGIN',
+          })
+          res.end(html)
+        } catch (error) {
+          res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
+          res.end('面板文件缺失：' + (error instanceof Error ? error.message : String(error)))
+        }
       })
 
       reg('/dsh-handeye-plus/metrics', async (req, res) => {

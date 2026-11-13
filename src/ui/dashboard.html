@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手眼 · 控制面板</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a20;
+    --panel-2: #1c2129;
+    --line: #262c36;
+    --text: #e6e9ee;
+    --muted: #8b94a3;
+    --accent: #4f8cff;
+    --ok: #3fb950;
+    --warn: #d8a233;
+    --err: #e5534b;
+    --severe: #b62324;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.55 "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 18px; border-bottom: 1px solid var(--line);
+    background: var(--panel); position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .3px; }
+  header .spacer { flex: 1; }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.live { color: var(--ok); border-color: #24452c; }
+  button, select {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+  }
+  button:hover { border-color: #38414f; }
+  main { padding: 16px 18px 40px; display: grid; gap: 14px; }
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .kpi .n { font-size: 22px; font-weight: 600; letter-spacing: .5px; }
+  .kpi .l { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .kpi.bad .n { color: var(--err); }
+  .kpi.warn .n { color: var(--warn); }
+  .kpi.ok .n { color: var(--ok); }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  section > h2 {
+    margin: 0; padding: 9px 13px; font-size: 13px; font-weight: 600;
+    border-bottom: 1px solid var(--line); background: var(--panel-2);
+    display: flex; align-items: center; gap: 8px;
+  }
+  section > h2 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .body { padding: 10px 13px; }
+  .empty { color: var(--muted); padding: 14px 0; text-align: center; }
+
+  /* 目标 */
+  .goal { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-bottom: 9px; background: var(--panel-2); }
+  .goal .t { display: flex; gap: 8px; align-items: baseline; }
+  .goal .t b { font-weight: 600; }
+  .goal .id { color: var(--muted); font-size: 11px; }
+  .bar { height: 5px; border-radius: 3px; background: #232935; margin: 7px 0 6px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  .steps { display: grid; gap: 3px; }
+  .step { display: flex; gap: 7px; align-items: baseline; font-size: 12px; color: #c6ccd6; }
+  .step .st { width: 14px; text-align: center; }
+  .step.done .st { color: var(--ok); }
+  .step.doing .st { color: var(--accent); }
+  .step.blocked .st { color: var(--err); }
+  .step .why { color: var(--err); font-size: 11px; }
+
+  /* 技能表 */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); z-index: 2; }
+  tbody tr:hover { background: #1a1f27; }
+  .mini { height: 5px; border-radius: 3px; background: #232935; overflow: hidden; min-width: 44px; }
+  .mini > i { display: block; height: 100%; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .tag.healthy { color: var(--ok); border-color: #24452c; }
+  .tag.needs-review { color: var(--warn); border-color: #4a3c1c; }
+  .tag.broken { color: var(--err); border-color: #4a2323; }
+
+  /* 事件日志 */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 9px 13px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .chips { display: flex; gap: 6px; }
+  .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); cursor: pointer; background: transparent; }
+  .chip.on { color: var(--text); border-color: var(--accent); background: #1b2738; }
+  input[type=search] {
+    font: inherit; color: var(--text); background: #12161c; border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 9px; min-width: 200px;
+  }
+  .logwrap { max-height: 460px; overflow: auto; }
+  .logwrap th { top: 0; }
+  tr.ev { cursor: pointer; }
+  tr.ev.sel { background: #1e2836; }
+  .lv { font-weight: 600; white-space: nowrap; }
+  .lv[data-l="1"] { color: var(--severe); }
+  .lv[data-l="2"] { color: var(--err); }
+  .lv[data-l="3"] { color: var(--warn); }
+  .lv[data-l="4"] { color: #9fb3c8; }
+  .lv[data-l="5"] { color: var(--muted); }
+  .when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .msg { color: #d7dce4; }
+  .detail { background: #12161c; border-top: 1px solid var(--line); padding: 9px 13px; color: var(--muted); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+
+  /* 来源分布 */
+  .src { display: grid; gap: 6px; }
+  .src .row { display: grid; grid-template-columns: 72px 1fr 40px; gap: 8px; align-items: center; font-size: 12px; }
+  .src .track { height: 8px; background: #232935; border-radius: 4px; overflow: hidden; }
+  .src .track > i { display: block; height: 100%; background: var(--accent); }
+  .src .num { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 1100px) {
+    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>手眼 · 控制面板</h1>
+  <span class="pill live" id="live">连接中</span>
+  <span class="pill" id="range">最近 7 天</span>
+  <span class="spacer"></span>
+  <select id="days">
+    <option value="1">今天</option>
+    <option value="3">最近 3 天</option>
+    <option value="7" selected>最近 7 天</option>
+    <option value="30">最近 30 天</option>
+  </select>
+  <button id="refresh">刷新</button>
+</header>
+
+<main>
+  <div class="kpis">
+    <div class="kpi"><div class="n" id="k-actions">-</div><div class="l">动作</div></div>
+    <div class="kpi bad"><div class="n" id="k-failed">-</div><div class="l">动作失败</div></div>
+    <div class="kpi warn"><div class="n" id="k-refused">-</div><div class="l">门卫拒绝</div></div>
+    <div class="kpi warn"><div class="n" id="k-warn">-</div><div class="l">警告</div></div>
+    <div class="kpi ok"><div class="n" id="k-goals">-</div><div class="l">进行中目标</div></div>
+    <div class="kpi ok"><div class="n" id="k-skills">-</div><div class="l">技能</div></div>
+  </div>
+
+  <section>
+    <h2>系统日志 <span class="count" id="event-count"></span></h2>
+    <div class="toolbar">
+      <div class="chips" id="levels">
+        <button class="chip on" data-level="all">全部</button>
+        <button class="chip" data-level="1">严重</button>
+        <button class="chip" data-level="2">错误</button>
+        <button class="chip" data-level="3">警告</button>
+        <button class="chip" data-level="4">信息</button>
+      </div>
+      <select id="source"><option value="all">全部来源</option></select>
+      <input type="search" id="q" placeholder="搜索描述 / 工具名">
+      <span class="spacer" style="flex:1"></span>
+      <button id="export">导出 CSV</button>
+    </div>
+    <div class="logwrap">
+      <table>
+        <thead>
+          <tr><th style="width:64px">级别</th><th style="width:150px">日期和时间</th><th style="width:90px">来源</th><th style="width:70px">事件 ID</th><th style="width:80px">任务类别</th><th>描述</th></tr>
+        </thead>
+        <tbody id="events"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
+      </table>
+    </div>
+    <div class="detail" id="detail" style="display:none"></div>
+  </section>
+
+  <div class="cols">
+    <section>
+      <h2>目标与步骤 <span class="count" id="goal-count"></span></h2>
+      <div class="body" id="goals"><div class="empty">读取中</div></div>
+    </section>
+    <section>
+      <h2>技能健康度 <span class="count" id="skill-count"></span></h2>
+      <div class="body" style="padding:0">
+        <table>
+          <thead><tr><th>技能</th><th>用了</th><th>成功</th><th>失败</th><th style="width:70px">成功率</th><th>状态</th></tr></thead>
+          <tbody id="skills"><tr><td colspan="6" class="empty">读取中</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>事件来源分布</h2>
+      <div class="body"><div class="src" id="sources"></div></div>
+    </section>
+    <section>
+      <h2>最近动作 <span class="count" id="recent-count"></span></h2>
+      <div class="body" id="recent" style="max-height:220px;overflow:auto"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const BASE = '/dsh-handeye-plus'
+const state = { days: 7, level: 'all', q: '', source: 'all', events: [], selected: null }
+
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const pad = (n) => String(n).padStart(2, '0')
+function when(ms) {
+  const d = new Date(ms)
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+async function get(path) {
+  const res = await fetch(BASE + path, { credentials: 'include' })
+  if (!res.ok) throw new Error(path + ' → ' + res.status)
+  return res.json()
+}
+
+async function loadAll() {
+  $('live').textContent = '连接中'
+  try {
+    const [events, goals, skills] = await Promise.all([
+      get('/events?days=' + state.days),
+      get('/goals'),
+      get('/skills'),
+    ])
+    state.events = Array.isArray(events.value) ? events.value : []
+    renderKpis()
+    renderEvents()
+    renderSources()
+    renderGoals(Array.isArray(goals.value) ? goals.value : [])
+    renderSkills(Array.isArray(skills.value) ? skills.value : [])
+    fillSources()
+    $('live').textContent = '已连接'
+    $('range').textContent = '最近 ' + state.days + ' 天'
+  } catch (error) {
+    $('live').textContent = '连接失败'
+    $('events').innerHTML = '<tr><td colspan="6" class="empty">' + esc(error.message) + '</td></tr>'
+  }
+}
+
+function fillSources() {
+  const sel = $('source')
+  const seen = [...new Set(state.events.map((e) => e.source))].sort()
+  const keep = state.source
+  sel.innerHTML = '<option value="all">全部来源</option>' +
+    seen.map((src) => '<option value="' + esc(src) + '">' + esc(src) + '</option>').join('')
+  sel.value = seen.includes(keep) ? keep : 'all'
+  state.source = sel.value
+}
+
+function renderKpis() {
+  const list = state.events
+  const count = (id) => list.filter((e) => e.eventId === id).length
+  $('k-actions').textContent = count(4001) + count(4002)
+  $('k-failed').textContent = count(4002)
+  $('k-refused').textContent = count(2001)
+  $('k-warn').textContent = list.filter((e) => e.level === 3).length
+}
+
+function renderGoals(goals) {
+  const active = goals.filter((g) => g.status === 'active')
+  $('k-goals').textContent = active.length
+  $('goal-count').textContent = active.length + ' 个进行中 / 共 ' + goals.length
+  if (!goals.length) { $('goals').innerHTML = '<div class="empty">还没有目标</div>'; return }
+  const mark = { done: '✓', doing: '●', blocked: '×', todo: '○', skipped: '–' }
+  $('goals').innerHTML = goals.slice(0, 8).map((g) => {
+    const steps = g.steps || []
+    const done = steps.filter((s) => s.status === 'done' || s.status === 'skipped').length
+    const pct = steps.length ? Math.round((done / steps.length) * 100) : 0
+    return '<div class="goal"><div class="t"><b>' + esc(g.title) + '</b><span class="id">' +
+      esc(g.id) + ' · ' + done + '/' + steps.length + ' 步 · ' + esc(g.status) + '</span></div>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="steps">' + steps.map((s) =>
+        '<div class="step ' + esc(s.status) + '"><span class="st">' + (mark[s.status] || '·') + '</span>' +
+        '<span>' + esc(s.title) + '</span>' +
+        (s.status === 'blocked' ? '<span class="why">被锁：' + esc(s.blockReason || s.lastFailure || '连续验收失败') + '</span>' : '') +
+        '</div>').join('') + '</div></div>'
+  }).join('')
+}
+
+function renderSkills(skills) {
+  $('k-skills').textContent = skills.length
+  $('skill-count').textContent = skills.length + ' 份'
+  if (!skills.length) { $('skills').innerHTML = '<tr><td colspan="6" class="empty">还没有技能</td></tr>'; return }
+  $('skills').innerHTML = skills.map((s) => {
+    const h = s.health || {}
+    const runs = Number(h.runs) || 0
+    const ok = Number(h.ok) || 0
+    const fail = Number(h.fail) || 0
+    const rate = runs ? Math.round((ok / runs) * 100) : 0
+    const color = rate >= 90 ? 'var(--ok)' : rate >= 60 ? 'var(--warn)' : 'var(--err)'
+    return '<tr><td title="' + esc(s.id) + '">' + esc(s.title) + '</td><td>' + runs + '</td><td>' + ok + '</td><td>' + fail +
+      '</td><td><div class="mini"><i style="width:' + rate + '%;background:' + color + '"></i></div></td>' +
+      '<td><span class="tag ' + esc(h.status || 'untested') + '">' + esc(h.status || 'untested') + '</span></td></tr>'
+  }).join('')
+}
+
+function renderSources() {
+  const map = new Map()
+  for (const e of state.events) map.set(e.source, (map.get(e.source) || 0) + 1)
+  const rows = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 7)
+  const max = rows.length ? rows[0][1] : 1
+  $('sources').innerHTML = rows.length
+    ? rows.map(([src, n]) => '<div class="row"><span>' + esc(src) + '</span><div class="track"><i style="width:' +
+        Math.round((n / max) * 100) + '%"></i></div><span class="num">' + n + '</span></div>').join('')
+    : '<div class="empty">没有数据</div>'
+}
+
+function renderRecent() {
+  const actions = state.events.filter((e) => e.eventId === 4001 || e.eventId === 4002 || e.eventId === 2001).slice(0, 20)
+  $('recent-count').textContent = actions.length + ' 条'
+  $('recent').innerHTML = actions.length
+    ? actions.map((e) => '<div class="step"><span class="st" style="color:' +
+        (e.level === 3 ? 'var(--warn)' : e.level === 2 ? 'var(--err)' : 'var(--muted)') + '">' +
+        (e.level === 3 ? '!' : e.level === 2 ? '×' : '·') + '</span><span class="when">' + when(e.time) +
+        '</span><span>' + esc(e.message.slice(0, 90)) + '</span></div>').join('')
+    : '<div class="empty">没有动作</div>'
+}
+
+function filtered() {
+  const minLevel = state.level === 'all' ? 5 : Number(state.level)
+  const q = state.q.trim().toLowerCase()
+  return state.events.filter((e) => {
+    if (e.level > minLevel) return false
+    if (state.source !== 'all' && e.source !== state.source) return false
+    if (!q) return true
+    return (e.message + ' ' + e.detail + ' ' + e.source).toLowerCase().includes(q)
+  })
+}
+
+function renderEvents() {
+  const list = filtered()
+  $('event-count').textContent = list.length + ' 条'
+  renderRecent()
+  if (!list.length) { $('events').innerHTML = '<tr><td colspan="6" class="empty">没有符合条件的事件</td></tr>'; return }
+  $('events').innerHTML = list.slice(0, 400).map((e, i) =>
+    '<tr class="ev" data-i="' + i + '"><td><span class="lv" data-l="' + e.level + '">' + esc(e.levelText) +
+    '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(e.source) + '</td><td>' + e.eventId +
+    '</td><td>' + esc(e.category) + '</td><td class="msg">' + esc(e.message) + '</td></tr>').join('')
+  for (const tr of $('events').querySelectorAll('tr.ev')) {
+    tr.onclick = () => selectEvent(Number(tr.dataset.i), tr)
+  }
+}
+
+function selectEvent(index, tr) {
+  const e = filtered()[index]
+  if (!e) return
+  for (const row of $('events').querySelectorAll('tr.ev')) row.classList.remove('sel')
+  tr.classList.add('sel')
+  $('detail').style.display = 'block'
+  $('detail').textContent = [
+    '事件 ID：' + e.eventId + '（' + e.category + '）',
+    '级别：' + e.levelText + '（' + e.level + '）',
+    '时间：' + new Date(e.time).toLocaleString('zh-CN'),
+    '来源：' + e.source,
+    '描述：' + e.message,
+    '详细信息：' + (e.detail || '（无）'),
+  ].join('\n')
+}
+
+$('levels').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip')
+  if (!chip) return
+  state.level = chip.dataset.level
+  for (const c of $('levels').querySelectorAll('.chip')) c.classList.toggle('on', c === chip)
+  renderEvents()
+})
+$('source').addEventListener('change', (event) => { state.source = event.target.value; renderEvents() })
+$('q').addEventListener('input', (event) => { state.q = event.target.value; renderEvents() })
+$('days').addEventListener('change', (event) => { state.days = Number(event.target.value); loadAll() })
+$('refresh').addEventListener('click', loadAll)
+$('export').addEventListener('click', () => {
+  const rows = [['级别', '日期和时间', '来源', '事件ID', '任务类别', '描述', '详细信息']]
+  for (const e of filtered()) rows.push([e.levelText, when(e.time), e.source, e.eventId, e.category, e.message, e.detail])
+  const csv = '\uFEFF' + rows.map((r) => r.map((c) => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'handeye-events-' + new Date().toISOString().slice(0, 10) + '.csv'
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+})
+
+loadAll()
+setInterval(() => { if (!document.hidden) loadAll() }, 10000)
+</script>
+</body>
+</html>

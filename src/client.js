@@ -1638,19 +1638,21 @@ window.__ModuleLoader__.load({
           return box
         }
 
+        // 执行事件日志：读 /events（不是 handeye 的 C++ 日志）。
+        // 想看完整版（大表、导出、筛选）就点标题右边的"打开大面板"。
         async function loadLog() {
           try {
-            const query = new URLSearchParams({ tail: '200' })
+            const query = new URLSearchParams({ days: '1' })
             if (logLevel !== 'all') query.set('level', logLevel)
-            if (logQuery) query.set('grep', logQuery)
-            const res = await fetch(`/dsh-handeye-plus/log/tail?${query}`, { credentials: 'same-origin' })
+            if (logQuery) query.set('q', logQuery)
+            const res = await fetch('/dsh-handeye-plus/events?' + query.toString(), { credentials: 'same-origin' })
             if (!res.ok) return
             const payload = await res.json()
             if (!payload.ok) return
-            logEvents = Array.isArray(payload.events) ? payload.events : []
+            logEvents = Array.isArray(payload.value) ? payload.value : []
             logLoaded = true
             renderLog()
-          } catch { }
+          } catch {}
         }
 
         function renderLog() {
@@ -1658,28 +1660,23 @@ window.__ModuleLoader__.load({
           const events = logEvents
           const errors = events.filter((e) => e.level <= 2).length
           const warnings = events.filter((e) => e.level === 3).length
-          const sources = new Set(events.map((e) => e.source).filter(Boolean)).size
+          const refused = events.filter((e) => e.eventId === 2001).length
 
-          const kpisEl = mk('div', 'dsh-he-logkpis')
-          for (const [value, label] of [
-            [events.length, '事件'],
-            [errors, '错误'],
-            [warnings, '警告'],
-            [sources, '来源'],
-          ]) {
-            const cell = mk('div')
-            cell.appendChild(mk('b', '', String(value)))
-            cell.appendChild(mk('span', '', label))
-            kpisEl.appendChild(cell)
+          const head = mk('div', 'dsh-he-filters')
+          const open = mk('button', 'dsh-he-btn', '打开大面板')
+          open.onclick = () => {
+            window.open('/dsh-handeye-plus/dashboard', 'handeye-dashboard', 'width=1440,height=900')
           }
-          pageLog.appendChild(kpisEl)
+          head.appendChild(open)
+          head.appendChild(mk('span', 'dsh-he-msg', events.length + ' 条事件 · 错误 ' + errors + ' · 警告 ' + warnings + ' · 拒绝 ' + refused))
+          pageLog.appendChild(head)
 
           const filters = mk('div', 'dsh-he-filters')
           for (const [id, label] of [
             ['all', '全部'],
-            ['错误', '错误'],
-            ['警告', '警告'],
-            ['信息', '信息'],
+            ['2', '错误'],
+            ['3', '警告'],
+            ['4', '信息'],
           ]) {
             const chip = mk('button', 'dsh-he-chip' + (logLevel === id ? ' on' : ''), label)
             chip.onclick = () => {
@@ -1689,7 +1686,7 @@ window.__ModuleLoader__.load({
             filters.appendChild(chip)
           }
           const search = document.createElement('input')
-          search.placeholder = '搜索日志'
+          search.placeholder = '搜索事件'
           search.value = logQuery
           search.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -1701,21 +1698,20 @@ window.__ModuleLoader__.load({
           pageLog.appendChild(filters)
 
           if (!events.length) {
-            pageLog.appendChild(mk('div', 'dsh-he-msg', logLoaded ? '没有匹配的日志。' : '正在读取日志…'))
+            pageLog.appendChild(mk('div', 'dsh-he-msg', logLoaded ? '这一天没有事件。' : '正在读取事件…'))
             return
           }
 
           const levelColor = { 1: '#ff6b6b', 2: '#ff6b6b', 3: '#ffa14a', 4: '#7aa2ff', 5: '#8a8a92' }
-          for (const e of events.slice().reverse().slice(0, 200)) {
+          for (const e of events.slice(0, 200)) {
             const row = mk('div', 'dsh-he-logrow')
-            row.appendChild(mk('span', 'tm', String(e.time || '').slice(11, 19) || String(e.time || '')))
-            const lv = mk('span', 'lv', String(e.levelName || e.level || ''))
+            row.appendChild(mk('span', 'tm', String(new Date(e.time).toLocaleTimeString('zh-CN', { hour12: false }))))
+            const lv = mk('span', 'lv', String(e.levelText || e.level || ''))
             lv.style.color = levelColor[e.level] || 'inherit'
-            lv.style.background = `${levelColor[e.level] || '#888'}22`
+            lv.style.background = (levelColor[e.level] || '#888') + '22'
             row.appendChild(lv)
-            row.appendChild(mk('span', 'ds', `${e.source ? `[${e.source}] ` : ''}${e.desc || ''}`))
-            const detail = mk('span', 'dt', `${e.eventId ? `#${e.eventId} ` : ''}${e.detail || ''}`)
-            row.appendChild(detail)
+            row.appendChild(mk('span', 'ds', '[' + e.source + '] ' + (e.message || '')))
+            row.appendChild(mk('span', 'dt', '#' + e.eventId + ' ' + (e.detail || '')))
             row.addEventListener('click', () => row.classList.toggle('open'))
             pageLog.appendChild(row)
           }

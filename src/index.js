@@ -304,6 +304,7 @@ export function apply(ctx) {
     capabilities,
     cards,
     goals,
+    skills,
     confirm: confirmStore,
     executor,
     dataDir,
