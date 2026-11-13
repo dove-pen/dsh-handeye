@@ -77,7 +77,7 @@ test('the dashboard route serves the panel HTML', async () => {
   const { handlers } = makeHarness()
   const res = await call(handlers.get('/dsh-handeye-plus/dashboard'), '/dsh-handeye-plus/dashboard')
   assert.equal(res.status, 200)
-  assert.match(String(res.body), /手嘴眼/)
+  assert.match(String(res.body), /HandEye/)
   assert.match(String(res.body), /dsh-handeye-plus/)
 })
 

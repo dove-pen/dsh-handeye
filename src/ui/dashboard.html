@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>手嘴眼 · 控制面板</title>
+<title>HandEye · Control Panel</title>
 <style>
-  /* 视觉照 dsh-context 的卡片布局：左侧主区（统计卡 + 图表卡 + 列表卡），右侧窄栏（插件信息）。 */
+  /* 视觉照 dsh-context 的卡片布局：左侧主区（统计卡 + 图表卡 + 列表卡），右侧窄栏（Plugin）。 */
   :root {
     --bg: #14161a; --card: #1a1d22; --card2: #20242b; --line: #2a2f37;
-    --text: #e7eaf0; --muted: #8b93a1; --dim: #6b7280;
+    --text: #ffffff; --muted: #e9edf3; --dim: #d5dbe4;
     --accent: #4f8cff; --ok: #3fb950; --warn: #d8a233; --err: #e5534b; --severe: #b62324;
     --sys: #7c8cff; --tools: #8b6bd9; --user: #e08a3c; --inject: #d4b13f; --skill: #3fbfa8; --assistant: #4f8cff; --tool: #e5534b;
   }
@@ -22,7 +22,7 @@
   }
   header.top h1 { font-size: 14px; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
   .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .badge.ver { color: #9fb3c8; }
+  .badge.ver { color: #ffffff; }
   .grow { flex: 1; }
   button, select {
     font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line);
@@ -35,7 +35,7 @@
   .aside { display: grid; gap: 12px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .card > h2 {
-    margin: 0; padding: 7px 12px; font-size: 12.5px; font-weight: 600; color: #c9d0da;
+    margin: 0; padding: 7px 12px; font-size: 12.5px; font-weight: 600; color: #ffffff;
     border-bottom: 1px solid var(--line); background: var(--card2);
     display: flex; align-items: center; gap: 8px;
   }
@@ -50,11 +50,11 @@
   .tile.warn .n { color: var(--warn); }
   .tile.ok .n { color: var(--ok); }
   .mini-card { border: 1px solid var(--line); border-radius: 8px; background: #1d2127; }
-  .mini-card h3 { margin: 0; padding: 6px 10px; font-size: 12px; color: #c2c9d4; border-bottom: 1px solid var(--line); }
+  .mini-card h3 { margin: 0; padding: 6px 10px; font-size: 12px; color: #ffffff; border-bottom: 1px solid var(--line); }
   .mini-card .body { padding: 8px 10px; display: grid; gap: 5px; }
   .row { display: flex; align-items: center; gap: 7px; font-size: 12px; }
   .row .dot { width: 7px; height: 7px; border-radius: 2px; flex: none; }
-  .row .k { color: #c3cad4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .k { color: #ffffff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row .v { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
   .donut-row { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 12px; align-items: center; }
   .donut { width: 132px; height: 132px; border-radius: 50%; position: relative; display: grid; place-items: center; }
@@ -77,7 +77,7 @@
   .step.blocked .st { color: var(--err); }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
-  th { color: var(--muted); font-weight: 500; background: var(--card); position: sticky; top: 0; z-index: 2; }
+  th { color: #ffffff; font-weight: 500; background: var(--card); position: sticky; top: 0; z-index: 2; }
   tbody tr:hover { background: #1e232a; }
   tr.ev { cursor: pointer; }
   tr.ev.sel { background: #1f2836; }
@@ -113,7 +113,7 @@
   #tutorial-card label { font-size: 11.5px; color: var(--muted); display: block; }
   #tutorial-card .row-actions { display: flex; gap: 6px; }
   #tutorial-card .row-actions button { font-size: 11px; padding: 1px 7px; }
-  /* 教程：浮层 */
+  /* Tutorials：浮层 */
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 50; }
   .modal.on { display: grid; }
   .modal .box { width: min(980px, 92vw); max-height: 84vh; overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
@@ -121,7 +121,7 @@
   .tut { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 12px; }
   .tut .card { background: #1d2127; }
   .tut h3 { margin: 0 0 4px; font-size: 12.5px; }
-  .tut p, .tut li { color: #b7bec9; font-size: 11.5px; margin: 3px 0; }
+  .tut p, .tut li { color: #ffffff; font-size: 11.5px; margin: 3px 0; }
   .tut code { background: #12161c; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 11px; }
   @media (max-width: 1080px) {
     .wrap { grid-template-columns: 1fr; }
@@ -132,92 +132,92 @@
 </head>
 <body>
 <header class="top">
-  <h1>手嘴眼 <span class="badge ver" id="ver">v?</span></h1>
-  <span class="badge" id="live">连接中</span>
+  <h1>HandEye <span class="badge ver" id="ver">v?</span></h1>
+  <span class="badge" id="live">Connecting</span>
   <span class="grow"></span>
   <select id="days">
-    <option value="1">今天</option>
-    <option value="3">最近 3 天</option>
-    <option value="7" selected>最近 7 天</option>
-    <option value="30">最近 30 天</option>
+    <option value="1">Today</option>
+    <option value="3">Last 3 days</option>
+    <option value="7" selected>Last 7 days</option>
+    <option value="30">Last 30 days</option>
   </select>
-  <button id="btn-tutorial">教程</button>
-  <button id="btn-refresh">刷新</button>
+  <button id="btn-tutorial">Guide</button>
+  <button id="btn-refresh">Refresh</button>
 </header>
 
 <div class="wrap">
   <div class="main">
-    <!-- 执行统计 -->
+    <!-- Execution -->
     <section class="card">
-      <h2>执行统计 <span class="sub" id="stats-sub"></span></h2>
+      <h2>Execution <span class="sub" id="stats-sub"></span></h2>
       <div class="pad">
         <div class="grid4" id="kpis"></div>
         <div class="grid2" style="margin-top:10px">
-          <div class="mini-card"><h3>工具调用</h3><div class="body" id="tools"></div></div>
-          <div class="mini-card"><h3>执行来源</h3><div class="body" id="sources"></div></div>
-          <div class="mini-card"><h3>被拦原因</h3><div class="body" id="refusals"></div></div>
-          <div class="mini-card"><h3>动作结果</h3><div class="body" id="outcomes"></div></div>
+          <div class="mini-card"><h3>Tool calls</h3><div class="body" id="tools"></div></div>
+          <div class="mini-card"><h3>Sources</h3><div class="body" id="sources"></div></div>
+          <div class="mini-card"><h3>Blocked reasons</h3><div class="body" id="refusals"></div></div>
+          <div class="mini-card"><h3>Outcomes</h3><div class="body" id="outcomes"></div></div>
         </div>
       </div>
     </section>
 
-    <!-- 系统日志：整宽大表（用户要求：这里是重点，别缩成半格） -->
+    <!-- System log：整宽大表（用户要求：这里是重点，别缩成半格） -->
     <section class="card">
-      <h2>系统日志 <span class="sub" id="log-sub"></span></h2>
+      <h2>System log <span class="sub" id="log-sub"></span></h2>
       <div style="display:flex;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);background:var(--card2)">
         <div class="tabs" id="log-tabs">
-          <button class="on" data-level="all">全部</button>
-          <button data-level="1">严重</button>
-          <button data-level="2">错误</button>
-          <button data-level="3">警告</button>
-          <button data-level="4">信息</button>
+          <button class="on" data-level="all">All</button>
+          <button data-level="1">Critical</button>
+          <button data-level="2">Error</button>
+          <button data-level="3">Warning</button>
+          <button data-level="4">Information</button>
         </div>
-        <select id="log-source"><option value="all">全部来源</option></select>
-        <input type="search" id="log-q" placeholder="搜索描述 / 工具名" style="font:inherit;color:var(--text);background:#12161c;border:1px solid var(--line);border-radius:6px;padding:3px 8px;min-width:200px">
+        <select id="log-source"><option value="all">All sources</option></select>
+        <input type="search" id="log-q" placeholder="Search message / tool" style="font:inherit;color:var(--text);background:#12161c;border:1px solid var(--line);border-radius:6px;padding:3px 8px;min-width:200px">
         <span class="grow"></span>
-        <button id="btn-full-log" style="font-size:11.5px">导出 / 打开全部</button>
+        <button id="btn-full-log" style="font-size:11.5px">Export / Open all</button>
       </div>
       <div style="max-height:472px;overflow:auto">
         <table>
-          <thead><tr><th style="width:56px">级别</th><th style="width:112px">日期和时间</th><th style="width:82px">来源</th><th style="width:66px">事件 ID</th><th style="width:66px">任务类别</th><th>描述</th></tr></thead>
+          <thead><tr><th style="width:56px">Level</th><th style="width:112px">Date and time</th><th style="width:82px">Source</th><th style="width:66px">Event ID</th><th style="width:66px">Category</th><th>Message</th></tr></thead>
           <tbody id="logs"></tbody>
         </table>
       </div>
     </section>
 
     <section class="card" id="tutorial-card">
-      <h2>教程 <span class="sub" id="tut-sub"></span>
+      <h2>Tutorials <span class="sub" id="tut-sub"></span>
         <span class="grow" style="flex:1"></span>
-        <button id="tut-new" style="font-size:11.5px">写一份教程</button>
+        <button id="tut-new" style="font-size:11.5px">New tutorial</button>
       </h2>
       <div style="max-height:240px;overflow:auto;display:none" id="tut-list-wrap">
         <table>
-          <thead><tr><th>教程</th><th style="width:56px">步骤</th><th style="width:72px">判据</th><th style="width:96px">跑过</th><th style="width:70px">状态</th><th style="width:120px"></th></tr></thead>
+          <thead><tr><th>Tutorials</th><th style="width:56px">Steps</th><th style="width:72px">Checks</th><th style="width:96px">Runs</th><th style="width:70px">Status</th><th style="width:120px"></th></tr></thead>
           <tbody id="tut-list"></tbody>
         </table>
       </div>
-      <div class="pad" id="tut-empty"><div class="empty">还没有教程。点右上角「写一份教程」：写清楚步骤，AI 就会照着做。</div></div>
+      <div class="pad" id="tut-empty"><div class="empty">No tutorials yet. Click "New tutorial", write the steps, and the AI will follow them.</div></div>
 
       <div class="pad" id="tut-form" style="display:none;border-top:1px solid var(--line)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <label>标题<input id="tut-title" placeholder="例如：整理发票" style="width:100%"></label>
+          <label>Title<input id="tut-title" placeholder="e.g. Tidy invoices" style="width:100%"></label>
           <label>id<input id="tut-id" placeholder="tut_invoice" style="width:100%"></label>
         </div>
-        <label style="display:block;margin-top:8px">目标（这一步要达成什么）<textarea id="tut-goal" rows="2" style="width:100%"></textarea></label>
-        <label style="display:block;margin-top:8px">步骤（一行一步，按顺序）<textarea id="tut-path" rows="5" style="width:100%" placeholder="列出所有 PDF&#10;按月份建文件夹&#10;核对张数与合计"></textarea></label>
-        <label style="display:block;margin-top:8px">约束（一行一条，可选）<textarea id="tut-constraints" rows="2" style="width:100%"></textarea></label>
-        <label style="display:block;margin-top:8px">判定成功（可选）<input id="tut-success" style="width:100%" placeholder="每个 PDF 都在对应月份的文件夹里"></label>
+        <label style="display:block;margin-top:8px">Goal (what has to be achieved)<textarea id="tut-goal" rows="2" style="width:100%"></textarea></label>
+        <label style="display:block;margin-top:8px">Steps (one per line, in order)<textarea id="tut-path" rows="5" style="width:100%" placeholder="List every PDF&#10;Group by month folder&#10;Check count and total"></textarea></label>
+        <label style="display:block;margin-top:8px">Constraints (one per line, optional)<textarea id="tut-constraints" rows="2" style="width:100%"></textarea></label>
+        <label style="display:block;margin-top:8px">Success criteria (optional)<input id="tut-success" style="width:100%" placeholder="every PDF sits in its month folder"></label>
         <div style="display:flex;gap:8px;align-items:end;margin-top:8px">
-          <label style="flex:1">验收判据
+          <label style="flex:1">Acceptance check
             <select id="tut-check" style="width:100%">
-              <option value="">不设判据（只能自己确认）</option>
-              <option value="file">文件存在</option>
-              <option value="screen">屏幕出现文字</option>
+              <option value="">No check (self-report only)</option>
+              <option value="file">File exists</option>
+              <option value="screen">Text on screen</option>
             </select>
           </label>
-          <label style="flex:1">判据参数<input id="tut-check-arg" style="width:100%" placeholder="文件路径 / 屏幕文字"></label>
-          <button id="tut-save" class="primary">保存</button>
-          <button id="tut-cancel">取消</button>
+          <label style="flex:1">Check argument<input id="tut-check-arg" style="width:100%" placeholder="File path / screen text"></label>
+          <button id="tut-save" class="primary">Save</button>
+          <button id="tut-cancel">Cancel</button>
         </div>
         <div id="tut-msg" style="margin-top:6px;color:var(--muted)"></div>
       </div>
@@ -225,14 +225,14 @@
 
     <div class="grid2">
       <section class="card">
-        <h2>当前目标 <span class="sub" id="goal-sub"></span></h2>
-        <div class="pad" id="goal-body"><div class="empty">还没有目标</div></div>
+        <h2>Current goal <span class="sub" id="goal-sub"></span></h2>
+        <div class="pad" id="goal-body"><div class="empty">No goal yet</div></div>
       </section>
       <section class="card">
-        <h2>事件级别分布 <span class="sub" id="levels-sub"></span></h2>
+        <h2>Severity mix <span class="sub" id="levels-sub"></span></h2>
         <div class="pad">
           <div class="donut-row">
-            <div class="donut" id="level-donut"><div class="c"><b id="level-total">0</b><span>事件</span></div></div>
+            <div class="donut" id="level-donut"><div class="c"><b id="level-total">0</b><span>events</span></div></div>
             <div class="legend" id="level-legend"></div>
           </div>
         </div>
@@ -241,56 +241,56 @@
 
     <div class="grid2">
       <section class="card">
-        <h2>耗时统计 <span class="sub" id="timing-sub"></span></h2>
+        <h2>Timing <span class="sub" id="timing-sub"></span></h2>
         <div class="pad">
           <div class="donut-row">
-            <div class="donut" id="time-donut"><div class="c"><b id="time-total">0s</b><span>动作耗时</span></div></div>
+            <div class="donut" id="time-donut"><div class="c"><b id="time-total">0s</b><span>action time</span></div></div>
             <div class="legend" id="time-legend"></div>
           </div>
           <div class="strip" id="time-strip"></div>
         </div>
       </section>
       <section class="card">
-        <h2>能力 <span class="sub" id="caps-sub"></span></h2>
+        <h2>Capabilities <span class="sub" id="caps-sub"></span></h2>
         <div style="max-height:210px;overflow:auto">
-          <table><thead><tr><th>能力</th><th style="width:64px">状态</th><th style="width:56px">风险</th><th style="width:56px">成功率</th></tr></thead><tbody id="caps"></tbody></table>
+          <table><thead><tr><th>Capabilities</th><th style="width:64px">Status</th><th style="width:56px">Risk</th><th style="width:56px">Success rate</th></tr></thead><tbody id="caps"></tbody></table>
         </div>
       </section>
     </div>
 
     <section class="card">
-      <h2>任务卡 <span class="sub" id="cards-sub"></span></h2>
+      <h2>Cards <span class="sub" id="cards-sub"></span></h2>
       <div style="max-height:180px;overflow:auto">
-        <table><thead><tr><th>卡片</th><th style="width:80px">类别</th><th style="width:56px">步骤</th><th style="width:68px">自主度</th></tr></thead><tbody id="cards"></tbody></table>
+        <table><thead><tr><th>Card</th><th style="width:80px">Category</th><th style="width:56px">Steps</th><th style="width:68px">Autonomy</th></tr></thead><tbody id="cards"></tbody></table>
       </div>
     </section>
   </div>
 
-  <!-- 右侧栏：插件信息 + 待确认 + 技能 -->
+  <!-- 右侧栏：Plugin + Pending confirmation + Skills -->
   <div class="aside">
     <section class="card" id="confirm-card" style="display:none">
-      <h2>待确认</h2>
+      <h2>Pending confirmation</h2>
       <div class="pad" id="confirm-body"></div>
     </section>
 
     <section class="card">
-      <h2>插件信息</h2>
+      <h2>Plugin</h2>
       <div class="plugin-head">
-        <div class="plugin-icon">手</div>
+        <div class="plugin-icon">H</div>
         <div>
-          <div class="plugin-name">手嘴眼 <span class="badge ver" id="ver2">v?</span></div>
-          <div class="plugin-sub">手 + 嘴 + 眼，带门卫</div>
+          <div class="plugin-name">HandEye <span class="badge ver" id="ver2">v?</span></div>
+          <div class="plugin-sub">hands + voice + eyes, with a gate</div>
         </div>
       </div>
-      <div class="info-row"><span class="k">包名</span><span class="v">dsh-handeye</span></div>
-      <div class="info-row" id="row-fmt"><span class="k">格式</span><span class="v" id="fmt-ver">—</span></div>
-      <div class="info-row" id="row-dir"><span class="k">数据目录</span><span class="v" id="data-dir">—</span></div>
+      <div class="info-row"><span class="k">Package</span><span class="v">dsh-handeye</span></div>
+      <div class="info-row" id="row-fmt"><span class="k">Formats</span><span class="v" id="fmt-ver">—</span></div>
+      <div class="info-row" id="row-dir"><span class="k">Data dir</span><span class="v" id="data-dir">—</span></div>
       <div class="info-row"><span class="k">GitHub</span><span class="v"><a href="https://github.com/dove-pen/dsh-handeye" target="_blank" rel="noreferrer">dove-pen/dsh-handeye</a></span></div>
-      <div class="info-row"><span class="k">设置</span><span class="v"><a href="#" id="link-settings">打开插件设置</a></span></div>
+      <div class="info-row"><span class="k">Settings</span><span class="v"><a href="#" id="link-settings">Open plugin settings</a></span></div>
     </section>
 
     <section class="card">
-      <h2>技能 <span class="sub" id="skills-sub"></span></h2>
+      <h2>Skills <span class="sub" id="skills-sub"></span></h2>
       <div class="pad" id="skills"></div>
     </section>
   </div>
@@ -299,23 +299,23 @@
 <!-- 全部日志 -->
 <div class="modal" id="log-modal">
   <div class="box">
-    <h2>系统日志 <span class="grow"></span><button id="log-close">关闭</button></h2>
+    <h2>System log <span class="grow"></span><button id="log-close">Close</button></h2>
     <div style="display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)">
       <div class="tabs" id="full-levels">
-        <button class="on" data-level="all">全部</button>
-        <button data-level="1">严重</button>
-        <button data-level="2">错误</button>
-        <button data-level="3">警告</button>
-        <button data-level="4">信息</button>
+        <button class="on" data-level="all">All</button>
+        <button data-level="1">Critical</button>
+        <button data-level="2">Error</button>
+        <button data-level="3">Warning</button>
+        <button data-level="4">Information</button>
       </div>
-      <select id="full-source"><option value="all">全部来源</option></select>
-      <input type="search" id="full-q" placeholder="搜索描述 / 工具名" style="font:inherit;color:var(--text);background:#12161c;border:1px solid var(--line);border-radius:6px;padding:3px 8px;min-width:180px">
+      <select id="full-source"><option value="all">All sources</option></select>
+      <input type="search" id="full-q" placeholder="Search message / tool" style="font:inherit;color:var(--text);background:#12161c;border:1px solid var(--line);border-radius:6px;padding:3px 8px;min-width:180px">
       <span class="grow"></span>
-      <button id="full-export">导出 CSV</button>
+      <button id="full-export">Export CSV</button>
     </div>
     <div style="max-height:56vh;overflow:auto">
       <table>
-        <thead><tr><th style="width:56px">级别</th><th style="width:104px">日期和时间</th><th style="width:78px">来源</th><th style="width:64px">事件 ID</th><th style="width:64px">任务类别</th><th>描述</th></tr></thead>
+        <thead><tr><th style="width:56px">Level</th><th style="width:104px">Date and time</th><th style="width:78px">Source</th><th style="width:64px">Event ID</th><th style="width:64px">Category</th><th>Message</th></tr></thead>
         <tbody id="full-rows"></tbody>
       </table>
     </div>
@@ -323,26 +323,26 @@
   </div>
 </div>
 
-<!-- 教程 -->
+<!-- Tutorials -->
 <div class="modal" id="tut-modal">
   <div class="box">
-    <h2>教程 <span class="grow"></span><button id="tut-close">关闭</button></h2>
+    <h2>Tutorials <span class="grow"></span><button id="tut-close">Close</button></h2>
     <div class="tut">
-      <section class="card"><div class="pad"><h3>怎么加一份技能</h3>
-        <p>技能从真实操作里编译，不用手写。</p>
-        <ol><li>做同一件事 <b>3 次以上</b>。</li><li><code>node bin/he-server.js skills --min 3 --save</code></li><li>到"技能"卡里确认它出现。</li><li>以后用 <code>skill_use &lt;id&gt;</code>，跑完自动记账。</li></ol></div></section>
-      <section class="card"><div class="pad"><h3>怎么加一张任务卡</h3>
-        <p>任务卡是"给 AI 的活"，带步骤和判据。</p>
-        <ol><li>复制 <code>src/cards/*.json</code>，改 id/title/goal/path。</li><li><code>verify</code> 写验收判据（文件/文本/屏幕/退出码/画面变化）。</li><li>重启插件后出现在"任务卡"卡里。</li></ol></div></section>
-      <section class="card"><div class="pad"><h3>怎么装一个领域包</h3>
-        <p>领域包 = 一整个行业的判据 + 卡片。</p>
-        <ol><li><code>node bin/he-server.js pack validate &lt;目录&gt;</code></li><li><code>node bin/he-server.js pack install &lt;目录&gt;</code></li></ol></div></section>
-      <section class="card"><div class="pad"><h3>怎么把数据带走</h3>
-        <ol><li><code>node bin/he-server.js export backup.json</code></li><li>换机器后 <code>import backup.json</code></li><li>技能还能导出成 <code>SKILL.md</code>：<code>skill export &lt;id&gt; --to &lt;目录&gt;</code></li></ol></div></section>
-      <section class="card"><div class="pad"><h3>门卫拦住了怎么办</h3>
-        <ul><li><b>GOAL_STEP_REQUIRED</b>：先 <code>goal_step_enter</code></li><li><b>PATH_DEVIATION</b>：先 <code>episode_checkpoint</code></li><li><b>CONFIRM_REQUIRED</b>：到右侧"待确认"点允许一次</li><li><b>STEP_BUDGET_EXCEEDED</b>：<code>goal_step_continue</code> 说明理由</li></ul></div></section>
-      <section class="card"><div class="pad"><h3>日志怎么看</h3>
-        <ul><li>级别：1 严重 / 2 错误 / 3 警告 / 4 信息 / 5 详细</li><li>事件 ID：2xxx 门卫、3xxx 目标、4xxx 动作、5xxx 技能</li><li>点任意一行看详细信息；可导出 CSV。</li></ul></div></section>
+      <section class="card"><div class="pad"><h3>Adding a skill</h3>
+        <p>Skills are compiled from real runs; you do not write them by hand.</p>
+        <ol><li>Do the same task <b>at least 3 times</b>.</li><li><code>node bin/he-server.js skills --min 3 --save</code></li><li>Confirm it shows up in the Skills card.</li><li>Later use <code>skill_use &lt;id&gt;</code>，health is recorded automatically。</li></ol></div></section>
+      <section class="card"><div class="pad"><h3>Adding a card</h3>
+        <p>A card is a job for the AI: steps plus acceptance checks.</p>
+        <ol><li>Copy a file in <code>src/cards/*.json</code> and edit id/title/goal/path.</li><li><code>verify</code> Add acceptance checks (file / text / screen / exit code / screen changed).</li><li>It appears in the Cards card after a restart.</li></ol></div></section>
+      <section class="card"><div class="pad"><h3>Installing a domain pack</h3>
+        <p>A domain pack is one industry's checks plus cards.</p>
+        <ol><li><code>node bin/he-server.js pack validate &lt;dir&gt;</code></li><li><code>node bin/he-server.js pack install &lt;dir&gt;</code></li></ol></div></section>
+      <section class="card"><div class="pad"><h3>Moving your data</h3>
+        <ol><li><code>node bin/he-server.js export backup.json</code></li><li>On another machine, <code>import backup.json</code></li><li>Skills can also export as <code>SKILL.md</code>：<code>skill export &lt;id&gt; --to &lt;dir&gt;</code></li></ol></div></section>
+      <section class="card"><div class="pad"><h3>When the gate refuses</h3>
+        <ul><li><b>GOAL_STEP_REQUIRED</b>: run <code>goal_step_enter</code></li><li><b>PATH_DEVIATION</b>: run <code>episode_checkpoint</code></li><li><b>CONFIRM_REQUIRED</b>: open "Pending confirmation" on the right and allow it once</li><li><b>STEP_BUDGET_EXCEEDED</b>: <code>goal_step_continue</code> explain why</li></ul></div></section>
+      <section class="card"><div class="pad"><h3>Reading the log</h3>
+        <ul><li>Levels: 1 Critical / 2 Error / 3 Warning / 4 Information / 5 Verbose</li><li>Event IDs: 2xxx gate, 3xxx goal, 4xxx action, 5xxx skill</li><li>Click any row for details; CSV export is available.</li></ul></div></section>
     </div>
   </div>
 </div>
@@ -363,12 +363,25 @@ async function get(path) {
   return res.json()
 }
 
+// 服务端的 source / levelText 是中文（那是数据层），界面按这里翻成英文
+const SOURCE_EN = {
+  '手眼': 'Hands', '浏览器': 'Browser', '后台控件': 'Backend', '目标': 'Goals',
+  '卡片': 'Cards', '技能': 'Skills', '门卫': 'Gate', '语音': 'Voice', '其它': 'Other',
+}
+const CATEGORY_EN = { '动作': 'Action', '门卫': 'Gate', '目标': 'Goal', '技能': 'Skill', '其它': 'Other' }
+const categoryText = (c) => CATEGORY_EN[c] || c
+const sourceText = (src) => SOURCE_EN[src] || src
+const levelText = (level) => {
+  const found = LEVEL_META.find((l) => l.id === Number(level))
+  return found ? found.text : String(level)
+}
+
 const LEVEL_META = [
-  { id: 1, text: '严重', color: 'var(--severe)' },
-  { id: 2, text: '错误', color: 'var(--err)' },
-  { id: 3, text: '警告', color: 'var(--warn)' },
-  { id: 4, text: '信息', color: '#9fb3c8' },
-  { id: 5, text: '详细', color: 'var(--dim)' },
+  { id: 1, text: 'Critical', color: 'var(--severe)' },
+  { id: 2, text: 'Error', color: 'var(--err)' },
+  { id: 3, text: 'Warning', color: 'var(--warn)' },
+  { id: 4, text: 'Information', color: '#9fb3c8' },
+  { id: 5, text: 'Verbose', color: 'var(--dim)' },
 ]
 
 function donut(el, parts) {
@@ -397,7 +410,7 @@ function legend(el, parts) {
 }
 
 async function loadAll() {
-  $('live').textContent = '连接中'
+  $('live').textContent = 'Connecting'
   try {
     const [events, goals, skills, caps, cards, stateSnap] = await Promise.all([
       get('/events?days=' + state.days),
@@ -425,9 +438,9 @@ async function loadAll() {
     else $('row-fmt').style.display = 'none'
     if (stateSnap && stateSnap.dataDir) $('data-dir').textContent = stateSnap.dataDir
     else $('row-dir').style.display = 'none'
-    $('live').textContent = '已连接'
+    $('live').textContent = 'Connected'
   } catch (error) {
-    $('live').textContent = '连接失败'
+    $('live').textContent = 'Disconnected'
   }
 }
 
@@ -439,12 +452,12 @@ function renderStats() {
   const refused = n(2001)
   const warn = list.filter((e) => e.level === 3).length
   $('kpis').innerHTML = [
-    ['', actions, '动作'],
-    ['bad', failed, '动作失败'],
-    ['warn', refused, '门卫拒绝'],
-    ['warn', warn, '警告'],
+    ['', actions, 'Actions'],
+    ['bad', failed, 'Failed'],
+    ['warn', refused, 'Gate refusals'],
+    ['warn', warn, 'Warnings'],
   ].map(([cls, v, l]) => '<div class="tile ' + cls + '"><div class="n">' + v + '</div><div class="l">' + l + '</div></div>').join('')
-  $('stats-sub').textContent = '最近 ' + state.days + ' 天 · ' + list.length + ' 条事件'
+  $('stats-sub').textContent = 'Last ' + state.days + ' days · ' + list.length + ' events'
 
   const toolMap = new Map()
   for (const e of list) {
@@ -453,13 +466,13 @@ function renderStats() {
   }
   const tools = [...toolMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
   $('tools').innerHTML = tools.length ? tools.map(([t, c]) => '<div class="row"><span class="dot" style="background:var(--tools)"></span><span class="k">' +
-    esc(t) + '</span><span class="v">' + c + '</span></div>').join('') : '<div class="empty">没有工具调用</div>'
+    esc(t) + '</span><span class="v">' + c + '</span></div>').join('') : '<div class="empty">No tool calls</div>'
 
   const srcMap = new Map()
-  for (const e of list) srcMap.set(e.source, (srcMap.get(e.source) || 0) + 1)
+  for (const e of list) srcMap.set(sourceText(e.source), (srcMap.get(sourceText(e.source)) || 0) + 1)
   const srcs = [...srcMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
   $('sources').innerHTML = srcs.length ? srcs.map(([s, c]) => '<div class="row"><span class="dot" style="background:var(--sys)"></span><span class="k">' +
-    esc(s) + '</span><span class="v">' + c + '</span></div>').join('') : '<div class="empty">没有数据</div>'
+    esc(s) + '</span><span class="v">' + c + '</span></div>').join('') : '<div class="empty">No data</div>'
 
   const codeMap = new Map()
   for (const e of list) {
@@ -468,11 +481,11 @@ function renderStats() {
   }
   const codes = [...codeMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
   $('refusals').innerHTML = codes.length ? codes.map(([c, k]) => '<div class="row"><span class="dot" style="background:var(--warn)"></span><span class="k">' +
-    esc(c) + '</span><span class="v">' + k + '</span></div>').join('') : '<div class="empty">没有被拦</div>'
+    esc(c) + '</span><span class="v">' + k + '</span></div>').join('') : '<div class="empty">Nothing blocked</div>'
 
   const ok = n(4001), bad = n(4002)
-  $('outcomes').innerHTML = '<div class="row"><span class="dot" style="background:var(--ok)"></span><span class="k">成功</span><span class="v">' + ok + '</span></div>' +
-    '<div class="row"><span class="dot" style="background:var(--err)"></span><span class="k">失败</span><span class="v">' + bad + '</span></div>'
+  $('outcomes').innerHTML = '<div class="row"><span class="dot" style="background:var(--ok)"></span><span class="k">Succeeded</span><span class="v">' + ok + '</span></div>' +
+    '<div class="row"><span class="dot" style="background:var(--err)"></span><span class="k">Failed</span><span class="v">' + bad + '</span></div>'
 }
 
 function renderLevels() {
@@ -480,7 +493,7 @@ function renderLevels() {
   donut($('level-donut'), parts)
   legend($('level-legend'), parts)
   $('level-total').textContent = state.events.length
-  $('levels-sub').textContent = Math.max(0, ...[...state.events].map((e) => e.level)) && state.events.length ? '共 ' + state.events.length + ' 条' : ''
+  $('levels-sub').textContent = Math.max(0, ...[...state.events].map((e) => e.level)) && state.events.length ? state.events.length + ' events' : ''
 }
 
 function renderTiming() {
@@ -490,18 +503,18 @@ function renderTiming() {
   const failMs = withMs.filter((e) => e.eventId === 4002).reduce((a, e) => a + parse(e), 0)
   const total = okMs + failMs
   const parts = [
-    { label: '成功动作', value: Math.round(okMs / 100) / 10, color: 'var(--ok)' },
-    { label: '失败动作', value: Math.round(failMs / 100) / 10, color: 'var(--err)' },
+    { label: 'Succeeded', value: Math.round(okMs / 100) / 10, color: 'var(--ok)' },
+    { label: 'Failed', value: Math.round(failMs / 100) / 10, color: 'var(--err)' },
   ]
   donut($('time-donut'), total ? parts : [])
   legend($('time-legend'), total ? [
-    { label: '成功动作', value: (okMs / 1000).toFixed(1) + 's', color: 'var(--ok)' },
-    { label: '失败动作', value: (failMs / 1000).toFixed(1) + 's', color: 'var(--err)' },
-    { label: '平均', value: withMs.length ? (total / withMs.length / 1000).toFixed(2) + 's' : '—', color: 'var(--muted)' },
-    { label: '次数', value: withMs.length + ' 次', color: 'var(--dim)' },
-  ] : [{ label: '暂无耗时数据', value: '—', color: 'var(--dim)' }])
+    { label: 'Succeeded', value: (okMs / 1000).toFixed(1) + 's', color: 'var(--ok)' },
+    { label: 'Failed', value: (failMs / 1000).toFixed(1) + 's', color: 'var(--err)' },
+    { label: 'Average', value: withMs.length ? (total / withMs.length / 1000).toFixed(2) + 's' : '—', color: 'var(--muted)' },
+    { label: 'Calls', value: withMs.length + ' runs', color: 'var(--dim)' },
+  ] : [{ label: 'No timing data', value: '—', color: 'var(--dim)' }])
   $('time-total').textContent = total ? secs(total) : '0s'
-  $('timing-sub').textContent = withMs.length ? withMs.length + ' 次动作' : ''
+  $('timing-sub').textContent = withMs.length ? withMs.length + ' actions' : ''
 
   const recent = withMs.slice(0, 48)
   const max = Math.max(1, ...recent.map(parse))
@@ -516,15 +529,15 @@ function renderTiming() {
 
 function renderGoals(goals) {
   const active = goals.filter((g) => g.status === 'active')
-  $('goal-sub').textContent = active.length + ' 个进行中 / 共 ' + goals.length
-  if (!goals.length) { $('goal-body').innerHTML = '<div class="empty">还没有目标</div>'; return }
+  $('goal-sub').textContent = active.length + ' active / ' + goals.length + ' total'
+  if (!goals.length) { $('goal-body').innerHTML = '<div class="empty">No goal yet</div>'; return }
   const g = active[0] || goals[0]
   const steps = g.steps || []
   const done = steps.filter((s) => s.status === 'done' || s.status === 'skipped').length
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0
   const mark = { done: '✓', doing: '●', blocked: '×', todo: '○', skipped: '–' }
   $('goal-body').innerHTML =
-    '<div class="row" style="margin-bottom:4px"><b>' + esc(g.title) + '</b><span class="v">' + done + '/' + steps.length + ' 步</span></div>' +
+    '<div class="row" style="margin-bottom:4px"><b>' + esc(g.title) + '</b><span class="v">' + done + '/' + steps.length + ' steps</span></div>' +
     '<div class="prog"><i style="width:' + pct + '%"></i></div>' +
     '<div class="steps">' + steps.map((s) => '<div class="step ' + esc(s.status) + '"><span class="st">' + (mark[s.status] || '·') + '</span><span>' + esc(s.title) + '</span></div>').join('') + '</div>'
 }
@@ -538,16 +551,16 @@ function renderLogs() {
     return (e.message + ' ' + e.detail + ' ' + e.source).toLowerCase().includes(q)
   })
   state.currentLogs = list
-  $('log-sub').textContent = list.length + ' 条'
+  $('log-sub').textContent = list.length + ' events'
   $('logs').innerHTML = list.length
-    ? list.slice(0, 200).map((e) => '<tr><td><span class="lv" data-l="' + e.level + '">' + esc(e.levelText) +
-        '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(e.source) + '</td><td>' + e.eventId +
-        '</td><td>' + esc(e.category) + '</td><td>' + esc(e.message) + '</td></tr>').join('')
-    : '<tr><td colspan="6" class="empty">没有事件</td></tr>'
+    ? list.slice(0, 200).map((e) => '<tr><td><span class="lv" data-l="' + e.level + '">' + esc(levelText(e.level)) +
+        '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(sourceText(e.source)) + '</td><td>' + e.eventId +
+        '</td><td>' + esc(categoryText(e.category)) + '</td><td>' + esc(e.message) + '</td></tr>').join('')
+    : '<tr><td colspan="6" class="empty">No events</td></tr>'
 }
 
 function renderSkills(skills) {
-  $('skills-sub').textContent = skills.length + ' 份'
+  $('skills-sub').textContent = skills.length + ' skills'
   $('skills').innerHTML = skills.length
     ? skills.slice(0, 8).map((s) => {
         const h = s.health || {}
@@ -555,13 +568,13 @@ function renderSkills(skills) {
         const rate = runs ? Math.round((ok / runs) * 100) : 0
         const color = rate >= 90 ? 'var(--ok)' : rate >= 60 ? 'var(--warn)' : 'var(--err)'
         return '<div class="row" style="display:grid;grid-template-columns:1fr 44px 60px;gap:6px"><span class="k" title="' + esc(s.id) + '">' + esc(s.title) + '</span>' +
-          '<span class="v">' + runs + ' 次</span><span class="tag ' + esc(h.status || 'untested') + '">' + esc(h.status || 'untested') + '</span></div>'
+          '<span class="v">' + runs + ' runs</span><span class="tag ' + esc(h.status || 'untested') + '">' + esc(h.status || 'untested') + '</span></div>'
       }).join('')
-    : '<div class="empty">还没有技能</div>'
+    : '<div class="empty">No skills yet</div>'
 }
 
 function renderCaps(caps) {
-  $('caps-sub').textContent = caps.length + ' 项'
+  $('caps-sub').textContent = caps.length + ' capabilities'
   $('caps').innerHTML = caps.length
     ? caps.map((c) => {
         const runs = Number(c.stats && c.stats.runs) || 0
@@ -569,14 +582,14 @@ function renderCaps(caps) {
         const rate = runs ? Math.round((ok / runs) * 100) + '%' : '—'
         return '<tr><td>' + esc(c.title || c.name) + '</td><td><span class="tag ' + esc(c.status) + '">' + esc(c.status) + '</span></td><td>' + esc(c.risk || 'read') + '</td><td>' + rate + '</td></tr>'
       }).join('')
-    : '<tr><td colspan="4" class="empty">没有能力</td></tr>'
+    : '<tr><td colspan="4" class="empty">No capabilities</td></tr>'
 }
 
 function renderCards(cards) {
-  $('cards-sub').textContent = cards.length + ' 张'
+  $('cards-sub').textContent = cards.length + ' cards'
   $('cards').innerHTML = cards.length
     ? cards.slice(0, 30).map((c) => '<tr><td>' + esc(c.title) + '</td><td>' + esc(c.category || '—') + '</td><td>' + (c.path || []).length + '</td><td>' + esc(c.autonomy || '—') + '</td></tr>').join('')
-    : '<tr><td colspan="4" class="empty">没有任务卡</td></tr>'
+    : '<tr><td colspan="4" class="empty">No cards</td></tr>'
 }
 
 async function loadConfirm() {
@@ -585,14 +598,14 @@ async function loadConfirm() {
     const p = payload.pending
     if (!p) { $('confirm-card').style.display = 'none'; return }
     $('confirm-card').style.display = ''
-    const tool = p.tool || p.name || '未知动作'
+    const tool = p.tool || p.name || 'unknown tool'
     $('confirm-body').innerHTML = ''
     const box = document.createElement('div')
     box.className = 'confirm-item'
     box.innerHTML = '<b>' + esc(tool) + '</b><div style="color:var(--muted);margin:4px 0">' + esc(String(p.args || '').slice(0, 160)) + '</div>'
     const ok = document.createElement('button')
     ok.className = 'primary'
-    ok.textContent = '允许一次'
+    ok.textContent = 'Allow once'
     ok.onclick = async () => {
       await fetch(BASE + '/confirm', {
         method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
@@ -605,21 +618,21 @@ async function loadConfirm() {
   } catch {}
 }
 
-// ---------------- 教程
+// ---------------- Tutorials
 async function loadTutorials() {
   try {
     const payload = await get('/tutorials')
     const list = Array.isArray(payload.value) ? payload.value : []
-    $('tut-sub').textContent = list.length + ' 份'
+    $('tut-sub').textContent = list.length + ' tutorials'
     $('tut-list-wrap').style.display = list.length ? '' : 'none'
     $('tut-empty').style.display = list.length ? 'none' : ''
     $('tut-list').innerHTML = list.map((t) => {
       const h = t.health || {}
       return '<tr><td title="' + esc(t.id) + '">' + esc(t.title) + '</td><td>' + t.path.length + '</td><td>' +
-        (t.verify.length ? t.verify.length + ' 条' : '—') + '</td><td>' + (h.runs || 0) + ' 次 · 成功 ' + (h.ok || 0) +
+        (t.verify.length ? t.verify.length + ' checks' : '—') + '</td><td>' + (h.runs || 0) + ' runs · ok ' + (h.ok || 0) +
         '</td><td><span class="tag ' + esc(h.status || 'untested') + '">' + esc(h.status || 'untested') + '</span></td>' +
-        '<td><div class="row-actions"><button data-run="' + esc(t.id) + '">运行</button>' +
-        '<button data-edit="' + esc(t.id) + '">编辑</button></div></td></tr>'
+        '<td><div class="row-actions"><button data-run="' + esc(t.id) + '">Run</button>' +
+        '<button data-edit="' + esc(t.id) + '">Edit</button></div></td></tr>'
     }).join('')
     for (const btn of $('tut-list').querySelectorAll('button[data-run]')) {
       btn.onclick = () => runTutorial(btn.dataset.run)
@@ -640,12 +653,12 @@ async function runTutorial(id) {
       body: JSON.stringify({ id }),
     })
     const payload = await res.json()
-    if (!payload.ok) { $('tut-msg').textContent = '没跑起来：' + payload.error; return }
-    $('tut-msg').textContent = `已开始「${id}」：目标 ${payload.goalId}（${payload.stepCount} 步）。对 AI 说「继续」它就会照着走。`
+    if (!payload.ok) { $('tut-msg').textContent = 'Could not start: ' + payload.error; return }
+    $('tut-msg').textContent = `Started ${id}: goal ${payload.goalId} (${payload.stepCount} steps). Tell the AI "continue" and it will follow it.`
     await loadTutorials()
     await loadAll()
   } catch (error) {
-    $('tut-msg').textContent = '请求失败：' + error.message
+    $('tut-msg').textContent = 'Request failed: ' + error.message
   }
 }
 
@@ -681,11 +694,11 @@ async function saveTutorial() {
       }),
     })
     const payload = await res.json()
-    if (!payload.ok) { $('tut-msg').textContent = '保存失败：' + (payload.error || payload.message); return }
+    if (!payload.ok) { $('tut-msg').textContent = 'Save failed: ' + (payload.error || payload.message); return }
     $('tut-form').style.display = 'none'
     await loadTutorials()
   } catch (error) {
-    $('tut-msg').textContent = '请求失败：' + error.message
+    $('tut-msg').textContent = 'Request failed: ' + error.message
   }
 }
 
@@ -699,10 +712,10 @@ function renderFull() {
     return (e.message + ' ' + e.detail + ' ' + e.source).toLowerCase().includes(q)
   })
   $('full-rows').innerHTML = list.length
-    ? list.slice(0, 400).map((e, i) => '<tr class="ev" data-i="' + i + '"><td><span class="lv" data-l="' + e.level + '">' + esc(e.levelText) +
-        '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(e.source) + '</td><td>' + e.eventId + '</td><td>' + esc(e.category) +
+    ? list.slice(0, 400).map((e, i) => '<tr class="ev" data-i="' + i + '"><td><span class="lv" data-l="' + e.level + '">' + esc(levelText(e.level)) +
+        '</span></td><td class="when">' + when(e.time) + '</td><td>' + esc(sourceText(e.source)) + '</td><td>' + e.eventId + '</td><td>' + esc(categoryText(e.category)) +
         '</td><td>' + esc(e.message) + '</td></tr>').join('')
-    : '<tr><td colspan="6" class="empty">没有符合条件的事件</td></tr>'
+    : '<tr><td colspan="6" class="empty">No matching events</td></tr>'
   state.fullList = list
   for (const tr of $('full-rows').querySelectorAll('tr.ev')) {
     tr.onclick = () => {
@@ -710,16 +723,16 @@ function renderFull() {
       for (const r of $('full-rows').querySelectorAll('tr.ev')) r.classList.remove('sel')
       tr.classList.add('sel')
       $('full-detail').style.display = 'block'
-      $('full-detail').textContent = ['事件 ID：' + e.eventId + '（' + e.category + '）', '级别：' + e.levelText,
-        '时间：' + new Date(e.time).toLocaleString('zh-CN'), '来源：' + e.source, '描述：' + e.message,
-        '详细信息：' + (e.detail || '（无）')].join('\n')
+      $('full-detail').textContent = ['Event ID: ' + e.eventId + ' (' + categoryText(e.category) + ')', 'Level: ' + levelText(e.level),
+        'Time: ' + new Date(e.time).toLocaleString('en-US'), 'Source: ' + sourceText(e.source), 'Message: ' + e.message,
+        'Detail: ' + (e.detail || '(none)')].join('\n')
     }
   }
 }
 
 function fillSources() {
   const seen = [...new Set(state.events.map((e) => e.source))].sort()
-  const opts = '<option value="all">全部来源</option>' + seen.map((x) => '<option value="' + esc(x) + '">' + esc(x) + '</option>').join('')
+  const opts = '<option value="all">All sources</option>' + seen.map((x) => '<option value="' + esc(x) + '">' + esc(x) + '</option>').join('')
   for (const id of ['log-source', 'full-source']) {
     const el = $(id)
     if (!el) continue
@@ -769,8 +782,8 @@ $('log-q').addEventListener('input', (e) => { state.logQ = e.target.value; rende
 $('full-source').addEventListener('change', (e) => { state.fullSource = e.target.value; renderFull() })
 $('full-q').addEventListener('input', (e) => { state.fullQ = e.target.value; renderFull() })
 $('full-export').addEventListener('click', () => {
-  const rows = [['级别', '日期和时间', '来源', '事件ID', '任务类别', '描述', '详细信息']]
-  for (const e of state.fullList || []) rows.push([e.levelText, when(e.time), e.source, e.eventId, e.category, e.message, e.detail])
+  const rows = [['Level', 'Date and time', 'Source', 'Event ID', 'Category', 'Message', 'Detail']]
+  for (const e of state.fullList || []) rows.push([levelText(e.level), when(e.time), sourceText(e.source), e.eventId, categoryText(e.category), e.message, e.detail])
   const csv = '\uFEFF' + rows.map((r) => r.map((c) => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')

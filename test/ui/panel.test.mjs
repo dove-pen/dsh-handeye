@@ -8,17 +8,24 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const dashboard = readFileSync(root + 'src/ui/dashboard.html', 'utf8')
 
-test('the panel calls itself 手嘴眼', () => {
-  assert.match(dashboard, /<title>手嘴眼/)
-  assert.match(dashboard, /<h1>手嘴眼/)
-  assert.doesNotMatch(dashboard, /手眼\+/, '旧叫法不该再出现')
+test('the panel is fully English with bright white text', () => {
+  assert.match(dashboard, /<title>HandEye/)
+  assert.match(dashboard, /<h1>HandEye/)
+  // 可见文字里不许再有中文（注释不算）
+  const visible = dashboard.split('\n').filter((l) => {
+    const t = l.trim()
+    if (t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.startsWith('<!--')) return false
+    return /[\u4e00-\u9fa5]/.test(l)
+  })
+  assert.equal(visible.length, 0, '还有中文：' + visible.slice(0, 3).join(' | '))
+  assert.match(dashboard, /--text: #ffffff/)
 })
 
 test('the layout imitates dsh-context: main card column + right sidebar', () => {
   assert.match(dashboard, /class="wrap"/)
   assert.match(dashboard, /class="main"/)
   assert.match(dashboard, /class="aside"/)
-  for (const card of ['执行统计', '系统日志', '当前目标', '事件级别分布', '耗时统计', '能力', '任务卡', '插件信息', '技能']) {
+  for (const card of ['Execution', 'System log', 'Current goal', 'Severity mix', 'Timing', 'Capabilities', 'Cards', 'Plugin', 'Skills']) {
     assert.match(dashboard, new RegExp('<h2>' + card), '缺卡片 ' + card)
   }
 })
@@ -28,21 +35,21 @@ test('the system log is a full-width, tall table', () => {
   assert.match(dashboard, /max-height:472px/)
   assert.match(dashboard, /id="log-q"/)
   assert.match(dashboard, /id="log-source"/)
-  for (const col of ['级别', '日期和时间', '来源', '事件 ID', '任务类别', '描述']) {
+  for (const col of ['Level', 'Date and time', 'Source', 'Event ID', 'Category', 'Message']) {
     assert.match(dashboard, new RegExp(col), '缺列 ' + col)
   }
-  assert.match(dashboard, /导出 \/ 打开全部/)
+  assert.match(dashboard, /Export \/ Open all/)
 })
 
 test('the overview keeps a confirm card for destructive actions', () => {
   assert.match(dashboard, /id="confirm-card"/)
-  assert.match(dashboard, /允许一次/)
+  assert.match(dashboard, /Allow once/)
 })
 
 test('the tutorial still exists, as a modal', () => {
   assert.match(dashboard, /id="tut-modal"/)
-  assert.match(dashboard, /怎么加一份技能/)
-  assert.match(dashboard, /门卫拦住了怎么办/)
+  assert.match(dashboard, /Adding a skill/)
+  assert.match(dashboard, /When the gate refuses/)
 })
 
 test('the panel does not hardcode a host or a browser address', () => {
@@ -52,7 +59,7 @@ test('the panel does not hardcode a host or a browser address', () => {
 
 test('the panel can write and run tutorials', () => {
   assert.match(dashboard, /id="tutorial-card"/)
-  assert.match(dashboard, /写一份教程/)
+  assert.match(dashboard, /New tutorial/)
   assert.match(dashboard, /id="tut-path"/)
   assert.match(dashboard, /id="tut-save"/)
   assert.match(dashboard, /tutorials\/run/)
