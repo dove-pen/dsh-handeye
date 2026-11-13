@@ -150,6 +150,35 @@ export function createCardStore({ dir, now = () => Date.now() } = {}) {
     return success(doc)
   }
 
+  /**
+   * 教程跑完（或卡住）记一次账。
+   * outcome: 'success' | 'failure'。连续 3 次失败标 broken，成功率 <90% 标 needs-review。
+   */
+  async function recordRun(id, { outcome = 'success', reason = '' } = {}) {
+    const current = await get(id)
+    if (!current.ok) return current
+    const doc = current.value
+    const h = { runs: 0, ok: 0, fail: 0, failsInRow: 0, lastRunAt: null, lastFailReason: null, status: 'untested', ...(doc.health || {}) }
+    h.runs += 1
+    h.lastRunAt = nowIso(now)
+    if (outcome === 'success') {
+      h.ok += 1
+      h.failsInRow = 0
+      h.lastFailReason = null
+    } else {
+      h.fail += 1
+      h.failsInRow += 1
+      h.lastFailReason = String(reason || '').slice(0, 300) || null
+    }
+    const rate = h.runs > 0 ? h.ok / h.runs : 1
+    // 注意：只要失败过且成功率不到 90%，就不能叫 healthy（第一版写错过：跑 1 次、失败 1 次也标 healthy）
+    h.status =
+      h.failsInRow >= 3 ? 'broken' : rate < 0.9 ? 'needs-review' : h.runs > 0 ? 'healthy' : 'untested'
+    const next = { ...doc, health: h, updatedAt: nowIso(now) }
+    await writeDoc(next.id, next)
+    return success(next)
+  }
+
   async function remove(id) {
     const current = await get(id)
     if (!current.ok) return current
@@ -161,5 +190,5 @@ export function createCardStore({ dir, now = () => Date.now() } = {}) {
     }
   }
 
-  return { get, list, installBuiltin, saveUser, importCard, setEnabled, remove, dir: cardDir }
+  return { get, list, installBuiltin, saveUser, importCard, setEnabled, remove, recordRun, dir: cardDir }
 }

@@ -11,6 +11,8 @@ import { newEpisodeId } from '../memory/episodes.js'
 import { summarizeGoal } from '../memory/goals.js'
 import { computeMetrics } from '../core/metrics.js'
 import { buildEvents, filterEvents } from '../core/events.js'
+import { FORMATS_VERSION } from '../formats/index.js'
+import { startTutorial } from '../tools/tutorials.js'
 import { runHandeye } from '../handeye.js'
 import { pause, resumeByUser, satisfyReplan } from '../core/state.js'
 import { writeFile, mkdir } from 'node:fs/promises'
@@ -338,6 +340,85 @@ export function registerRoutes({ ctx, runtime, version }) {
       })
 
       // 人工放行：只写 override.json，下一次 checkpoint/step_done 消费掉
+      // ---------------------------------------------------------------- 教程
+      //
+      // 教程 = 用户手写的卡片（goal / path / constraints / success / verify）。
+      // 面板里的"写"和"跑"都走这里：跑的时候和模型调 tutorial_start 是同一条路。
+      reg('/dsh-handeye-plus/tutorials', async (req, res) => {
+        if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
+        const listed = await runtime.cards.list()
+        if (!listed.ok) return sendJson(res, 500, listed)
+        const value = listed.value.map((c) => ({
+          id: c.id,
+          title: c.title,
+          goal: c.goal,
+          category: c.category ?? null,
+          path: c.path ?? [],
+          constraints: c.constraints ?? [],
+          success: c.success ?? '',
+          onFailure: c.onFailure ?? '',
+          verify: c.verify ?? [],
+          params: c.params ?? {},
+          enabled: c.enabled !== false,
+          origin: c.origin ?? null,
+          version: c.version ?? 1,
+          health: c.health ?? null,
+        }))
+        return sendJson(res, 200, { ok: true, value })
+      })
+
+      reg('/dsh-handeye-plus/tutorials/save', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const id = String(body.id || '').trim()
+        const title = String(body.title || '').trim()
+        const goal = String(body.goal || '').trim()
+        const pathSteps = Array.isArray(body.path) ? body.path.map((x) => String(x).trim()).filter(Boolean) : []
+        if (!/^[a-z][a-z0-9_]{2,40}$/.test(id)) return sendJson(res, 400, { ok: false, error: 'id 只能用小写字母/数字/下划线，3-41 位' })
+        if (!title) return sendJson(res, 400, { ok: false, error: '标题不能为空' })
+        if (!goal) return sendJson(res, 400, { ok: false, error: '目标不能为空' })
+        if (!pathSteps.length) return sendJson(res, 400, { ok: false, error: '至少要写一个步骤' })
+
+        const existing = await runtime.cards.get(id)
+        const doc = {
+          schemaVersion: 1,
+          id,
+          title,
+          origin: 'user',
+          version: existing.ok ? Number(existing.value.version ?? 1) + 1 : 1,
+          delivery: 'start',
+          autonomy: String(body.autonomy || 'supervised'),
+          category: body.category ? String(body.category) : 'tutorial',
+          goal,
+          constraints: Array.isArray(body.constraints) ? body.constraints.map((x) => String(x)).filter(Boolean) : [],
+          success: String(body.success || '').trim() || '按步骤做完，且最后一步的判据通过',
+          onFailure: String(body.onFailure || '').trim() || '停下来报告卡在哪一步',
+          path: pathSteps,
+          verify: Array.isArray(body.verify) ? body.verify : [],
+          enabled: body.enabled !== false,
+        }
+        const saved = existing.ok ? await runtime.cards.saveUser({ ...existing.value, ...doc }) : await runtime.cards.saveUser(doc)
+        return sendJson(res, saved.ok ? 200 : 400, saved)
+      })
+
+      reg('/dsh-handeye-plus/tutorials/run', async (req, res) => {
+        if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+        const body = await readBody(req)
+        const started = await startTutorial(
+          { state: runtime.state, cards: runtime.cards, goals: runtime.goals },
+          String(body.id || ''),
+          body.params && typeof body.params === 'object' ? body.params : {},
+        )
+        if (!started.ok) return sendJson(res, 400, { ok: false, error: started.error })
+        await sendJson(res, 200, {
+          ok: true,
+          goalId: started.goalId,
+          firstStep: started.firstStep,
+          stepCount: started.stepCount,
+          hint: '教程已开始。对 AI 说一句「继续」它就会按步骤走。',
+        })
+      })
+
       reg('/dsh-handeye-plus/confirm/pending', async (req, res) => {
         if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
         const pending = typeof runtime.pendingConfirm === 'function' ? runtime.pendingConfirm() : null

@@ -106,6 +106,13 @@
   .confirm-item { border: 1px solid #4a3c1c; background: #241d0e; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 11.5px; }
   .confirm-item b { color: var(--warn); }
   .empty { color: var(--dim); padding: 12px 0; text-align: center; font-size: 11.5px; }
+  #tutorial-card input, #tutorial-card textarea, #tutorial-card select {
+    font: inherit; color: var(--text); background: #12161c; border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 8px; margin-top: 3px;
+  }
+  #tutorial-card label { font-size: 11.5px; color: var(--muted); display: block; }
+  #tutorial-card .row-actions { display: flex; gap: 6px; }
+  #tutorial-card .row-actions button { font-size: 11px; padding: 1px 7px; }
   /* 教程：浮层 */
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 50; }
   .modal.on { display: grid; }
@@ -175,6 +182,44 @@
           <thead><tr><th style="width:56px">级别</th><th style="width:112px">日期和时间</th><th style="width:82px">来源</th><th style="width:66px">事件 ID</th><th style="width:66px">任务类别</th><th>描述</th></tr></thead>
           <tbody id="logs"></tbody>
         </table>
+      </div>
+    </section>
+
+    <section class="card" id="tutorial-card">
+      <h2>教程 <span class="sub" id="tut-sub"></span>
+        <span class="grow" style="flex:1"></span>
+        <button id="tut-new" style="font-size:11.5px">写一份教程</button>
+      </h2>
+      <div style="max-height:240px;overflow:auto;display:none" id="tut-list-wrap">
+        <table>
+          <thead><tr><th>教程</th><th style="width:56px">步骤</th><th style="width:72px">判据</th><th style="width:96px">跑过</th><th style="width:70px">状态</th><th style="width:120px"></th></tr></thead>
+          <tbody id="tut-list"></tbody>
+        </table>
+      </div>
+      <div class="pad" id="tut-empty"><div class="empty">还没有教程。点右上角「写一份教程」：写清楚步骤，AI 就会照着做。</div></div>
+
+      <div class="pad" id="tut-form" style="display:none;border-top:1px solid var(--line)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label>标题<input id="tut-title" placeholder="例如：整理发票" style="width:100%"></label>
+          <label>id<input id="tut-id" placeholder="tut_invoice" style="width:100%"></label>
+        </div>
+        <label style="display:block;margin-top:8px">目标（这一步要达成什么）<textarea id="tut-goal" rows="2" style="width:100%"></textarea></label>
+        <label style="display:block;margin-top:8px">步骤（一行一步，按顺序）<textarea id="tut-path" rows="5" style="width:100%" placeholder="列出所有 PDF&#10;按月份建文件夹&#10;核对张数与合计"></textarea></label>
+        <label style="display:block;margin-top:8px">约束（一行一条，可选）<textarea id="tut-constraints" rows="2" style="width:100%"></textarea></label>
+        <label style="display:block;margin-top:8px">判定成功（可选）<input id="tut-success" style="width:100%" placeholder="每个 PDF 都在对应月份的文件夹里"></label>
+        <div style="display:flex;gap:8px;align-items:end;margin-top:8px">
+          <label style="flex:1">验收判据
+            <select id="tut-check" style="width:100%">
+              <option value="">不设判据（只能自己确认）</option>
+              <option value="file">文件存在</option>
+              <option value="screen">屏幕出现文字</option>
+            </select>
+          </label>
+          <label style="flex:1">判据参数<input id="tut-check-arg" style="width:100%" placeholder="文件路径 / 屏幕文字"></label>
+          <button id="tut-save" class="primary">保存</button>
+          <button id="tut-cancel">取消</button>
+        </div>
+        <div id="tut-msg" style="margin-top:6px;color:var(--muted)"></div>
       </div>
     </section>
 
@@ -560,6 +605,90 @@ async function loadConfirm() {
   } catch {}
 }
 
+// ---------------- 教程
+async function loadTutorials() {
+  try {
+    const payload = await get('/tutorials')
+    const list = Array.isArray(payload.value) ? payload.value : []
+    $('tut-sub').textContent = list.length + ' 份'
+    $('tut-list-wrap').style.display = list.length ? '' : 'none'
+    $('tut-empty').style.display = list.length ? 'none' : ''
+    $('tut-list').innerHTML = list.map((t) => {
+      const h = t.health || {}
+      return '<tr><td title="' + esc(t.id) + '">' + esc(t.title) + '</td><td>' + t.path.length + '</td><td>' +
+        (t.verify.length ? t.verify.length + ' 条' : '—') + '</td><td>' + (h.runs || 0) + ' 次 · 成功 ' + (h.ok || 0) +
+        '</td><td><span class="tag ' + esc(h.status || 'untested') + '">' + esc(h.status || 'untested') + '</span></td>' +
+        '<td><div class="row-actions"><button data-run="' + esc(t.id) + '">运行</button>' +
+        '<button data-edit="' + esc(t.id) + '">编辑</button></div></td></tr>'
+    }).join('')
+    for (const btn of $('tut-list').querySelectorAll('button[data-run]')) {
+      btn.onclick = () => runTutorial(btn.dataset.run)
+    }
+    for (const btn of $('tut-list').querySelectorAll('button[data-edit]')) {
+      btn.onclick = () => {
+        const t = list.find((x) => x.id === btn.dataset.edit)
+        if (t) fillTutorialForm(t)
+      }
+    }
+  } catch {}
+}
+
+async function runTutorial(id) {
+  try {
+    const res = await fetch(BASE + '/tutorials/run', {
+      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    const payload = await res.json()
+    if (!payload.ok) { $('tut-msg').textContent = '没跑起来：' + payload.error; return }
+    $('tut-msg').textContent = `已开始「${id}」：目标 ${payload.goalId}（${payload.stepCount} 步）。对 AI 说「继续」它就会照着走。`
+    await loadTutorials()
+    await loadAll()
+  } catch (error) {
+    $('tut-msg').textContent = '请求失败：' + error.message
+  }
+}
+
+function fillTutorialForm(t) {
+  $('tut-form').style.display = ''
+  $('tut-title').value = t.title || ''
+  $('tut-id').value = t.id || ''
+  $('tut-goal').value = t.goal || ''
+  $('tut-path').value = (t.path || []).join('\n')
+  $('tut-constraints').value = (t.constraints || []).join('\n')
+  $('tut-success').value = t.success || ''
+  const first = (t.verify || [])[0]
+  $('tut-check').value = first ? first.type : ''
+  $('tut-check-arg').value = first ? (first.path || first.appear || '') : ''
+  $('tut-msg').textContent = ''
+}
+
+async function saveTutorial() {
+  const id = $('tut-id').value.trim() || 'tut_' + Date.now().toString(36)
+  const path = $('tut-path').value.split('\n').map((x) => x.trim()).filter(Boolean)
+  const constraints = $('tut-constraints').value.split('\n').map((x) => x.trim()).filter(Boolean)
+  const checkType = $('tut-check').value
+  const arg = $('tut-check-arg').value.trim()
+  const verify = checkType === 'file' ? [{ type: 'file', path: arg, minBytes: 1 }]
+    : checkType === 'screen' ? [{ type: 'screen', appear: arg }]
+    : []
+  try {
+    const res = await fetch(BASE + '/tutorials/save', {
+      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id, title: $('tut-title').value.trim(), goal: $('tut-goal').value.trim(),
+        path, constraints, success: $('tut-success').value.trim(), verify,
+      }),
+    })
+    const payload = await res.json()
+    if (!payload.ok) { $('tut-msg').textContent = '保存失败：' + (payload.error || payload.message); return }
+    $('tut-form').style.display = 'none'
+    await loadTutorials()
+  } catch (error) {
+    $('tut-msg').textContent = '请求失败：' + error.message
+  }
+}
+
 // ---------------- 全部日志
 function renderFull() {
   const q = state.fullQ.trim().toLowerCase()
@@ -605,6 +734,20 @@ $('btn-refresh').addEventListener('click', loadAll)
 $('btn-full-log').addEventListener('click', () => { fillSources(); renderFull(); $('log-modal').classList.add('on') })
 $('log-close').addEventListener('click', () => $('log-modal').classList.remove('on'))
 $('btn-tutorial').addEventListener('click', () => $('tut-modal').classList.add('on'))
+$('tut-new').addEventListener('click', () => {
+  $('tut-form').style.display = ''
+  $('tut-title').value = ''
+  $('tut-id').value = 'tut_' + Date.now().toString(36)
+  $('tut-goal').value = ''
+  $('tut-path').value = ''
+  $('tut-constraints').value = ''
+  $('tut-success').value = ''
+  $('tut-check').value = ''
+  $('tut-check-arg').value = ''
+  $('tut-msg').textContent = ''
+})
+$('tut-cancel').addEventListener('click', () => { $('tut-form').style.display = 'none' })
+$('tut-save').addEventListener('click', saveTutorial)
 $('tut-close').addEventListener('click', () => $('tut-modal').classList.remove('on'))
 $('link-settings').addEventListener('click', (e) => { e.preventDefault(); $('btn-tutorial').click() })
 $('log-tabs').addEventListener('click', (e) => {

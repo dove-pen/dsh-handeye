@@ -49,3 +49,11 @@ test('the panel does not hardcode a host or a browser address', () => {
   assert.doesNotMatch(dashboard, /127\.0\.0\.1/)
   assert.match(dashboard, /dsh-handeye-plus/)
 })
+
+test('the panel can write and run tutorials', () => {
+  assert.match(dashboard, /id="tutorial-card"/)
+  assert.match(dashboard, /写一份教程/)
+  assert.match(dashboard, /id="tut-path"/)
+  assert.match(dashboard, /id="tut-save"/)
+  assert.match(dashboard, /tutorials\/run/)
+})

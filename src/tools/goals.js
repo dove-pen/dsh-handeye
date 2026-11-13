@@ -26,7 +26,7 @@ function stepLine(step) {
   return `${mark} ${step.id} ${step.title}${prompt}`
 }
 
-export function createGoalTools({ state, goals, skills, verifyStep, prepareStepChecks, onStepEnter, onStepLeave }) {
+export function createGoalTools({ state, goals, skills, cards, verifyStep, prepareStepChecks, onStepEnter, onStepLeave }) {
   const fail = (message) => `失败：${message}`
 
   async function goalOf(id) {
@@ -273,6 +273,10 @@ export function createGoalTools({ state, goals, skills, verifyStep, prepareStepC
           })
           const blocked = Boolean(recorded.ok && recorded.value?.blocked)
           // 技能来源挂在目标上（goal.meta），不在步骤上
+          const blockedTutorialId = doc.meta && doc.meta.tutorialId
+          if (blocked && blockedTutorialId && cards && typeof cards.recordRun === 'function') {
+            await cards.recordRun(blockedTutorialId, { outcome: 'failure', reason: firstFailure(verdict) }).catch(() => {})
+          }
           const blockedSkillId = doc.meta && doc.meta.skillId
           if (blocked && blockedSkillId && skills && typeof skills.recordRun === 'function') {
             await skills.recordRun(blockedSkillId, { outcome: 'failure', reason: firstFailure(verdict) }).catch(() => {})
@@ -325,6 +329,11 @@ export function createGoalTools({ state, goals, skills, verifyStep, prepareStepC
           // 接下来任何写操作都会被 GOAL_STEP_REQUIRED 拒掉，模型会原地打转。
           if (state.goalId === goalId) state.goalId = ''
           // 由技能编译来的目标：跑完 = 技能成功一次
+          const tutorialId = after.meta && after.meta.tutorialId
+          if (tutorialId && cards && typeof cards.recordRun === 'function') {
+            await cards.recordRun(tutorialId, { outcome: 'success' }).catch(() => {})
+            lines.push(`教程健康度 +1：${tutorialId}`)
+          }
           const skillId = after.meta && after.meta.skillId
           if (skillId && skills && typeof skills.recordRun === 'function') {
             await skills.recordRun(skillId, { outcome: 'success' }).catch(() => {})
