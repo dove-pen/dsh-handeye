@@ -101,7 +101,7 @@ export function createToolServer({ ports = {} } = {}) {
     /** 宿主无关的唯一入口。门卫就在这里面。 */
     async callTool(name, args = {}, exec = null) {
       const tool = tools.get(String(name))
-      if (!tool) return `失败：没有这个工具 ${name}`
+      if (!tool) return `Failed: no such tool ${name}`
       return tool.execute(args ?? {}, exec)
     },
     has: (name) => tools.has(String(name)),

@@ -34,7 +34,7 @@ export function stepsFromTutorial(card, params = {}) {
   const missing = new Set()
   const path = Array.isArray(card.path) ? card.path : []
   const steps = path.map((entry) => {
-    const title = typeof entry === 'string' ? entry : String(entry?.title ?? '未命名步骤')
+    const title = typeof entry === 'string' ? entry : String(entry?.title ?? 'unnamed step')
     return { title: substitute(title, params, missing), verify: null }
   })
   if (steps.length && Array.isArray(card.verify) && card.verify.length) {
@@ -57,20 +57,20 @@ function requiredParams(card) {
  */
 export async function startTutorial({ state, cards, goals }, id, params = {}) {
   const tutorialId = String(id ?? '').trim()
-  if (!tutorialId) return { ok: false, error: '需要 tutorialId' }
+  if (!tutorialId) return { ok: false, error: 'tutorialId is required' }
 
   const got = await cards.get(tutorialId)
-  if (!got.ok) return { ok: false, error: '找不到教程 ' + tutorialId }
+  if (!got.ok) return { ok: false, error: 'Tutorial not found: ' + tutorialId }
   const card = got.value
-  if (card.enabled === false) return { ok: false, error: '教程 ' + tutorialId + ' 现在是停用状态' }
+  if (card.enabled === false) return { ok: false, error: 'Tutorial ' + tutorialId + ' is disabled' }
 
   const values = params && typeof params === 'object' ? { ...params } : {}
   const need = requiredParams(card).filter((name) => !(name in values))
-  if (need.length) return { ok: false, error: '还缺参数：' + need.map((n) => '{{' + n + '}}').join('、') }
+  if (need.length) return { ok: false, error: 'Missing params: ' + need.map((n) => '{{' + n + '}}').join(', ') }
 
   const { steps, missing } = stepsFromTutorial(card, values)
-  if (missing.length) return { ok: false, error: '步骤里用到了没提供的参数：' + missing.join('、') }
-  if (!steps.length) return { ok: false, error: '这份教程没有步骤' }
+  if (missing.length) return { ok: false, error: 'Steps reference params that were not provided: ' + missing.join(', ') }
+  if (!steps.length) return { ok: false, error: 'This tutorial has no steps' }
 
   const created = await goals.create({
     title: card.title,
@@ -78,7 +78,7 @@ export async function startTutorial({ state, cards, goals }, id, params = {}) {
     steps,
     meta: { tutorialId: card.id, tutorialVersion: card.version ?? 1, params: values },
   })
-  if (!created.ok) return { ok: false, error: '建目标失败：' + created.message }
+  if (!created.ok) return { ok: false, error: 'Failed to create goal: ' + created.message }
 
   const goal = created.value
   if (state) state.goalId = goal.id
@@ -96,14 +96,14 @@ export function createTutorialTools({ state, cards, goals }) {
       isConcurrencySafe: () => true,
       async execute() {
         const listed = await cards.list()
-        if (!listed.ok) return fail(`读教程库失败：${listed.message}`)
+        if (!listed.ok) return fail(`Failed to read tutorials: ${listed.message}`)
         const list = listed.value ?? []
-        if (!list.length) return '教程库是空的。用户可以在面板里写一份教程。'
+        if (!list.length) return 'No tutorials yet. The user can write one in the panel.'
         return list
           .map((c) => {
             const h = c.health || {}
-            const checks = Array.isArray(c.verify) && c.verify.length ? `${c.verify.length} 条判据` : '无判据'
-            return `${c.id}  ${c.title}  ${(c.path ?? []).length} 步 · ${checks} · 跑了 ${h.runs ?? 0} 次（成功 ${h.ok ?? 0} / 失败 ${h.fail ?? 0}）`
+            const checks = Array.isArray(c.verify) && c.verify.length ? `${c.verify.length} checks` : 'no checks'
+            return `${c.id}  ${c.title}  ${(c.path ?? []).length} steps · ${checks} · ran ${h.runs ?? 0} times (ok ${h.ok ?? 0} / fail ${h.fail ?? 0})`
           })
           .join('\n')
       },
@@ -121,27 +121,27 @@ export function createTutorialTools({ state, cards, goals }) {
       isConcurrencySafe: () => true,
       async execute(args) {
         const id = text(args?.tutorialId).trim()
-        if (!id) return fail('tutorial_get 需要 tutorialId')
+        if (!id) return fail('tutorial_get tutorialId is required')
         const got = await cards.get(id)
-        if (!got.ok) return fail(`找不到教程 ${id}`)
+        if (!got.ok) return fail(`Tutorial not found: ${id}`)
         const c = got.value
         const lines = [
           `# ${c.title}（${c.id}）`,
-          `目标：${c.goal}`,
+          `Goal: ${c.goal}`,
           '',
-          '步骤：',
+          'Steps:',
           ...(c.path ?? []).map((s, i) => `${i + 1}. ${s}`),
         ]
         if ((c.constraints ?? []).length) {
-          lines.push('', '约束：', ...c.constraints.map((x) => `- ${x}`))
+          lines.push('', 'Constraints:', ...c.constraints.map((x) => `- ${x}`))
         }
-        if (c.success) lines.push('', `判定成功：${c.success}`)
-        if (c.onFailure) lines.push(`失败时：${c.onFailure}`)
+        if (c.success) lines.push('', `Success: ${c.success}`)
+        if (c.onFailure) lines.push(`On failure: ${c.onFailure}`)
         if (Array.isArray(c.verify) && c.verify.length) {
-          lines.push('', '验收判据：', ...c.verify.map((v) => `- ${describeCheck(v)}`))
+          lines.push('', 'Acceptance checks:', ...c.verify.map((v) => `- ${describeCheck(v)}`))
         }
         const h = c.health || {}
-        lines.push('', `健康度：跑了 ${h.runs ?? 0} 次，成功 ${h.ok ?? 0}，失败 ${h.fail ?? 0}，状态 ${h.status ?? 'untested'}`)
+        lines.push('', `Health: ran ${h.runs ?? 0}, ok ${h.ok ?? 0}, fail ${h.fail ?? 0}, status ${h.status ?? 'untested'}`)
         return lines.join('\n')
       },
     },
@@ -162,23 +162,23 @@ export function createTutorialTools({ state, cards, goals }) {
       isConcurrencySafe: () => false,
       async execute(args) {
         const id = text(args?.tutorialId).trim()
-        if (!id) return fail('tutorial_start 需要 tutorialId')
+        if (!id) return fail('tutorial_start tutorialId is required')
 
         const got = await cards.get(id)
-        if (!got.ok) return fail(`找不到教程 ${id}（先用 tutorial_list 看看有哪些）`)
+        if (!got.ok) return fail(`Tutorial not found: ${id} (use tutorial_list to see what exists)`)
         const card = got.value
 
-        if (card.enabled === false) return fail(`教程 ${id} 现在是停用状态，先启用再跑`)
+        if (card.enabled === false) return fail(`Tutorial ${id} is disabled; enable it first`)
 
         const params = args?.params && typeof args.params === 'object' ? { ...args.params } : {}
         const need = requiredParams(card).filter((name) => !(name in params))
         if (need.length) {
-          return fail(`这份教程还缺参数：${need.map((n) => `{{${n}}}`).join('、')}`)
+          return fail(`Missing params: ${need.map((n) => `{{${n}}}`).join(', ')}`)
         }
 
         const { steps, missing } = stepsFromTutorial(card, params)
-        if (missing.length) return fail(`步骤里用到了没提供的参数：${missing.map((n) => `{{${n}}}`).join('、')}`)
-        if (!steps.length) return fail('这份教程没有步骤，不能用')
+        if (missing.length) return fail(`Steps reference params that were not provided: ${missing.map((n) => `{{${n}}}`).join(', ')}`)
+        if (!steps.length) return fail('This tutorial has no steps')
 
         const created = await goals.create({
           title: card.title,
@@ -186,19 +186,19 @@ export function createTutorialTools({ state, cards, goals }) {
           steps,
           meta: { tutorialId: card.id, tutorialVersion: card.version ?? 1, params },
         })
-        if (!created.ok) return fail(`建目标失败：${created.message}`)
+        if (!created.ok) return fail(`Failed to create goal: ${created.message}`)
 
         const goal = created.value
         state.goalId = goal.id
 
         const hasChecks = steps.some((s) => Array.isArray(s.verify) && s.verify.length)
         const lines = [
-          `已按教程「${card.title}」建立目标 ${goal.id}（${steps.length} 步）`,
-          `第一步：goal_step_enter ${goal.id} ${goal.steps[0].id}`,
+          `Goal ${goal.id} created from tutorial "${card.title}" (${steps.length} steps)`,
+          `First step: goal_step_enter ${goal.id} ${goal.steps[0].id}`,
         ]
-        if ((card.constraints ?? []).length) lines.push(`约束：${card.constraints.join('；')}`)
-        if (!hasChecks) lines.push('注意：这份教程没写验收判据，做完只能靠你自己确认。')
-        lines.push('跑完最后一步会回写这份教程的健康度；卡住会记一次失败。')
+        if ((card.constraints ?? []).length) lines.push(`Constraints: ${card.constraints.join('; ')}`)
+        if (!hasChecks) lines.push('Note: this tutorial has no acceptance checks; confirm the result yourself.')
+        lines.push('Finishing the last step updates this tutorial health; getting blocked records a failure.')
         return lines.join('\n')
       },
     },
@@ -206,11 +206,11 @@ export function createTutorialTools({ state, cards, goals }) {
 }
 
 function describeCheck(check) {
-  if (!check) return '（空）'
-  if (check.type === 'file') return `文件 ${check.path} 存在${check.minBytes ? ` 且 ≥ ${check.minBytes} 字节` : ''}`
-  if (check.type === 'text') return `${check.file ? `文件 ${check.file} ` : '屏幕'}出现「${check.appear ?? check.absent}」`
-  if (check.type === 'screen') return `屏幕出现「${check.appear}」`
-  if (check.type === 'exit') return `命令 ${check.command} 退出码 0`
-  if (check.type === 'changed') return '画面有变化'
+  if (!check) return '(empty)'
+  if (check.type === 'file') return `file ${check.path} exists${check.minBytes ? ` and >= ${check.minBytes} bytes` : ''}`
+  if (check.type === 'text') return `${check.file ? `file ${check.file} ` : 'screen '}contains "${check.appear ?? check.absent}"`
+  if (check.type === 'screen') return `text "${check.appear}" appears on screen`
+  if (check.type === 'exit') return `command ${check.command} exits 0`
+  if (check.type === 'changed') return 'screen changed'
   return check.type
 }

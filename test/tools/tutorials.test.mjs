@@ -1,4 +1,4 @@
-// 教程层：用户手写的步骤 + 判据 → 编译成目标 → 跑完回写健康度。
+// 教程层：用户手写的步骤 + 判据 → 编译成目标 → 跑完回写Health。
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -89,8 +89,8 @@ test('tutorial_list shows steps, checks and health', async () => {
     await s.cards.saveUser(tutorialCard())
     const out = await s.by('tutorial_list').execute({})
     assert.match(out, /tut_invoice/)
-    assert.match(out, /3 步/)
-    assert.match(out, /1 条判据/)
+    assert.match(out, /3 steps/)
+    assert.match(out, /1 checks/)
   } finally {
     await s.cleanup()
   }
@@ -103,9 +103,9 @@ test('tutorial_get returns the whole procedure', async () => {
     const out = await s.by('tutorial_get').execute({ tutorialId: 'tut_invoice' })
     assert.match(out, /# 整理发票/)
     assert.match(out, /1\. 列出所有 PDF/)
-    assert.match(out, /约束/)
+    assert.match(out, /Constraints/)
     assert.match(out, /只处理 PDF/)
-    assert.match(out, /验收判据/)
+    assert.match(out, /Acceptance checks/)
   } finally {
     await s.cleanup()
   }
@@ -118,7 +118,7 @@ test('tutorial_start compiles the tutorial into a focused goal', async () => {
   try {
     await s.cards.saveUser(tutorialCard())
     const out = await s.by('tutorial_start').execute({ tutorialId: 'tut_invoice' })
-    assert.match(out, /已按教程/)
+    assert.match(out, /created from tutorial/)
 
     const goal = (await s.goals.list()).value[0]
     assert.equal(goal.title, '整理发票')
@@ -139,9 +139,9 @@ test('tutorial_start refuses a missing required param', async () => {
       tutorialCard({ params: { folder: { type: 'string', required: true, description: '目录' } }, path: ['打开 {{folder}}', '归档'] }),
     )
     const out = await s.by('tutorial_start').execute({ tutorialId: 'tut_invoice' })
-    assert.match(out, /缺参数/)
+    assert.match(out, /Missing params/)
     assert.match(out, /folder/)
-    assert.equal((await s.goals.list()).value.length, 0, '缺参数不许建目标')
+    assert.equal((await s.goals.list()).value.length, 0, 'Missing params不许建目标')
   } finally {
     await s.cleanup()
   }
@@ -152,13 +152,13 @@ test('tutorial_start refuses a disabled tutorial', async () => {
   try {
     await s.cards.saveUser(tutorialCard({ enabled: false }))
     const out = await s.by('tutorial_start').execute({ tutorialId: 'tut_invoice' })
-    assert.match(out, /停用/)
+    assert.match(out, /disabled/)
   } finally {
     await s.cleanup()
   }
 })
 
-// ---------------------------------------------------------------- 健康度闭环
+// ---------------------------------------------------------------- Health闭环
 
 test('finishing every step records a success on the tutorial', async () => {
   const s = await setup({ verifyStep: async () => ({ ok: true, checks: [] }) })

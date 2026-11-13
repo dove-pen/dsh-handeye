@@ -27,11 +27,11 @@ export function createVoiceTools({ runHandeye }) {
       isConcurrencySafe: () => false,
       async execute(args) {
         const normalized = normalizeSayArgs(args ?? {})
-        if (!normalized.ok) return fail(`参数不对：${normalized.errors.join('；')}`)
+        if (!normalized.ok) return fail(`Bad arguments: ${normalized.errors.join('; ')}`)
 
         const result = await sayWithFallback(normalized.args, { runHandeye })
-        if (!result.ok) return fail(`没能出声（${result.via}）：${result.message}`)
-        return result.wav ? `${result.message}（通道：${result.via}）` : `${result.message}：「${text(normalized.args.text).slice(0, 40)}」（通道：${result.via}）`
+        if (!result.ok) return fail(`Could not speak (${result.via}): ${result.message}`)
+        return result.wav ? `${result.message} (via ${result.via})` : `${result.message}：「${text(normalized.args.text).slice(0, 40)}」（通道：${result.via}）`
       },
     },
 
@@ -42,7 +42,7 @@ export function createVoiceTools({ runHandeye }) {
       timeoutMs: 20000,
       isConcurrencySafe: () => true,
       async execute() {
-        if (typeof runHandeye !== 'function') return fail('没有接入手眼可执行文件')
+        if (typeof runHandeye !== 'function') return fail('handeye executable is not available')
         const r = await runHandeye(['voices'], { timeoutMs: 15000 })
         const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim()
         if (r.code !== 0 || !out) {
@@ -58,10 +58,10 @@ export function createVoiceTools({ runHandeye }) {
             { encoding: 'utf8', timeout: 20000 },
           )
           const lines = String(ps.stdout ?? '').trim()
-          if (!lines) return fail('拿不到语音清单')
-          return `可用语音（System.Speech）：\n${lines}`
+          if (!lines) return fail('could not read the voice list')
+          return `Available voices (System.Speech):\n${lines}`
         }
-        return `可用语音：\n${out}`
+        return `Available voices:\n${out}`
       },
     },
   ]

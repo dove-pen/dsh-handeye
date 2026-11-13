@@ -35,7 +35,7 @@ export function substituteDeep(value, params, missing = new Set()) {
 export function stepsFromSkill(skill, params = {}) {
   const missing = new Set()
   const steps = (skill.steps ?? []).map((step) => {
-    const title = substituteDeep(String(step.intent ?? step.tool ?? '未命名步骤'), params, missing)
+    const title = substituteDeep(String(step.intent ?? step.tool ?? 'unnamed step'), params, missing)
     const expect = step.expect
     const verify = expect ? (Array.isArray(expect) ? expect : [expect]) : null
     return { title, verify: substituteDeep(verify, params, missing) }
@@ -69,32 +69,32 @@ export function createSkillTools({ state, skills, goals }) {
       isConcurrencySafe: () => false,
       async execute(args) {
         const skillId = text(args?.skillId).trim()
-        if (!skillId) return fail('skill_use 需要 skillId')
+        if (!skillId) return fail('skill_use needs skillId')
 
         const found = await skills.get(skillId)
-        if (!found.ok) return fail(`找不到技能 ${skillId}（先用 skills 命令看看有哪些）`)
+        if (!found.ok) return fail(`Skill not found: ${skillId} (run the skills command to list what exists)`)
         const skill = found.value
 
         const params = args?.params && typeof args.params === 'object' ? { ...args.params } : {}
         // 必填参数缺了直接拒：不猜、不留空占位符
         const missingRequired = (skill.params ?? []).filter((p) => p.required && !(p.name in params)).map((p) => p.name)
         if (missingRequired.length) {
-          return fail(`这份技能还缺参数：${missingRequired.map((n) => `{{${n}}}`).join('、')}。补齐再调一次。`)
+          return fail(`Missing params: ${missingRequired.map((n) => `{{${n}}}`).join(', ')}. Provide them and call again.`)
         }
 
         const { steps, missing } = stepsFromSkill(skill, params)
         if (missing.length) {
-          return fail(`步骤里用到了没提供的参数：${missing.map((n) => `{{${n}}}`).join('、')}`)
+          return fail(`Steps reference params that were not provided: ${missing.map((n) => `{{${n}}}`).join(', ')}`)
         }
-        if (!steps.length) return fail('这份技能没有步骤，不能用')
+        if (!steps.length) return fail('This skill has no steps')
 
         const created = await goals.create({
           title: skill.title,
-          longTermGoal: `技能 ${skillId}：${skill.title}`,
+          longTermGoal: `Skill ${skillId}: ${skill.title}`,
           steps,
           meta: { skillId, skillVersion: skill.version ?? 1, params },
         })
-        if (!created.ok) return fail(`建目标失败：${created.message}`)
+        if (!created.ok) return fail(`Failed to create goal: ${created.message}`)
 
         const goal = created.value
         // 和目标层保持一致：建目标即聚焦，之后必须按步骤走
@@ -102,13 +102,13 @@ export function createSkillTools({ state, skills, goals }) {
 
         const withoutChecks = (skill.steps ?? []).filter((s) => !s.expect).length
         const lines = [
-          `已用技能「${skill.title}」建立目标 ${goal.id}（${goal.steps.length} 步）`,
-          `第一步：goal_step_enter ${goal.id} ${goal.steps[0].id}`,
+          `Goal ${goal.id} created from skill "${skill.title}" (${goal.steps.length} steps)`,
+          `First step: goal_step_enter ${goal.id} ${goal.steps[0].id}`,
         ]
         if (withoutChecks > 0) {
-          lines.push(`注意：${withoutChecks} 步没有验收判据 —— 做完只能靠你自己确认，健康度只记"跑没跑完"。`)
+          lines.push(`Note: ${withoutChecks} steps have no acceptance checks - confirm the result yourself; health only tracks whether it finished.`)
         }
-        lines.push('跑完最后一步会回写技能健康度；中途卡住会记一次失败。')
+        lines.push('Finishing the last step updates skill health; getting blocked records a failure.')
         return lines.join('\n')
       },
     },
@@ -126,18 +126,18 @@ export function createSkillTools({ state, skills, goals }) {
         const skillId = text(args?.skillId).trim()
         if (skillId) {
           const got = await skills.get(skillId)
-          if (!got.ok) return fail(`找不到技能 ${skillId}`)
+          if (!got.ok) return fail(`Skill not found: ${skillId}`)
           const s = got.value
           const h = s.health ?? {}
           return [
             `${s.id}  ${s.title}`,
-            `用了 ${h.runs ?? 0} 次 · 成功 ${h.ok ?? 0} · 失败 ${h.fail ?? 0} · 状态 ${h.status ?? 'untested'}`,
-            h.lastFailReason ? `上次失败：${h.lastFailReason}` : '没有失败记录',
+            `Used ${h.runs ?? 0} times · ok ${h.ok ?? 0} · fail ${h.fail ?? 0} · status ${h.status ?? 'untested'}`,
+            h.lastFailReason ? `Last failure: ${h.lastFailReason}` : 'No failures recorded',
           ].join('\n')
         }
         const listed = await skills.list()
-        if (!listed.ok) return fail(`读技能库失败：${listed.message}`)
-        if (!listed.value.length) return '技能库是空的。先用 skills 命令从历史里编译一份。'
+        if (!listed.ok) return fail(`Failed to read skills: ${listed.message}`)
+        if (!listed.value.length) return 'No skills yet. Run the skills command to compile one from history.'
         return listed.value
           .map((s) => {
             const h = s.health ?? {}

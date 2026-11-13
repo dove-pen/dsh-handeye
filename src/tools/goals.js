@@ -332,12 +332,12 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
           const tutorialId = after.meta && after.meta.tutorialId
           if (tutorialId && cards && typeof cards.recordRun === 'function') {
             await cards.recordRun(tutorialId, { outcome: 'success' }).catch(() => {})
-            lines.push(`教程健康度 +1：${tutorialId}`)
+            lines.push(`Tutorial health +1: ${tutorialId}`)
           }
           const skillId = after.meta && after.meta.skillId
           if (skillId && skills && typeof skills.recordRun === 'function') {
             await skills.recordRun(skillId, { outcome: 'success' }).catch(() => {})
-            lines.push(`技能健康度 +1：${skillId}`)
+            lines.push(`Skill health +1: ${skillId}`)
           }
           lines.push('所有步骤都做完了，已退出步骤模式（要归档就 goal_set_status ' + goalId + ' done）。')
         }

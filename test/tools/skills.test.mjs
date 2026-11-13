@@ -116,7 +116,7 @@ test('skill_use compiles the skill into a goal and focuses it', async () => {
       skillId: 'skill_20261108_01',
       params: { url: 'https://a.example', email: 'x@y.z' },
     })
-    assert.match(out, /已用技能/)
+    assert.match(out, /created from skill/)
 
     const listed = await s.goals.list()
     assert.equal(listed.value.length, 1)
@@ -138,10 +138,10 @@ test('skill_use refuses when a required param is missing', async () => {
   try {
     await s.skills.save(skillDoc())
     const out = await s.by('skill_use').execute({ skillId: 'skill_20261108_01', params: { url: 'https://a.example' } })
-    assert.match(out, /缺参数/)
+    assert.match(out, /Missing params/)
     assert.match(out, /email/)
     const listed = await s.goals.list()
-    assert.equal(listed.value.length, 0, '缺参数不许建目标')
+    assert.equal(listed.value.length, 0, 'Missing params不许建目标')
   } finally {
     await s.cleanup()
   }
@@ -151,13 +151,13 @@ test('skill_use refuses an unknown skill', async () => {
   const s = await setup()
   try {
     const out = await s.by('skill_use').execute({ skillId: 'skill_20260101_99' })
-    assert.match(out, /找不到技能/)
+    assert.match(out, /Skill not found/)
   } finally {
     await s.cleanup()
   }
 })
 
-// ---------------------------------------------------------------- 健康度闭环
+// ---------------------------------------------------------------- Health闭环
 
 test('finishing the last goal step records a success on the skill', async () => {
   const s = await setup({ verifyStep: async () => ({ ok: true, checks: [] }) })
@@ -170,7 +170,7 @@ test('finishing the last goal step records a success on the skill', async () => 
     await s.by('goal_step_done').execute({ goalId: goal.id, stepId: 's1', summary: '打开了' })
     await s.by('goal_step_enter').execute({ goalId: goal.id, stepId: 's2' })
     const out = await s.by('goal_step_done').execute({ goalId: goal.id, stepId: 's2', summary: '提交了' })
-    assert.match(out, /技能健康度 \+1/)
+    assert.match(out, /Skill health \+1/)
 
     const health = await s.skills.get('skill_20261108_01')
     assert.equal(health.value.health.runs, 1)
@@ -208,10 +208,10 @@ test('skill_health shows a single skill and the whole library', async () => {
     const empty = await s.by('skill_health').execute({})
     assert.match(empty, /runs=0/)
 
-    await s.skills.recordRun('skill_20261108_01', { outcome: 'failure', reason: '按钮找不到了' })
+    await s.skills.recordRun('skill_20261108_01', { outcome: 'failure', reason: 'button not found' })
     const one = await s.by('skill_health').execute({ skillId: 'skill_20261108_01' })
-    assert.match(one, /用了 1 次/)
-    assert.match(one, /按钮找不到了/)
+    assert.match(one, /Used 1 times/)
+    assert.match(one, /button not found/)
   } finally {
     await s.cleanup()
   }

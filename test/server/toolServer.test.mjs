@@ -117,7 +117,7 @@ test('meta tools skip the gate entirely', async () => {
   assert.equal(called, false, 'meta 工具不该被门卫拦')
 })
 
-test('a tool that returns 失败： is marked failed, exceptions propagate', async () => {
+test('a tool that returns the legacy Chinese marker is still marked failed (dual-read)', async () => {
   const { ports, log } = makePorts()
   const server = createToolServer({ ports })
   server.wrap(simpleTool(async () => '失败：文件不存在'))
@@ -139,7 +139,7 @@ test('listTools exposes the schema, unknown tool fails clearly', async () => {
   assert.equal(list[0].parameters.type, 'object')
 
   const missing = await server.callTool('nope', {})
-  assert.match(missing, /没有这个工具/)
+  assert.match(missing, /no such tool/)
 })
 
 test('missing ports fail loudly instead of silently allowing', () => {
