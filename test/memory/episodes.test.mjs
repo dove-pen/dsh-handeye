@@ -48,11 +48,18 @@ test('appends an episode and reads it back redacted', async () => {
 
 test('writes one JSONL file per local day', async () => {
   await withStore(async (store, dir) => {
-    await store.append(episode({ id: 'ep_a', startedAt: '2026-11-06T23:00:00+08:00' }))
-    await store.append(episode({ id: 'ep_b', startedAt: '2026-11-07T01:00:00+08:00' }))
-    const file = path.join(dir, 'episodes', '2026-11-07.jsonl')
-    const text = await readFile(file, 'utf8')
-    assert.ok(text.includes('ep_b'))
+    // 这里必须用“不带时区偏移”的本地时间。实现按“跑测试这台机器的本地日期”分文件，
+    // 写死 +08:00 的话在 UTC 的 runner 上会落到前一天（2026-11-06），CI 必挂。
+    await store.append(episode({ id: 'ep_a', startedAt: '2026-11-06T23:00:00' }))
+    await store.append(episode({ id: 'ep_b', startedAt: '2026-11-07T01:00:00' }))
+
+    const sixth = await readFile(path.join(dir, 'episodes', '2026-11-06.jsonl'), 'utf8')
+    const seventh = await readFile(path.join(dir, 'episodes', '2026-11-07.jsonl'), 'utf8')
+
+    assert.ok(sixth.includes('ep_a'), 'the 23:00 episode lands in its own local day')
+    assert.ok(!sixth.includes('ep_b'), 'the next local day does not bleed backwards')
+    assert.ok(seventh.includes('ep_b'), 'the 01:00 episode lands in the next local day')
+    assert.ok(!seventh.includes('ep_a'), 'the previous local day does not bleed forwards')
   })
 })
 
