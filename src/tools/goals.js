@@ -13,10 +13,10 @@ function text(value) {
 }
 
 function progressLine(summary) {
-  const bits = [`${summary.done}/${summary.total} 步`]
-  if (summary.doing) bits.push(`进行中 ${summary.doing}`)
-  if (summary.blocked) bits.push(`卡住 ${summary.blocked}`)
-  else if (summary.next) bits.push(`下一步 ${summary.next}`)
+  const bits = [`${summary.done}/${summary.total} steps`]
+  if (summary.doing) bits.push(`doing ${summary.doing}`)
+  if (summary.blocked) bits.push(`blocked ${summary.blocked}`)
+  else if (summary.next) bits.push(`next ${summary.next}`)
   return bits.join(' · ')
 }
 
@@ -27,7 +27,7 @@ function stepLine(step) {
 }
 
 export function createGoalTools({ state, goals, skills, cards, verifyStep, prepareStepChecks, onStepEnter, onStepLeave }) {
-  const fail = (message) => `失败：${message}`
+  const fail = (message) => `Failed: ${message}`
 
   async function goalOf(id) {
     const got = await goals.get(id)
@@ -60,17 +60,17 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
           longTermGoal: text(args?.longTermGoal).trim(),
           steps: Array.isArray(args?.steps) ? args.steps : [],
         })
-        if (!created.ok) return fail(`建目标没成功：${created.message}${created.errors ? ' ' + JSON.stringify(created.errors.slice(0, 3)) : ''}`)
+        if (!created.ok) return fail(`Could not create goal: ${created.message}${created.errors ? ' ' + JSON.stringify(created.errors.slice(0, 3)) : ''}`)
         const doc = created.value
         // 建目标即"采用"：从这一刻起，写操作必须先 goal_step_enter，否则步骤门会拒。
         state.goalId = doc.id
-        const lines = [`已建目标 ${doc.id}：${doc.title}`, `长期目标：${doc.longTermGoal}`]
+        const lines = [`Goal ${doc.id} created: ${doc.title}`, `Long-term goal: ${doc.longTermGoal}`]
         if (doc.steps.length > 0) {
-          lines.push(`步骤（${doc.steps.length}）：`)
+          lines.push(`Steps (${doc.steps.length}):`)
           for (const step of doc.steps) lines.push(`  ${stepLine(step)}`)
-          lines.push('下一步：goal_step_enter 选一步开始。')
+          lines.push('Next: use goal_step_enter to start a step.')
         } else {
-          lines.push('还没有步骤：用 goal_plan 写出 3~7 步。')
+          lines.push('No steps yet: use goal_plan to write 3-7 steps.')
         }
         return lines.join('\n')
       },
@@ -105,14 +105,14 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
       isConcurrencySafe: () => false,
       async execute(args) {
         const id = text(args?.goalId).trim()
-        if (!id) return fail('goal_plan 需要 goalId')
+        if (!id) return fail('goal_plan needs goalId')
         const steps = Array.isArray(args?.steps) ? args.steps : []
-        if (steps.length === 0) return fail('至少要有一个步骤')
+        if (steps.length === 0) return fail('At least one step is required')
         const saved = await goals.setPlan(id, steps)
-        if (!saved.ok) return fail(`写步骤没成功：${saved.message}${saved.errors ? ' ' + JSON.stringify(saved.errors.slice(0, 3)) : ''}`)
+        if (!saved.ok) return fail(`Could not write steps: ${saved.message}${saved.errors ? ' ' + JSON.stringify(saved.errors.slice(0, 3)) : ''}`)
         const doc = saved.value
         state.goalId = doc.id
-        const lines = [`目标 ${doc.id} 的步骤已更新（${doc.steps.length} 步）：`]
+        const lines = [`Steps of goal ${doc.id} updated (${doc.steps.length} steps):`]
         for (const step of doc.steps) lines.push(`  ${stepLine(step)}`)
         return lines.join('\n')
       },
@@ -134,7 +134,7 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
           const listed = await goals.list()
           if (!listed.ok) return fail(listed.message)
           const active = listed.value.filter((g) => g.status !== 'archived')
-          if (active.length === 0) return '还没有任何目标。用 goal_create 建一个。'
+          if (active.length === 0) return 'No goals yet. Use goal_create to make one.'
           return active
             .map((g) => {
               const s = summarizeGoal(g)
@@ -143,22 +143,22 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
             .join('\n')
         }
         const doc = await goalOf(id)
-        if (!doc) return fail(`找不到目标 ${id}`)
+        if (!doc) return fail(`Goal not found: ${id}`)
         const s = summarizeGoal(doc)
         const lines = [
-          `目标 ${doc.id}（${doc.status}）：${doc.title}`,
-          `长期目标：${doc.longTermGoal}`,
-          `进度：${progressLine(s)}`,
-          '步骤：',
+          `Goal ${doc.id} (${doc.status}): ${doc.title}`,
+          `Long-term goal: ${doc.longTermGoal}`,
+          `Progress: ${progressLine(s)}`,
+          'Steps:',
         ]
         for (const step of doc.steps) {
           lines.push(`  ${stepLine(step)}  attempts=${step.attempts ?? 0} verifyFailures=${step.verifyFailures ?? 0}`)
-          if (step.verify && step.verify.length) lines.push(`      验收：${JSON.stringify(step.verify)}`)
-          if (step.status === 'blocked' && step.blocks?.length) lines.push(`      卡住原因：${step.blocks[step.blocks.length - 1].reason}`)
+          if (step.verify && step.verify.length) lines.push(`      checks: ${JSON.stringify(step.verify)}`)
+          if (step.status === 'blocked' && step.blocks?.length) lines.push(`      blocked: ${step.blocks[step.blocks.length - 1].reason}`)
         }
         const runs = (doc.runs ?? []).slice(-5)
         if (runs.length) {
-          lines.push('最近记录：')
+          lines.push('Recent runs:')
           for (const run of runs) lines.push(`  ${run.at}  ${run.stepId}  ${run.verify ?? '-'}  ${run.episodeId ?? ''}`)
         }
         return lines.join('\n')
@@ -187,20 +187,20 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
       async execute(args) {
         const goalId = text(args?.goalId).trim()
         const stepId = text(args?.stepId).trim()
-        if (!goalId || !stepId) return fail('goal_step_enter 需要 goalId 和 stepId')
+        if (!goalId || !stepId) return fail('goal_step_enter needs goalId and stepId')
 
         // 被卡住的步骤不能"静悄悄重进"：那等于把 blocked 变成无限重试
         const before = await goals.get(goalId)
         const target = before.ok ? before.value.steps.find((s) => s.id === stepId) : null
         const reason = typeof args?.reason === 'string' ? args.reason.trim() : ''
         if (target && target.status === 'blocked' && !reason) {
-          return fail(`${stepId} 已经被卡住了。要重进得写 reason（准备怎么改），否则请人决定：goal_skip_step 或让人在面板上放行。`)
+          return fail(`${stepId} is blocked. To re-enter, pass a reason (how you will fix it); otherwise ask a human: goal_skip_step or approve it in the panel.`)
         }
 
         const entered = await goals.enterStep(goalId, stepId, {
           promptId: typeof args?.promptId === 'string' ? args.promptId.trim() : undefined,
         })
-        if (!entered.ok) return fail(`进不了这一步：${entered.message}`)
+        if (!entered.ok) return fail(`Could not enter the step: ${entered.message}`)
 
         const { goal, step } = entered.value
         let info = null
@@ -209,12 +209,12 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         }
         const budget = step.budget?.actions ?? DEFAULT_STEP_BUDGET
         const lines = [
-          `已进入 ${goal.title} 的 ${step.id}：${step.title}`,
-          `预算：${budget} 个动作（超了会被拦，需要 goal_step_continue 续）`,
+          `Entered ${goal.title} / ${step.id}: ${step.title}`,
+          `Budget: ${budget} actions (going over is blocked; use goal_step_continue)`,
         ]
         if (info?.episodeId) lines.push(`episode=${info.episodeId}`)
-        if (info?.checks) lines.push(`验收：${info.checks} 条（不通过不会推进）`)
-        lines.push(`完成时用 goal_step_done，不要直接喊完成。`)
+        if (info?.checks) lines.push(`checks: ${info.checks} (the step will not advance if they fail)`)
+        lines.push('When done, call goal_step_done; do not just claim completion.')
         return lines.join('\n')
       },
     },
@@ -238,8 +238,8 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         const goalId = text(args?.goalId).trim()
         const stepId = text(args?.stepId).trim()
         const summary = text(args?.summary).trim()
-        if (!goalId || !stepId) return fail('goal_step_done 需要 goalId 和 stepId')
-        if (!summary) return fail('goal_step_done 需要一句 summary，说明这步到底做了什么')
+        if (!goalId || !stepId) return fail('goal_step_done needs goalId and stepId')
+        if (!summary) return fail('goal_step_done needs a summary describing what was actually done')
 
         const doc = await goalOf(goalId)
         if (!doc) return fail(`找不到目标 ${goalId}`)
@@ -248,11 +248,11 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         // 只能给正在跑的那一步结账：否则可以在做 s1 的时候把 s3 标成完成，
         // 验收用的却是 s1 的判据。
         if (!state.currentStep || state.currentStep.stepId !== stepId) {
-          const running = state.currentStep ? state.currentStep.stepId : '（没有步骤在跑）'
-          return fail(`这一步没在跑：当前是 ${running}，不能替 ${stepId} 结账。先 goal_step_enter ${goalId} ${stepId}。`)
+          const running = state.currentStep ? state.currentStep.stepId : '(no step is running)'
+          return fail(`This step is not running (current: ${running}); cannot close ${stepId}. Run goal_step_enter ${goalId} ${stepId} first.`)
         }
-        if (!step) return fail(`目标里没有步骤 ${stepId}`)
-        if (step.status !== 'doing') return fail(`步骤 ${stepId} 当前是 ${step.status}，不是 doing`)
+        if (!step) return fail(`Goal has no step ${stepId}`)
+        if (step.status !== 'doing') return fail(`Step ${stepId} is ${step.status}, not doing`)
 
         let verdict = null
         if (typeof verifyStep === 'function') {
@@ -287,20 +287,20 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
             await onStepLeave({ goalId, stepId, reason: 'verify-failed' })
           }
           const lines = [
-            '失败：这一步的验收没过，步骤没有完成。',
+            'Failed: the step checks did not pass; the step is not complete.',
             formatChecks(verdict),
-            '把上面"实际"那一栏对应的东西做出来，再调一次 goal_step_done。',
+            'Make the "actual" column match the expectation, then call goal_step_done again.',
           ]
           if (blocked) {
             lines.push('')
-            lines.push(`这已经是第 2 次没过，步骤 ${stepId} 已标记为 blocked，动作被锁住。`)
-            lines.push('现在必须由人决定：goal_skip_step 跳过、换提示词重来、或手工放行后再试。不要自己换办法硬刚。')
+            lines.push(`Second failure: step ${stepId} is now blocked and actions are locked.`)
+            lines.push('A human must decide now: goal_skip_step, change the prompt, or approve manually. Do not try random workarounds.')
           }
           return lines.join('\n')
         }
 
         const finished = await goals.finishStep(goalId, stepId, { result: 'ok', evidence: evidenceOf(verdict) })
-        if (!finished.ok) return fail(`收尾没成功：${finished.message}`)
+        if (!finished.ok) return fail(`Could not finish the step: ${finished.message}`)
         await goals.appendRun(goalId, {
           stepId,
           promptId: step.promptId ?? null,
@@ -318,9 +318,9 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
 
         const after = finished.value.goal
         const summaryLine = summarizeGoal(after)
-        const lines = [`✓ 完成 ${stepId}：${step.title}`]
-        if (verdict?.overridden) lines.push('（本次是人工放行，验收没有跑）')
-        lines.push(`目标进度：${progressLine(summaryLine)}`)
+        const lines = [`✓ done ${stepId}: ${step.title}`]
+        if (verdict?.overridden) lines.push('(human override: verification was skipped)')
+        lines.push(`Progress: ${progressLine(summaryLine)}`)
         const next = after.steps.find((s) => s.status === 'todo')
         if (next) {
           lines.push(`下一步：goal_step_enter ${goalId} ${next.id}`)
@@ -339,7 +339,7 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
             await skills.recordRun(skillId, { outcome: 'success' }).catch(() => {})
             lines.push(`Skill health +1: ${skillId}`)
           }
-          lines.push('所有步骤都做完了，已退出步骤模式（要归档就 goal_set_status ' + goalId + ' done）。')
+          lines.push('All steps are done; step mode exited (archive with goal_set_status ' + goalId + ' done).')
         }
         return lines.join('\n')
       },
@@ -365,20 +365,20 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         const goalId = text(args?.goalId).trim()
         const stepId = text(args?.stepId).trim()
         const reason = text(args?.reason).trim()
-        if (!goalId || !stepId) return fail('goal_step_continue 需要 goalId 和 stepId')
-        if (reason.length < 4) return fail('说明一下为什么要续（至少 4 个字），这条会写进记录')
+        if (!goalId || !stepId) return fail('goal_step_continue needs goalId and stepId')
+        if (reason.length < 4) return fail('Explain why you need more budget (at least 4 chars); this is recorded')
         // 只能续"正在跑的那一步"：以前会把额度加到别的步骤上，两侧永久错位
         if (!state.currentStep || state.currentStep.stepId !== stepId) {
-          const running = state.currentStep ? state.currentStep.stepId : '（没有步骤在跑）'
-          return fail(`这一步没在跑：当前是 ${running}，不能给 ${stepId} 续预算。`)
+          const running = state.currentStep ? state.currentStep.stepId : '(no step is running)'
+          return fail(`This step is not running (current: ${running}); cannot extend ${stepId}.`)
         }
         const extra = Math.min(40, Math.max(1, Number.isInteger(args?.extra) ? args.extra : DEFAULT_STEP_BUDGET))
 
         const doc = await goalOf(goalId)
         if (!doc) return fail(`找不到目标 ${goalId}`)
         const step = doc.steps.find((s) => s.id === stepId)
-        if (!step) return fail(`目标里没有步骤 ${stepId}`)
-        if (step.status !== 'doing') return fail(`步骤 ${stepId} 当前是 ${step.status}，不是 doing`)
+        if (!step) return fail(`Goal has no step ${stepId}`)
+        if (step.status !== 'doing') return fail(`Step ${stepId} is ${step.status}, not doing`)
 
         const rolled = await goals.save({
           ...doc,
@@ -386,10 +386,10 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
             s.id === stepId ? { ...s, budget: { actions: Number(s.budget?.actions ?? DEFAULT_STEP_BUDGET) + extra } } : s,
           ),
         })
-        if (!rolled.ok) return fail(`续预算没成功：${rolled.message}`)
+        if (!rolled.ok) return fail(`Could not extend the budget: ${rolled.message}`)
         if (typeof state.grantStepBudget === 'function') state.grantStepBudget(extra)
         await goals.appendRun(goalId, { stepId, kind: 'budget-extend', extra, reason })
-        return `已给 ${stepId} 追加 ${extra} 个动作（原因：${reason}）。这条记录用户能看到。`
+        return `Added ${extra} actions to ${stepId} (reason: ${reason}). The user can see this record.`
       },
     },
 
@@ -410,15 +410,15 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
       async execute(args) {
         const goalId = text(args?.goalId).trim()
         const status = text(args?.status).trim()
-        if (!goalId) return fail('goal_set_status 需要 goalId')
+        if (!goalId) return fail('goal_set_status needs goalId')
         const saved = await goals.setStatus(goalId, status)
-        if (!saved.ok) return fail(`改状态没成功：${saved.message}`)
+        if (!saved.ok) return fail(`Could not update status: ${saved.message}`)
         if (status !== 'active' && typeof onStepLeave === 'function') {
           await onStepLeave({ goalId, stepId: state.currentStep?.stepId ?? null, reason: status })
         }
         if (status !== 'active' && state.goalId === goalId) state.goalId = ''
         const summary = summarizeGoal(saved.value)
-        return `目标 ${goalId} 现在是 ${status}（${summary.done}/${summary.total} 步）。`
+        return `Goal ${goalId} is now ${status} (${summary.done}/${summary.total} steps).`
       },
     },
     {
@@ -440,13 +440,13 @@ export function createGoalTools({ state, goals, skills, cards, verifyStep, prepa
         const goalId = text(args?.goalId).trim()
         const stepId = text(args?.stepId).trim()
         const reason = text(args?.reason).trim()
-        if (!goalId || !stepId) return fail('goal_skip_step 需要 goalId 和 stepId')
-        if (reason.length < 4) return fail('跳过必须写原因（至少 4 个字），这条会写进记录')
+        if (!goalId || !stepId) return fail('goal_skip_step needs goalId and stepId')
+        if (reason.length < 4) return fail('Skipping requires a reason (at least 4 chars); this is recorded')
         const skipped = await goals.skipStep(goalId, stepId, reason)
-        if (!skipped.ok) return fail(`跳过没成功：${skipped.message}`)
+        if (!skipped.ok) return fail(`Could not skip: ${skipped.message}`)
         if (typeof onStepLeave === 'function') await onStepLeave({ goalId, stepId, reason: 'skipped' })
         const summary = summarizeGoal(skipped.value.goal)
-        return `已跳过 ${stepId}（${reason}）。目标进度：${progressLine(summary)}`
+        return `Skipped ${stepId} (${reason}). Progress: ${progressLine(summary)}`
       },
     },
   ]

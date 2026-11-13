@@ -7,44 +7,44 @@
 // 级别也照 Windows 的顺序：1 严重、2 错误、3 警告、4 信息、5 详细。
 
 export const LEVELS = {
-  1: '严重',
-  2: '错误',
-  3: '警告',
-  4: '信息',
-  5: '详细',
+  1: 'Critical',
+  2: 'Error',
+  3: 'Warning',
+  4: 'Information',
+  5: 'Verbose',
 }
 
 /** 事件 ID 按来源分段，和 handeye 的做法一致：2xxx 门卫、3xxx 目标、4xxx 动作、5xxx 技能。 */
 export const EVENT_IDS = {
-  2001: { name: 'gate.refused', category: '门卫', level: 3, desc: '门卫拒绝了一次动作' },
-  2002: { name: 'gate.confirm_granted', category: '门卫', level: 2, desc: '批准了一次破坏性动作' },
-  3001: { name: 'goal.created', category: '目标', level: 4, desc: '建立了目标' },
-  3002: { name: 'goal.step_done', category: '目标', level: 4, desc: '完成了一个步骤' },
-  3003: { name: 'goal.step_blocked', category: '目标', level: 3, desc: '步骤连续验收失败被锁' },
-  3004: { name: 'goal.completed', category: '目标', level: 4, desc: '目标全部完成' },
-  4001: { name: 'tool.ok', category: '动作', level: 4, desc: '动作完成' },
-  4002: { name: 'tool.failed', category: '动作', level: 2, desc: '动作失败' },
-  5001: { name: 'skill.created', category: '技能', level: 4, desc: '新增了一份技能' },
-  5002: { name: 'skill.run_ok', category: '技能', level: 4, desc: '技能跑通一次' },
-  5003: { name: 'skill.run_fail', category: '技能', level: 3, desc: '技能失败一次' },
+  2001: { name: 'gate.refused', category: 'Gate', level: 3, desc: 'the gate refused an action' },
+  2002: { name: 'gate.confirm_granted', category: 'Gate', level: 2, desc: 'approved a destructive action' },
+  3001: { name: 'goal.created', category: 'Goal', level: 4, desc: 'goal created' },
+  3002: { name: 'goal.step_done', category: 'Goal', level: 4, desc: 'step completed' },
+  3003: { name: 'goal.step_blocked', category: 'Goal', level: 3, desc: 'step blocked after repeated check failures' },
+  3004: { name: 'goal.completed', category: 'Goal', level: 4, desc: 'goal fully completed' },
+  4001: { name: 'tool.ok', category: 'Action', level: 4, desc: 'action completed' },
+  4002: { name: 'tool.failed', category: 'Action', level: 2, desc: 'action failed' },
+  5001: { name: 'skill.created', category: 'Skill', level: 4, desc: 'skill added' },
+  5002: { name: 'skill.run_ok', category: 'Skill', level: 4, desc: 'skill finished successfully' },
+  5003: { name: 'skill.run_fail', category: 'Skill', level: 3, desc: 'skill failed' },
 }
 
 const SOURCE_OF_TOOL = [
-  [/^(eye_|hand_)/, '手眼'],
-  [/^desk_/, '后台控件'],
-  [/^browser_/, '浏览器'],
-  [/^voice_/, '语音'],
-  [/^(goal_|episode_)/, '目标'],
-  [/^skill_/, '技能'],
-  [/^(card_|capability)/, '卡片'],
-  [/^(yl_|plate_)/, '桌面工具'],
-  [/^(pack_|skill_use)/, '技能'],
+  [/^(eye_|hand_)/, 'Hands'],
+  [/^desk_/, 'Backend'],
+  [/^browser_/, 'Browser'],
+  [/^voice_/, 'Voice'],
+  [/^(goal_|episode_)/, 'Goals'],
+  [/^skill_/, 'Skills'],
+  [/^(card_|capability)/, 'Cards'],
+  [/^(yl_|plate_)/, 'Desktop'],
+  [/^(pack_|skill_use)/, 'Skills'],
 ]
 
 export function sourceOf(tool) {
   const name = String(tool ?? '')
   for (const [re, label] of SOURCE_OF_TOOL) if (re.test(name)) return label
-  return '其它'
+  return 'Other'
 }
 
 function clip(text, max = 300) {
@@ -59,7 +59,7 @@ export function refusalCode(brief) {
 }
 
 function event({ time, id, source, tool = '', message, detail }) {
-  const meta = EVENT_IDS[id] ?? { category: '其它', level: 4, desc: '' }
+  const meta = EVENT_IDS[id] ?? { category: 'Other', level: 4, desc: '' }
   return {
     time,
     tool,
@@ -85,13 +85,13 @@ export function episodesToEvents(episodes = []) {
       const ms = Number(step.ms) || 0
       const code = refusalCode(step.brief)
       const id = code ? 2001 : step.ok ? 4001 : 4002
-      const message = code ? `拒绝 ${step.tool}：${code} — ${clip(step.brief, 160)}` : `${step.tool}：${clip(step.brief, 160)}`
+      const message = code ? `refused ${step.tool}: ${code} — ${clip(step.brief, 160)}` : `${step.tool}：${clip(step.brief, 160)}`
       out.push(
         event({
           time: at,
           id,
           tool: step.tool ?? '',
-          source: code ? '门卫' : sourceOf(step.tool),
+          source: code ? 'Gate' : sourceOf(step.tool),
           message,
           detail: {
             tool: step.tool,
@@ -120,8 +120,8 @@ export function goalsToEvents(goals = []) {
         event({
           time: Date.parse(goal.updatedAt ?? goal.createdAt ?? '') || 0,
           id: 3003,
-          source: '目标',
-          message: `步骤 ${step.id} 被锁：${clip(step.title, 60)}`,
+          source: 'Goals',
+          message: `step ${step.id} blocked: ${clip(step.title, 60)}`,
           detail: { goal: goal.id, step: step.id, reason: clip(step.blockReason ?? step.lastFailure ?? '', 120) },
         }),
       )
@@ -132,8 +132,8 @@ export function goalsToEvents(goals = []) {
         event({
           time: Date.parse(goal.updatedAt ?? '') || 0,
           id: 3004,
-          source: '目标',
-          message: `目标完成：${clip(goal.title, 60)}`,
+          source: 'Goals',
+          message: `goal completed: ${clip(goal.title, 60)}`,
           detail: { goal: goal.id, steps: steps.length },
         }),
       )
@@ -153,8 +153,8 @@ export function skillsToEvents(skills = []) {
       event({
         time: created,
         id: 5001,
-        source: '技能',
-        message: `技能：${clip(skill.title, 60)}（${(skill.steps ?? []).length} 步）`,
+        source: 'Skills',
+        message: `skill: ${clip(skill.title, 60)} (${(skill.steps ?? []).length} steps)`,
         detail: { skill: skill.id, version: skill.version, status: health.status },
       }),
     )
@@ -163,8 +163,8 @@ export function skillsToEvents(skills = []) {
         event({
           time: lastRun || created,
           id: 5002,
-          source: '技能',
-          message: `技能跑通：${clip(skill.title, 60)}（累计 ok=${health.ok}）`,
+          source: 'Skills',
+          message: `skill finished: ${clip(skill.title, 60)} (ok=${health.ok})`,
           detail: { skill: skill.id, ok: health.ok, fail: health.fail },
         }),
       )
@@ -174,8 +174,8 @@ export function skillsToEvents(skills = []) {
         event({
           time: lastRun || created,
           id: 5003,
-          source: '技能',
-          message: `技能失败：${clip(skill.title, 60)} — ${clip(health.lastFailReason ?? '未记录原因', 100)}`,
+          source: 'Skills',
+          message: `skill failed: ${clip(skill.title, 60)} — ${clip(health.lastFailReason ?? 'no reason recorded', 100)}`,
           detail: { skill: skill.id, ok: health.ok, fail: health.fail },
         }),
       )

@@ -43,7 +43,7 @@ test('a refused step is a warning from the gate, not a tool failure', () => {
   ])
   assert.equal(events[0].eventId, 2001)
   assert.equal(events[0].level, 3)
-  assert.equal(events[0].source, '门卫')
+  assert.equal(events[0].source, 'Gate')
   assert.match(events[0].message, /GOAL_STEP_REQUIRED/)
 })
 
@@ -53,7 +53,7 @@ test('a plain failure is an error', () => {
   ])
   assert.equal(events[0].eventId, 4002)
   assert.equal(events[0].level, 2)
-  assert.equal(events[0].source, '浏览器')
+  assert.equal(events[0].source, 'Browser')
 })
 
 test('refusalCode reads only the leading Refused: code', () => {
@@ -63,14 +63,14 @@ test('refusalCode reads only the leading Refused: code', () => {
 })
 
 test('sources are grouped by tool family', () => {
-  assert.equal(sourceOf('eye_see'), '手眼')
-  assert.equal(sourceOf('hand_click'), '手眼')
-  assert.equal(sourceOf('desk_windows'), '后台控件')
-  assert.equal(sourceOf('browser_open'), '浏览器')
-  assert.equal(sourceOf('voice_say'), '语音')
-  assert.equal(sourceOf('goal_status'), '目标')
-  assert.equal(sourceOf('skill_use'), '技能')
-  assert.equal(sourceOf('mystery_tool'), '其它')
+  assert.equal(sourceOf('eye_see'), 'Hands')
+  assert.equal(sourceOf('hand_click'), 'Hands')
+  assert.equal(sourceOf('desk_windows'), 'Backend')
+  assert.equal(sourceOf('browser_open'), 'Browser')
+  assert.equal(sourceOf('voice_say'), 'Voice')
+  assert.equal(sourceOf('goal_status'), 'Goals')
+  assert.equal(sourceOf('skill_use'), 'Skills')
+  assert.equal(sourceOf('mystery_tool'), 'Other')
 })
 
 test('blocked goal steps and completed goals produce goal events', () => {
@@ -85,7 +85,7 @@ test('blocked goal steps and completed goals produce goal events', () => {
   }
   const blocked = goalsToEvents([{ ...base, status: 'active', steps: [{ id: 's1', title: '第一步', status: 'blocked', blockReason: '文件不存在' }] }])
   assert.equal(blocked[0].eventId, 3003)
-  assert.match(blocked[0].message, /被锁/)
+  assert.match(blocked[0].message, /blocked/)
   assert.match(blocked[0].detail, /文件不存在/)
 
   const done = goalsToEvents([{ ...base, status: 'done', steps: [{ id: 's1', title: '第一步', status: 'done' }] }])
@@ -130,8 +130,8 @@ test('level filter means "this severity and above"', () => {
     }),
   ])
   assert.equal(filterEvents(events, { level: 'all' }).length, 3)
-  assert.equal(filterEvents(events, { level: '3' }).length, 2, '警告及以上，不含信息')
-  assert.equal(filterEvents(events, { level: '2' }).length, 1, '只看错误')
+  assert.equal(filterEvents(events, { level: '3' }).length, 2, 'Warning及以上，不含Information')
+  assert.equal(filterEvents(events, { level: '2' }).length, 1, '只看Error')
 })
 
 test('search matches message, detail and source', () => {
@@ -173,6 +173,6 @@ test('every event id used has a label and a level', () => {
   for (const e of events) {
     assert.ok(EVENT_IDS[e.eventId], '未知事件 ID ' + e.eventId)
     assert.equal(e.levelText, LEVELS[e.level])
-    assert.ok(e.category && e.category !== '其它', '事件应有任务类别')
+    assert.ok(e.category && e.category !== 'Other', '事件应有任务类别')
   }
 })
