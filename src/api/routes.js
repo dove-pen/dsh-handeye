@@ -98,6 +98,10 @@ function stateSnapshot(runtime, version) {
     pathIndex: s.pathIndex,
     actionsSinceCheckpoint: s.actionsSinceCheckpoint,
     meta: { version, dataDir: runtime.dataDir },
+    // 面板直接用（不用再翻 meta）
+    version,
+    dataDir: runtime.dataDir,
+    formatsVersion: FORMATS_VERSION,
   }
 }
 

@@ -58,10 +58,11 @@ export function refusalCode(brief) {
   return m ? m[1] : ''
 }
 
-function event({ time, id, source, message, detail }) {
+function event({ time, id, source, tool = '', message, detail }) {
   const meta = EVENT_IDS[id] ?? { category: '其它', level: 4, desc: '' }
   return {
     time,
+    tool,
     level: meta.level,
     levelText: LEVELS[meta.level],
     source,
@@ -89,6 +90,7 @@ export function episodesToEvents(episodes = []) {
         event({
           time: at,
           id,
+          tool: step.tool ?? '',
           source: code ? '门卫' : sourceOf(step.tool),
           message,
           detail: {
